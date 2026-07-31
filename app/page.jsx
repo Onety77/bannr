@@ -96,7 +96,7 @@ export default function Landing() {
         <div className="aurora" aria-hidden="true"><i /><i /><i /></div>
         <div className="wrap">
           <h1 className="reveal">
-            Launch like you<br /><span className="shimmer">had a designer.</span>
+            Every great token<br /><span className="shimmer">looks like one.</span>
           </h1>
           <p className="lede reveal d1">
             Professional DEX Screener banners in seconds. Drop a logo,
@@ -194,14 +194,30 @@ export default function Landing() {
         <div className="sec-head wrap">
           <h2>Find your look.</h2>
           <p className="sub">
-            Five styles, each with its own art direction, layout system and
-            typography.
+            {TEMPLATES.length} styles, each with its own art direction and
+            typography. Every one below is real output.
           </p>
         </div>
         <div className="gallery">
           {TEMPLATES.map((t) => (
             <div className="g-card" key={t.id} style={{ "--sw": t.accent }}>
-              <div className="g-art" />
+              {/* Same files the style picker uses, so the homepage and
+                  /create can never show different art for a style.
+                  Painted as a background layer rather than an <img>:
+                  this is a server component, so it can't carry an
+                  onError handler — and a missing file simply lets the
+                  accent gradient underneath show through, which is a
+                  better fallback than a broken-image icon anyway. */}
+              <div className="g-art">
+                {t.thumb && (
+                  <span
+                    className="g-thumb"
+                    role="img"
+                    aria-label={`${t.name} style example`}
+                    style={{ backgroundImage: `url(/styles/${t.thumb})` }}
+                  />
+                )}
+              </div>
               <div className="g-body">
                 <h3>{t.name}</h3>
                 <p>{t.tagline}</p>

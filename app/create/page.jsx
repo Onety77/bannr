@@ -65,6 +65,17 @@ function CreateInner() {
       .filter((id) => id === AUTO_ID || TEMPLATES.some((t) => t.id === id));
     return from.length ? [...new Set(from)] : [AUTO_ID];
   });
+
+  // Re-running from History restores the whole brief, not just the style.
+  // The page promises "re-run any brief with one click" and previously
+  // delivered only the style selection, silently dropping the name,
+  // ticker, tagline and About the card was displaying.
+  const preset = useRef({
+    name: (params.get("name") || "").slice(0, 60),
+    ticker: (params.get("ticker") || "").slice(0, 16),
+    tagline: (params.get("tagline") || "").slice(0, 80),
+    vibe: (params.get("vibe") || "").slice(0, 400),
+  });
   const [variants, setVariants] = useState(3);
   // Per-style advanced overrides: { [styleId]: { key: value } }.
   // Kept for every style, not just selected ones, so toggling a style
@@ -88,7 +99,7 @@ function CreateInner() {
   const [refImages, setRefImages] = useState([]); // [{ file, url }]
   const fileRef = useRef(null);
   const refsRef = useRef(null);
-  const formRef = useRef({ name: "", ticker: "", tagline: "", vibe: "" });
+  const formRef = useRef({ ...preset.current });
   const [, force] = useState(0);
 
   // Advances only while a generation is in flight; resets after, so the
@@ -104,6 +115,38 @@ function CreateInner() {
   // credit count here and in the nav are the same number, not two
   // guesses that can drift apart.
   const auth = useAuth();
+
+  // Saved preferences from /settings — style defaults, and which
+  // styles/count to start on. Applied ONCE and never over a URL param,
+  // since arriving from History's "re-run" means a specific brief was
+  // asked for. The brief itself is deliberately NOT saved: people make
+  // banners for many projects, so a prefilled name is wrong more often
+  // than it's right.
+  const hydrated = useRef(false);
+  useEffect(() => {
+    if (!auth.user || hydrated.current) return;
+    hydrated.current = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/settings", { cache: "no-store" });
+        const d = await res.json();
+        if (!d.ok) return;
+        const s = d.settings || {};
+
+        if (s.defaults && Object.keys(s.defaults).length) setAdvanced(s.defaults);
+
+        // Only if the visitor didn't arrive with a style in the URL and
+        // hasn't touched the picker.
+        const urlHadStyle = Boolean(params.get("style"));
+        if (!urlHadStyle && s.styles?.length) {
+          setStyleIds(s.styles);
+          if (s.variants) setVariants(Math.max(s.variants, s.styles.length));
+        } else if (!urlHadStyle && s.variants) {
+          setVariants(s.variants);
+        }
+      } catch {}
+    })();
+  }, [auth.user, params]);
 
   useEffect(() => () => logoPreview && URL.revokeObjectURL(logoPreview), [logoPreview]);
   useEffect(() => () => refImages.forEach((r) => URL.revokeObjectURL(r.url)), [refImages]);
@@ -849,6 +892,7 @@ function CreateInner() {
                             key: `x${i}`,
                             src: converted[i],
                             alt: `X Community banner option ${i + 1}`,
+                            ticker: formRef.current.ticker || formRef.current.name,
                             w: 1300,
                             h: 500,
                             label: `Option ${i + 1} · X Community`,

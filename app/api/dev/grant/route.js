@@ -5,10 +5,15 @@
 // until the treasury wallet and Helius webhook are configured, so
 // this exists purely to keep local testing possible.
 //
-// It refuses to run outside development. If this ever responds in
-// production, credits are free and the product has no revenue — so
-// the guard is a hard 404 rather than a soft warning, and it reads
-// NODE_ENV, which Next sets to "production" on every real build.
+// Two ways to reach it, and BOTH are opt-in:
+//   - local development, always; or
+//   - a deployment that explicitly sets NEXT_PUBLIC_ENABLE_TEST_CREDITS=1
+//
+// The second exists so a hosted preview can be tested on a phone
+// before real payments are switched on. It defaults to OFF, so
+// forgetting to add it is safe and only deliberately adding it is
+// risky — that's the right way round. If this ever answers on the
+// live site, credits are free and there is no revenue.
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { refundCredits, getUser, publicUser } from "@/lib/users";
@@ -18,10 +23,17 @@ export const dynamic = "force-dynamic";
 
 const MAX_GRANT = 500;
 
+export function testCreditsEnabled() {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.NEXT_PUBLIC_ENABLE_TEST_CREDITS === "1"
+  );
+}
+
 export async function POST(req) {
-  if (process.env.NODE_ENV === "production") {
-    // 404, not 403: in production this route should be indistinguishable
-    // from one that was never deployed.
+  if (!testCreditsEnabled()) {
+    // 404, not 403: on the live site this should be indistinguishable
+    // from a route that was never deployed.
     return new NextResponse("Not found", { status: 404 });
   }
 

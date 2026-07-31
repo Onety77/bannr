@@ -30,7 +30,7 @@ import { aiEnabled, generateBackground, diagnoseContent } from "@/lib/openai";
 import { publicError, isPolicyError } from "@/lib/errors";
 import { recordRefusal } from "@/lib/refusals";
 import { requireUser } from "@/lib/auth";
-import { spendCredits, refundCredits, getUser, publicUser, GENERATION_COST } from "@/lib/users";
+import { spendCredits, refundCredits, getUser, publicUser, getSettings, GENERATION_COST } from "@/lib/users";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
@@ -151,6 +151,23 @@ export async function POST(req) {
       const parsed = JSON.parse(String(form.get("advanced") || "{}"));
       if (parsed && typeof parsed === "object") advanced = parsed;
     } catch {}
+
+    // The account-level "never include" rule, read from the ACCOUNT
+    // rather than the request — a saved rule the client could omit
+    // wouldn't be much of a rule. Merged into every style rather than
+    // replacing a per-run Avoid, so the two combine instead of one
+    // silently winning.
+    const accountAvoid = (await getSettings(session.wallet)).avoid?.trim();
+    if (accountAvoid) {
+      for (const id of styleIds) {
+        const s = advanced[id] || {};
+        const perRun = String(s.avoid || "").trim();
+        advanced[id] = {
+          ...s,
+          avoid: perRun ? `${accountAvoid}; ${perRun}` : accountAvoid,
+        };
+      }
+    }
 
     // Required, not optional: every banner is built around an actual
     // identity, whether the token has launched yet or not — there's
@@ -299,14 +316,16 @@ export async function POST(req) {
 
           let artBuf;
           try {
-            artBuf = await generateBackground(prompt, { logo: logoBase64, refs, reimagine });
+            artBuf = await generateBackground(prompt, { logo: logoBase64, refs, reimagine, restyle: job.template?.restyle || "" });
           } catch (err) {
             // Only the untouched first run climbs a rung on its own —
             // an assisted run already carries the strongest wording
             // for its stage, so retrying it identically wastes ~40s
             // and a second API call to fail the same way.
             if (assist || !isPolicyError(err)) throw err;
-            artBuf = await generateBackground(`${prompt}\n\n${REASSURANCE}`, { logo: logoBase64, refs });
+            artBuf = await generateBackground(`${prompt}\n\n${REASSURANCE}`, {
+              logo: logoBase64, refs, restyle: job.template?.restyle || "",
+            });
           }
           usedEngine = "gpt-image";
           // gpt-image-2 renders 1536x512 — already exactly 3:1 — so

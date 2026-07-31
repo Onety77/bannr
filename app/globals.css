@@ -229,6 +229,131 @@ h1, h2, h3 {
 .nav-err { font-size: 11.5px; color: var(--danger); max-width: 170px; }
 
 .signin-note { margin-top: 10px; text-align: center; line-height: 1.55; }
+
+/* ---------- settings ---------- */
+.set-wrap { padding-bottom: 40px; }
+.set-wrap .panel { margin-bottom: 16px; }
+.set-signin { max-width: 380px; }
+
+.set-acct { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.set-k { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+.set-v { font-size: 20px; font-weight: 650; }
+.set-v.mono { font-family: var(--mono, monospace); font-size: 15px; }
+.set-row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+
+.set-bills { display: flex; flex-direction: column; }
+.set-bill {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 11px 0; border-bottom: 1px solid var(--hairline);
+  font-size: 13.5px;
+}
+.set-bill:last-child { border-bottom: 0; padding-bottom: 0; }
+.set-bill b { min-width: 84px; }
+.set-bill span { color: var(--muted); }
+.set-when { margin-left: auto; }
+.set-flag {
+  font-size: 11px; padding: 2px 7px; border-radius: 5px;
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger) !important;
+}
+
+.set-note { margin-top: 10px; line-height: 1.55; }
+.set-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.set-variants { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+.set-variants .variant-picker { flex: 1; max-width: 240px; }
+.set-styles { display: flex; flex-direction: column; gap: 8px; }
+.set-style .adv-toggle { width: 100%; }
+
+/* Sticky so a long page never hides the only way to keep your edits. */
+.set-save {
+  position: sticky; bottom: 0;
+  padding: 14px 0 calc(14px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, transparent, var(--bg) 38%);
+}
+.set-save .btn { width: 100%; }
+
+@media (max-width: 700px) {
+  .set-acct { grid-template-columns: 1fr 1fr; }
+  .set-when { margin-left: 0; width: 100%; }
+  /* clears the fixed tab bar */
+  .set-save { bottom: calc(58px + env(safe-area-inset-bottom)); }
+}
+
+/* ---------- history actions ---------- */
+.history-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.history-del {
+  width: 26px; height: 26px; border-radius: 50%;
+  font-size: 11px; color: var(--faint);
+  display: grid; place-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+.history-del:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.btn.danger { background: var(--danger); color: #fff; }
+.btn.danger:hover { background: var(--danger); filter: brightness(1.08); }
+
+/* ---------- "see it in context" ----------
+   Everything except the banner is deliberately grey and unlabelled:
+   it's scaffolding to judge scale against, not an imitation of any
+   real site. */
+.dexp {
+  width: min(92vw, 1000px);
+  border-radius: 12px; overflow: hidden;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--hairline), var(--shadow-lg);
+  color: var(--muted);
+}
+[data-theme="dark"] .dexp { background: #16161a; }
+
+.dexp-chrome {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border-bottom: 1px solid var(--hairline);
+}
+.dexp-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--hairline-2); }
+.dexp-url {
+  margin-left: 10px; font-family: var(--mono, monospace);
+  font-size: 10.5px; color: var(--faint);
+}
+
+.dexp-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+/* The banner sits at the width it really occupies on a token page —
+   the whole point of this view. */
+.dexp-banner { border-radius: 8px; overflow: hidden; }
+.dexp-banner img { width: 100%; aspect-ratio: 3/1; object-fit: cover; display: block; }
+
+.dexp-idbar { display: flex; align-items: center; gap: 10px; }
+.dexp-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--hairline-2); }
+.dexp-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.dexp-price { width: 68px; height: 11px; border-radius: 3px; background: var(--hairline-2); }
+.dexp-chip { width: 40px; height: 9px; border-radius: 3px; background: var(--hairline); margin-left: auto; }
+
+.dexp-cols { display: grid; grid-template-columns: 1fr 132px; gap: 12px; }
+.dexp-chart {
+  position: relative; height: 128px; padding: 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  color: var(--ok);
+}
+.dexp-chart svg { width: 100%; height: 100%; opacity: 0.75; }
+.dexp-axis { display: flex; gap: 6px; margin-top: 6px; }
+.dexp-axis i { flex: 1; height: 5px; border-radius: 2px; background: var(--hairline); }
+
+.dexp-side {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px; border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+.dexp-btn { height: 26px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.dexp-line { height: 8px; border-radius: 3px; background: var(--hairline-2); }
+.dexp-line.short { width: 62%; }
+
+@media (max-width: 700px) {
+  .dexp-cols { grid-template-columns: 1fr; }
+  .dexp-side { flex-direction: row; align-items: center; }
+  .dexp-side .dexp-line { flex: 1; }
+}
 .link-quiet { color: var(--accent); white-space: nowrap; }
 .link-quiet:hover { text-decoration: underline; }
 
@@ -459,12 +584,22 @@ h1, h2, h3 {
 [data-theme="dark"] .g-card { background: var(--card-soft); }
 .g-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); }
 .g-art {
-  height: 150px;
+  position: relative;
+  /* 3:1, matching the banners themselves — a style sample should be
+     the shape of the thing it's a sample of. */
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
   background:
     radial-gradient(120% 130% at 20% 0%, color-mix(in srgb, var(--sw) 55%, transparent), transparent 60%),
     radial-gradient(120% 150% at 90% 100%, color-mix(in srgb, var(--sw) 30%, transparent), transparent 55%),
     var(--card);
 }
+.g-thumb {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.g-card:hover .g-thumb { transform: scale(1.04); }
 .g-body { padding: 20px 22px 24px; }
 .g-body h3 { font-size: 19px; margin-bottom: 5px; }
 .g-body p { color: var(--muted); font-size: 14px; margin-bottom: 14px; min-height: 42px; }
@@ -1143,7 +1278,11 @@ body::after {
 .aurora i {
   position: absolute; border-radius: 50%;
   filter: blur(80px);
-  opacity: 0.5;
+  /* Was 0.5 and animated. These were the drifting blobs — the mosaic
+     carries the hero now, so this is a static wash of brand colour
+     behind it rather than a second moving thing. */
+  opacity: 0.22;
+  animation: none !important;
 }
 .aurora i:nth-child(1) {
   width: 560px; height: 420px; left: 8%; top: 40px;
@@ -1225,9 +1364,13 @@ body::after {
   display: flex; flex-direction: column; justify-content: center;
   gap: 15px;
   transform: rotate(-4deg);
-  opacity: 0.16;
+  /* Raised from 0.16/0.13: at that level the tiles were texture you
+     could barely resolve. The whole point is that the background IS
+     the product, so it has to be legible as banners — the fade and
+     scrim below keep it from competing with the headline. */
+  opacity: 0.5;
 }
-[data-theme="dark"] .bf-inner { opacity: 0.13; }
+[data-theme="dark"] .bf-inner { opacity: 0.42; }
 .bf-row { flex: none; margin: 0 -40px; }
 .bf-track { display: flex; gap: 15px; width: max-content; will-change: transform; }
 .bf-track img {
@@ -1238,7 +1381,9 @@ body::after {
 }
 .bf-fade {
   position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(180deg, var(--bg) 0%, transparent 20%, transparent 80%, var(--bg) 100%);
+  background:
+    radial-gradient(70% 58% at 50% 42%, color-mix(in srgb, var(--bg) 88%, transparent), transparent 78%),
+    linear-gradient(180deg, var(--bg) 0%, transparent 22%, transparent 74%, var(--bg) 100%);
 }
 @media (max-width: 760px) {
   .bf-inner { gap: 11px; }
@@ -1473,6 +1618,20 @@ body::after {
 @media (max-width: 760px) {
   body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   .nav-links { display: none; }
+
+  /* The top bar cannot hold logo + credits + wallet + theme at 375px —
+     that is roughly 415px of content in 375px of space, and the bits
+     that break are the account controls. On phones the wallet button
+     and theme toggle move to the "You" tab (/settings); only the
+     credits pill stays, because a balance is worth glancing at from
+     anywhere. Signed out, the connect button stays too — it is the
+     entire call to action. */
+  .acct, .theme-toggle { display: none; }
+  .credit-pill { padding: 6px 11px; font-size: 12px; }
+  .nav-err { display: none; }
+  .nav-inner { gap: 14px; }
+  .brand { font-size: 17px; }
+  .brand img { width: 23px; height: 23px; }
   .hero { padding-top: 64px; }
   .hero .lede { font-size: 17px; }
   .cta-row { gap: 16px; }
@@ -1496,4 +1655,19 @@ body::after {
   }
   .run-bar .btn { box-shadow: 0 10px 34px -8px color-mix(in srgb, var(--accent) 70%, transparent); }
   .footer { padding-bottom: 24px; }
+}
+
+/* Test-credit mode. Deliberately loud: the only real danger of a flag
+   like this is forgetting it is switched on. */
+.notice.test-mode {
+  border: 1px solid color-mix(in srgb, #FFB020 55%, transparent);
+  background: color-mix(in srgb, #FFB020 12%, transparent);
+  margin-bottom: 18px;
+}
+.notice.test-mode b { color: #b97a06; }
+[data-theme="dark"] .notice.test-mode b { color: #FFB020; }
+.notice.test-mode code {
+  font-family: var(--mono, monospace); font-size: 12px;
+  padding: 1px 5px; border-radius: 4px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }

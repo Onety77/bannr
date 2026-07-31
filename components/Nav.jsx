@@ -83,6 +83,7 @@ export default function Nav() {
                 {menu && (
                   <div className="acct-menu">
                     <span className="acct-addr">{short(user.wallet)}</span>
+                    <Link href="/settings" onClick={() => setMenu(false)}>Settings</Link>
                     <Link href="/history" onClick={() => setMenu(false)}>My banners</Link>
                     <Link href="/credits" onClick={() => setMenu(false)}>Buy credits</Link>
                     <button onClick={() => { setMenu(false); signOut(); }}>Sign out</button>

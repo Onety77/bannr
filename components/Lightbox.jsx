@@ -14,6 +14,7 @@
 // ============================================================
 "use client";
 import { useEffect, useRef, useState } from "react";
+import DexPreview from "@/components/DexPreview";
 
 const SUGGESTIONS = [
   "make the text bigger",
@@ -24,6 +25,7 @@ const SUGGESTIONS = [
 
 export default function Lightbox({ item, onClose, onDownload, onEdit, editInfo }) {
   const [actual, setActual] = useState(false);
+  const [inContext, setInContext] = useState(false);
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [refs, setRefs] = useState([]); // [{ file, url }]
@@ -55,6 +57,7 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, editInfo }
   // banner's view mode or half-typed edit doesn't leak into the next.
   useEffect(() => {
     setActual(false);
+    setInContext(false);
     setEditing(false);
     setInstruction("");
     setRefs([]);
@@ -132,9 +135,18 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, editInfo }
             {editing ? "Close editor" : "Edit this banner"}
           </button>
         )}
-        <button className="btn small" onClick={() => setActual((a) => !a)}>
-          {actual ? "Fit to screen" : "Actual size (1:1)"}
+        <button
+          className={`btn small ${inContext ? "primary" : ""}`}
+          onClick={() => { setInContext((v) => !v); setActual(false); }}
+          title="See it at the size it actually ships at"
+        >
+          {inContext ? "Back to banner" : "See it in context"}
         </button>
+        {!inContext && (
+          <button className="btn small" onClick={() => setActual((a) => !a)}>
+            {actual ? "Fit to screen" : "Actual size (1:1)"}
+          </button>
+        )}
         {onDownload && (
           <button className="btn small" onClick={onDownload}>Download PNG</button>
         )}
@@ -145,7 +157,9 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, editInfo }
         {/* stopPropagation so clicking the banner itself doesn't close —
             only the surrounding backdrop does. */}
         <div className="lb-shot" onClick={(e) => e.stopPropagation()}>
-          <img src={item.src} alt={item.alt} />
+          {inContext
+            ? <DexPreview src={item.src} ticker={item.ticker} />
+            : <img src={item.src} alt={item.alt} />}
           {busy && (
             <div className="lb-working">
               <span className="spinner" />

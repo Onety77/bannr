@@ -17,7 +17,11 @@ export default function CreditsPage() {
   const [err, setErr] = useState(null);
   const auth = useAuth();
   const wallet = useWallet();
-  const treasuryConfigured = Boolean(process.env.NEXT_PUBLIC_TREASURY_WALLET);
+  // Test mode is explicit and loud. Without it, a configured treasury
+  // means the Buy button moves REAL SOL — which, before the Helius
+  // webhook exists, would take payment and credit nothing.
+  const testMode = process.env.NEXT_PUBLIC_ENABLE_TEST_CREDITS === "1";
+  const treasuryConfigured = Boolean(process.env.NEXT_PUBLIC_TREASURY_WALLET) && !testMode;
   const credits = auth.user?.credits ?? 0;
 
   async function buy(pack) {
@@ -25,10 +29,10 @@ export default function CreditsPage() {
     if (!auth.user) return setErr("Connect your wallet first.");
 
     if (!treasuryConfigured) {
-      // No treasury configured yet, so there is nothing to pay. The
-      // grant happens SERVER-side and only runs in development — the
-      // client can no longer mint credits for itself, which is the
-      // whole point of moving balances to the account.
+      // Nothing is paid in test mode. The grant happens SERVER-side and
+      // only where it has been explicitly enabled — the client can no
+      // longer mint credits for itself, which is the whole point of
+      // moving balances to the account.
       const res = await fetch("/api/dev/grant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -37,7 +41,7 @@ export default function CreditsPage() {
       const d = await res.json();
       if (!res.ok) return setErr(d.error || "Top-up failed.");
       setUser(d.user);
-      setMsg(`DEV TOP-UP — ${pack.credits} credits added. In production this button sends ${pack.sol} SOL to the treasury and Helius credits you automatically.`);
+      setMsg(`TEST TOP-UP — ${pack.credits} credits added, no SOL moved. With payments live this sends ${pack.sol} SOL to the treasury and Helius credits you automatically.`);
       return;
     }
     if (!wallet.address) return setErr("Connect a wallet first.");
@@ -52,6 +56,16 @@ export default function CreditsPage() {
         <h1>Credits</h1>
         <p>1 run = 3 credits = up to 4 banner options. Pay in SOL.</p>
       </div>
+
+      {/* Impossible to mistake for the real thing — the whole risk of a
+          test flag is forgetting it's on. */}
+      {testMode && (
+        <div className="notice test-mode">
+          <b>TEST MODE</b> — these packs top you up instantly and no SOL is
+          moved. Remove <code>NEXT_PUBLIC_ENABLE_TEST_CREDITS</code> to switch
+          real payments on.
+        </div>
+      )}
 
       <div className="panel page-gap-top">
         <h3>Wallet</h3>

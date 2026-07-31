@@ -40,6 +40,18 @@ const TABS = [
       </svg>
     ),
   },
+  // The account screen on a phone. The top bar has no room for wallet
+  // controls at 375px, so they live here rather than in a dropdown
+  // crushed into a 52px strip.
+  {
+    href: "/settings", label: "You",
+    icon: (
+      <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="11" cy="8" r="3.4" />
+        <path d="M4.5 18.5a6.5 6.5 0 0 1 13 0" />
+      </svg>
+    ),
+  },
 ];
 
 export default function TabBar() {

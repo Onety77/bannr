@@ -1,8 +1,14 @@
-// THE BANNER FIELD — a section's living background. Parallel rows
-// of banner art drift in alternating directions on a loop, the
-// whole band tilted uniformly a few degrees; scrolling gives them
-// a push (velocity feeds straight into row speed), and on pointer
-// devices the field dims in a soft circle around the cursor.
+// THE BANNER FIELD — a section's living background: parallel rows of
+// real bannr output, the whole band tilted a few degrees.
+//
+// SCROLL-DRIVEN, NOT SELF-ANIMATING. The rows sit still until you
+// scroll, then move at the speed you're scrolling and coast to a
+// stop. A background that drifts on its own competes with the page
+// for attention and reads as restless; one that answers the scroll
+// feels like depth. That's what BASE_SPEEDS being zero buys.
+//
+// On pointer devices the field also dims in a soft circle around
+// the cursor.
 // Images come from /public/banner-bgs/bnbg1.jpg … bnbg20.jpg —
 // whichever exist are used; none exist, no field.
 // Positioned absolutely inside its host section (not fixed), so it
@@ -15,9 +21,12 @@ import { useEffect, useRef, useState } from "react";
 const MAX_IMAGES = 20;
 const ROW_COUNT = 10;                   // enough to fill a tall hero top-to-bottom; extra rows clip on shorter sections
 const TILES_PER_ROW = 8;
-const BASE_SPEEDS = [22, 30, 18, 26];   // px/s, cycled per row
-const SCROLL_PUSH = 1.4;                // how hard scrolling accelerates the drift
-const MAX_BOOST = 320;                  // px/s cap on the scroll boost
+// All zero: rows are motionless until the page scrolls. Alternating
+// signs are kept per row via the existing direction logic, so rows
+// still travel opposite ways — they just do it under your control.
+const BASE_SPEEDS = [0, 0, 0, 0];
+const SCROLL_PUSH = 3.2;                // scroll velocity -> row speed
+const MAX_BOOST = 420;                  // px/s cap, so a flick can't blur it
 
 export default function BannerField() {
   const [imgs, setImgs] = useState(null);
