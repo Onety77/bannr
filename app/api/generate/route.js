@@ -1,0 +1,467 @@
+// ============================================================
+// POST /api/generate — v4 pipeline
+// One engine: OpenAI gpt-image-2. No key = demo backgrounds.
+// Variants generate IN PARALLEL.
+// Every real-engine variant renders art, typography and logo
+// identity as ONE native AI image — no server-side text/logo
+// compositing, and one API call: the full doctrine (lib/templates.js)
+// plus the logo/refs go straight into the image call, no separate
+// reasoning pass first. Compositing only exists for zero-config
+// demo mode, which has no AI in the loop at all.
+//
+// NOTHING IS CROPPED. gpt-image-2 renders natively at 1536x512 —
+// exactly 3:1 — so getting to 1500x500 is a plain 2.3% downscale.
+// The old dual-engine setup (Gemini as a second engine) is gone:
+// neither its 21:9 ceiling nor its art quality was good enough for
+// these banners, and every 21:9 render had to be cropped to fit.
+// Successful generations feed the homepage spotlight.
+// ============================================================
+
+import sharp from "sharp";
+import { NextResponse } from "next/server";
+import {
+  getTemplate, randomTemplate, buildPrompt, distributeStyles,
+  VARIANT_SEASONING, REASSURANCE, ASSIST_NUDGE, AUTO_ID, AUTO_NAME,
+  BANNER_W, BANNER_H,
+} from "@/lib/templates";
+import { demoBackgroundSVG } from "@/lib/engine/backgrounds";
+import { composeBanner } from "@/lib/engine/compose";
+import { aiEnabled, generateBackground, diagnoseContent } from "@/lib/openai";
+import { publicError, isPolicyError } from "@/lib/errors";
+import { recordRefusal } from "@/lib/refusals";
+import { requireUser } from "@/lib/auth";
+import { spendCredits, refundCredits, getUser, publicUser, GENERATION_COST } from "@/lib/users";
+import { getAdminDb } from "@/lib/firebaseAdmin";
+
+export const runtime = "nodejs";
+export const maxDuration = 120;
+
+const MAX_LOGO_BYTES = 8 * 1024 * 1024;
+const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+const hits = new Map();
+function rateLimited(ip) {
+  const now = Date.now();
+  const arr = (hits.get(ip) || []).filter((t) => now - t < 60_000);
+  arr.push(now);
+  hits.set(ip, arr);
+  return arr.length > 6;
+}
+
+// Every generation is recorded so it *can* be featured later — it
+// isn't public until an admin flags it on /admin7731. Firestore is
+// the real store; when it isn't configured yet, an in-memory list
+// keeps local/demo dev working exactly as before (unmoderated).
+globalThis.__bannrSpotlight = globalThis.__bannrSpotlight || [];
+async function pushSpotlight(finalPng, brief, templateName) {
+  try {
+    const thumb = await sharp(finalPng).resize(760).jpeg({ quality: 74 }).toBuffer();
+    const item = {
+      src: `data:image/jpeg;base64,${thumb.toString("base64")}`,
+      ticker: brief.ticker || brief.name,
+      template: templateName,
+      ts: Date.now(),
+    };
+
+    const db = getAdminDb();
+    if (db) {
+      await db.collection("generations").add({
+        ...item,
+        featuredWall: false,
+        featuredHero: false,
+        hidden: false,
+      });
+      return;
+    }
+
+    globalThis.__bannrSpotlight.unshift(item);
+    globalThis.__bannrSpotlight.splice(12);
+  } catch {}
+}
+
+export async function POST(req) {
+  // Hoisted so the catch below can record exactly which brief was
+  // refused, and run the free text-vs-image diagnosis on it — that's
+  // the entire value of the refusal log.
+  let brief = null;
+  let templateId = "";
+  let logoBase64 = null;
+
+  // Set once credits have actually been taken, so the catch below
+  // knows whether there is anything to give back.
+  let charged = null;
+
+  try {
+    // Identity first: everything below spends real money, so nothing
+    // runs until we know whose account is paying. The wallet comes
+    // from the signed session cookie, never from the request body —
+    // a client-supplied address would let anyone spend anyone's
+    // credits just by typing their address.
+    const session = requireUser(req);
+    if (!session) {
+      return NextResponse.json(
+        { error: "Connect your wallet to generate banners.", code: "signin_required" },
+        { status: 401 }
+      );
+    }
+
+    // Rate limit per account now rather than per IP. The old in-memory
+    // IP map never worked on serverless anyway (each invocation can be
+    // a fresh instance); an account is a far more meaningful bucket.
+    if (rateLimited(session.wallet)) {
+      return NextResponse.json({ error: "Slow down — too many generations in one minute." }, { status: 429 });
+    }
+
+    const form = await req.formData();
+    brief = {
+      name: String(form.get("name") || "").slice(0, 60),
+      ticker: String(form.get("ticker") || "").slice(0, 16),
+      tagline: String(form.get("tagline") || "").slice(0, 80),
+      vibe: String(form.get("vibe") || "").slice(0, 400),
+    };
+    if (!brief.name.trim()) return NextResponse.json({ error: "A coin name is required." }, { status: 400 });
+    if (brief.ticker && !brief.ticker.startsWith("$")) brief.ticker = "$" + brief.ticker;
+
+    // One or more styles. `templateId` is still accepted so old links
+    // and /create?style= keep working; `styles` is the multi-select
+    // form. Unknown ids are dropped rather than failing the run — a
+    // stale bookmark shouldn't be a hard error.
+    const requested = [
+      ...String(form.get("styles") || "").split(",").map((s) => s.trim()).filter(Boolean),
+      ...(form.get("templateId") ? [String(form.get("templateId"))] : []),
+    ];
+    const styleIds = [...new Set(requested)].filter((id) => id === AUTO_ID || getTemplate(id));
+    if (styleIds.length === 0) styleIds.push(AUTO_ID);
+    templateId = styleIds.join(",");
+
+    const variantCount = Math.min(
+      Math.max(parseInt(form.get("variants") || "4", 10) || 4, 2),
+      // Never fewer options than styles — every chosen style must
+      // appear at least once, which is the whole promise of the
+      // multi-select. The UI enforces this too; this is the backstop.
+      Math.max(4, styleIds.length)
+    );
+    const perVariantStyle = distributeStyles(styleIds, Math.max(variantCount, styleIds.length));
+
+    // Per-style advanced overrides, keyed by style id. Malformed JSON
+    // is ignored rather than failing the run — these are refinements,
+    // and losing them is far better than losing the generation.
+    let advanced = {};
+    try {
+      const parsed = JSON.parse(String(form.get("advanced") || "{}"));
+      if (parsed && typeof parsed === "object") advanced = parsed;
+    } catch {}
+
+    // Required, not optional: every banner is built around an actual
+    // identity, whether the token has launched yet or not — there's
+    // no "no image" case bannr supports.
+    const logoFile = form.get("logo");
+    if (!logoFile || typeof logoFile.arrayBuffer !== "function" || logoFile.size === 0) {
+      return NextResponse.json({ error: "A logo or pfp image is required — every banner is built around it." }, { status: 400 });
+    }
+    if (logoFile.size > MAX_LOGO_BYTES)
+      return NextResponse.json({ error: "Logo file too large (8MB max)." }, { status: 400 });
+    if (!ALLOWED_TYPES.includes(logoFile.type))
+      return NextResponse.json({ error: "Logo must be PNG, JPG or WEBP." }, { status: 400 });
+    const raw = Buffer.from(await logoFile.arrayBuffer());
+    const logoPng = await sharp(raw).rotate().png().toBuffer();
+
+    // supporting reference images (optional, up to 3) — passed to
+    // gpt-image-2 alongside the logo as style/character guidance.
+    // Downscaled to keep request payloads sane.
+    const refs = [];
+    for (const f of form.getAll("refs").slice(0, 3)) {
+      if (!f || typeof f.arrayBuffer !== "function" || f.size === 0) continue;
+      if (f.size > MAX_LOGO_BYTES) continue;
+      if (!ALLOWED_TYPES.includes(f.type)) continue;
+      try {
+        const jpeg = await sharp(Buffer.from(await f.arrayBuffer()))
+          .rotate()
+          .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
+          .flatten({ background: "#ffffff" })
+          .jpeg({ quality: 82 })
+          .toBuffer();
+        refs.push(jpeg.toString("base64"));
+      } catch {}
+    }
+
+    // The logo rides along as image input — it's the project's real
+    // identity, not just a shape to badge onto a corner (see the
+    // doctrine in lib/templates.js). No withoutEnlargement here:
+    // OpenAI's images/edits rejects very small input images outright,
+    // and plenty of real logo uploads are small (old favicons,
+    // simple 128x128 marks) — always upscale to a safe floor. This
+    // is required now, so a conversion failure is a real generation
+    // failure (caught by the route's own try/catch below), not a
+    // silent "proceed without an image" — that's no longer a valid
+    // state for the engine to render from.
+    const logoJpeg = await sharp(logoPng)
+      .resize(1024, 1024, { fit: "inside" })
+      .flatten({ background: "#ffffff" })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    logoBase64 = logoJpeg.toString("base64");
+
+    // User-chosen escalation after a refusal. "" = normal run.
+    // "nudge"     — keep their image, ask for illustration over photo.
+    // "reimagine" — stop preserving the image, restyle from scratch.
+    // Never inferred; only ever set by an explicit button click.
+    const assist = String(form.get("assist") || "");
+    const reimagine = assist === "reimagine";
+
+    // -------- engine --------
+    // gpt-image-2 or nothing. No key = demo mode.
+    const demoMode = !aiEnabled();
+
+    // -------- charge --------
+    // Taken here, after validation but before any paid API call, in a
+    // Firestore transaction so two parallel runs can't both spend the
+    // last credits. Everything below is wrapped by the catch, which
+    // refunds on any failure.
+    if (!demoMode) {
+      const remaining = await spendCredits(session.wallet, GENERATION_COST);
+      if (remaining === null) {
+        return NextResponse.json(
+          {
+            error: `Not enough credits — a run costs ${GENERATION_COST}. Top up on the credits page.`,
+            code: "insufficient_credits",
+          },
+          { status: 402 }
+        );
+      }
+      charged = { wallet: session.wallet, amount: GENERATION_COST };
+    }
+
+    // Each variant carries its own style now. Normal ("auto") sends no
+    // style guidance at all, but demo mode and /api/convert still need
+    // a concrete template to hang layout data off, so one is picked at
+    // random purely for that — it never reaches the AI prompt, and the
+    // result is labelled "Normal" rather than the borrowed id, which
+    // would mislabel the option and could wrongly pin a future
+    // "re-run this style" to something the model was never told.
+    const jobs = Array.from({ length: variantCount }, (_, i) => {
+      const styleId = perVariantStyle[i];
+      const isAuto = styleId === AUTO_ID;
+      const template = isAuto ? randomTemplate() : getTemplate(styleId);
+      return {
+        i,
+        isAuto,
+        template,
+        settings: advanced[styleId] || {},
+        // Seasoning is indexed per style, not per variant, so two
+        // options of the SAME style get different creative leans while
+        // two different styles both start from the neutral prompt.
+        seasoning: VARIANT_SEASONING[
+          perVariantStyle.slice(0, i).filter((s) => s === styleId).length % VARIANT_SEASONING.length
+        ],
+        engine: demoMode ? "demo" : "gpt-image",
+        display: !demoMode && isAuto
+          ? { id: AUTO_ID, name: AUTO_NAME }
+          : { id: template.id, name: template.name },
+      };
+    });
+
+    // -------- generate all variants in parallel --------
+    // allSettled, not all: one variant failing must not discard the
+    // variants that succeeded. There's no cross-engine fallback to
+    // attempt anymore — a failure here is simply a failure, and the
+    // outer catch classifies it (quota / policy / bad key) and
+    // refunds. That's the honest tradeoff for dropping Gemini.
+    const settled = await Promise.allSettled(
+      jobs.map(async (job) => {
+        const isDemo = job.engine === "demo";
+
+        let finalPng, bgSource, usedEngine;
+        if (isDemo) {
+          // zero-config fallback: procedural art + server-composited
+          // text/logo, since there's no AI in the loop to do either.
+          const seed = (Date.now() & 0xffff) + job.i * 7919 + job.template.id.length * 131;
+          const bgBuf = await sharp(Buffer.from(demoBackgroundSVG(job.template, seed))).png().toBuffer();
+          finalPng = await composeBanner(bgBuf, logoPng, job.template, brief, true);
+          bgSource = bgBuf;
+          usedEngine = "demo";
+        } else {
+          // -------- refusal retry ladder --------
+          // Rung 1: the brief as written. Rung 2 (only after a content
+          // refusal): same brief plus the REASSURANCE block — most
+          // refusals are the filter misreading meme-culture tone, and
+          // stating the real intent clears them. The user never sees
+          // rung 1 fail. In reimagine mode the reassurance rides along
+          // from the start (the user already hit the wall once), so
+          // there's no second rung to climb — and non-policy errors
+          // never retry, because a billing failure won't be fixed by
+          // a nicer prompt.
+          const basePrompt = buildPrompt(job.template, brief, job.seasoning, { auto: job.isAuto, settings: job.settings });
+          const extras = [];
+          if (assist) extras.push(REASSURANCE);            // user already hit the wall
+          if (assist === "nudge") extras.push(ASSIST_NUDGE);
+          const prompt = [basePrompt, ...extras].join("\n\n");
+
+          let artBuf;
+          try {
+            artBuf = await generateBackground(prompt, { logo: logoBase64, refs, reimagine });
+          } catch (err) {
+            // Only the untouched first run climbs a rung on its own —
+            // an assisted run already carries the strongest wording
+            // for its stage, so retrying it identically wastes ~40s
+            // and a second API call to fail the same way.
+            if (assist || !isPolicyError(err)) throw err;
+            artBuf = await generateBackground(`${prompt}\n\n${REASSURANCE}`, { logo: logoBase64, refs });
+          }
+          usedEngine = "gpt-image";
+          // gpt-image-2 renders 1536x512 — already exactly 3:1 — so
+          // this is a pure 2.3% downscale to 1500x500 with nothing
+          // cut off. "cover" and "fill" are identical at a matching
+          // aspect ratio; cover is kept so that if the engine ever
+          // returned an off-spec size we'd lose a sliver rather than
+          // visibly stretch the art.
+          finalPng = await sharp(artBuf)
+            .resize(BANNER_W, BANNER_H, { fit: "cover", position: "center" })
+            .png()
+            .toBuffer();
+          bgSource = finalPng;
+        }
+
+        // "bg" is what /api/convert re-frames for X Communities: the
+        // clean pre-text background in demo mode (recomposited at the
+        // new width), or the finished art itself for AI variants
+        // (there's no separate text layer to redo).
+        const bgJpeg = await sharp(bgSource).jpeg({ quality: 80 }).toBuffer();
+
+        // Real emitted size — the lightbox reports it, and it's the
+        // cheapest proof that nothing in the pipeline reshaped the art.
+        const { width, height } = await sharp(finalPng).metadata();
+
+        return {
+          i: job.i,
+          dataUrl: `data:image/png;base64,${finalPng.toString("base64")}`,
+          bg: `data:image/jpeg;base64,${bgJpeg.toString("base64")}`,
+          textMode: isDemo ? "composited" : "ai",
+          engine: usedEngine,
+          w: width,
+          h: height,
+          templateId: job.display.id,
+          templateName: job.display.name,
+          _finalPng: finalPng,
+        };
+      })
+    );
+
+    const results = settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
+    if (results.length === 0) {
+      // every variant failed — surface the real reason so the outer
+      // catch classifies + refunds correctly.
+      throw settled.find((s) => s.status === "rejected")?.reason || new Error("Generation failed.");
+    }
+
+    // Partial success still costs a full run: the successful options
+    // are the product, and every variant that ran cost real money
+    // whether it came back or not. Only a total failure refunds.
+    charged = null;
+
+    results.sort((a, b) => a.i - b.i);
+    await pushSpotlight(results[0]._finalPng, brief, results[0].templateName);
+
+    // The authoritative balance travels with the result, so the UI
+    // never has to guess or keep its own running total.
+    const after = demoMode ? null : await getUser(session.wallet);
+
+    return NextResponse.json({
+      ok: true,
+      user: publicUser(after),
+      demoMode,
+      engine: demoMode ? "demo" : "gpt-image-2",
+      styles: styleIds,
+      template: { id: styleIds[0], name: jobs[0].display.name },
+      brief,
+      variants: results.map(({ _finalPng, i, ...v }) => v),
+    });
+  } catch (err) {
+    // Full detail stays in the server log; the user gets sanitised
+    // copy that never names the provider (see lib/errors.js).
+    console.error("[generate]", err);
+
+    // Refund before anything else can go wrong. The old client-side
+    // refund could be lost to a closed tab or a dropped connection;
+    // doing it here means a failed run always gives the credits back,
+    // even if the user never sees the response.
+    if (charged) {
+      try {
+        await refundCredits(charged.wallet, charged.amount);
+      } catch (e) {
+        // A failed refund is a real loss to a real person — make it
+        // loud in the log rather than swallowing it.
+        console.error("[generate] REFUND FAILED", charged, e);
+      }
+    }
+
+    let { error, status, reason } = publicError(err, "generate");
+    let code = reason === "policy" ? "policy" : undefined;
+
+    // Rung 3 of the ladder: the run was refused even with the
+    // reassurance retry, so ask the (free) moderation endpoint WHICH
+    // input tripped it — the words or the picture. An image verdict
+    // unlocks the client's real offer: swap the image, or opt in to a
+    // reimagined version of it. Text verdict gets pointed copy instead
+    // of a vague apology. No verdict = keep the generic message; the
+    // probe is advisory, never a second failure.
+    let diagnosis = "unknown";
+    let violations = "";
+    if (reason === "policy" && brief) {
+      // The image API often names its own reason — e.g.
+      // "safety_violations=[sexual]" — which is more authoritative
+      // than any probe. Captured for the admin log.
+      violations = (err?.message?.match(/safety_violations=\[([^\]]*)\]/)?.[1] || "").trim();
+
+      const probe = await diagnoseContent({
+        text: [brief.name, brief.ticker, brief.tagline, brief.vibe].filter(Boolean).join("\n"),
+        imageB64: logoBase64,
+      });
+      // Copy is stage-aware: the client shows a different set of
+      // buttons depending on how far up the ladder we already are, so
+      // the message must not promise an option that isn't on screen.
+      const spent = "Your credits weren't spent.";
+      if (probe?.flagged && probe.image) {
+        diagnosis = "image";
+        code = "image_flagged";
+        error =
+          "It looks like the uploaded image is what's tripping our content checks" +
+          (probe.text ? " (the wording may be contributing too)" : "") +
+          `. ${spent} Try one of the options below.`;
+      } else if (probe?.flagged && probe.text) {
+        diagnosis = "text";
+        code = "text_flagged";
+        error =
+          `It looks like the wording — the name, tagline or description — is what's tripping our content checks. A small rewording usually gets it through. ${spent}`;
+      } else if (assist === "nudge") {
+        code = "policy_options";
+        error = `That still didn't clear our content checks, even with the extra guidance. ${spent} There's one more thing we can try.`;
+      } else if (assist === "reimagine") {
+        code = "policy_options";
+        error = `Even a fully reimagined version didn't clear our content checks — this subject is one the filter holds firm on. ${spent} A different image is the way forward.`;
+      } else {
+        // The probe saw nothing — which is common, because the image
+        // model blocks whole classes the moderation model doesn't even
+        // have categories for (real-person likenesses above all). We
+        // can't attribute, but we can still hand the user every lever:
+        // reimagining the image is exactly the move for the likeness
+        // cases that land here. Without this branch, this entire class
+        // got a dead-end apology and no buttons.
+        code = "policy_options";
+        error =
+          `That didn't clear our content checks, and we can't tell exactly which part tripped it. It's often the image, though a small change to the name or description can be all it takes. ${spent} Try one of the options below.`;
+      }
+
+      // Server-log the verdict too: until Firestore is configured the
+      // refusal log below no-ops, and this line is then the only
+      // evidence of what the probe decided.
+      console.log(`[generate] refusal diagnosis: ${diagnosis} violations=[${violations}] (name="${brief.name}")`);
+
+      // A refused brief is invisible to us otherwise — the user just
+      // sees friendly copy and may quietly give up. Record it so the
+      // pattern is reviewable at /admin7731.
+      await recordRefusal({ kind: "generate", ...brief, templateId, diagnosis, violations, detail: err?.message });
+    }
+    return NextResponse.json({ error, code, refunded: Boolean(charged) }, { status });
+  }
+}

@@ -1,0 +1,277 @@
+// /admin7731 — unlinked anywhere on purpose. Gated by Firebase
+// Google Sign-In restricted to ADMIN_EMAIL; every mutating call is
+// re-verified server-side (see lib/adminAuth.js) since the client
+// check below is UX only, not the real security boundary.
+"use client";
+import { useEffect, useState } from "react";
+import { getFirebase } from "@/lib/firebaseClient";
+import { ADMIN_EMAIL } from "@/lib/admin";
+
+const FLAGS = [
+  ["featuredWall", "Fresh wall"],
+  ["featuredHero", "Highlight"],
+  ["hidden", "Hide"],
+];
+
+export default function AdminPage() {
+  const [status, setStatus] = useState("loading"); // loading | no-config | signed-out | unauthorized | authorized
+  const [user, setUser] = useState(null);
+  const [items, setItems] = useState(null);
+  const [busy, setBusy] = useState(null); // `${id}:${field}`
+  const [error, setError] = useState(null);
+  const [tab, setTab] = useState("generations"); // generations | refusals
+  const [refusals, setRefusals] = useState(null);
+
+  useEffect(() => {
+    const app = getFirebase();
+    if (!app) {
+      setStatus("no-config");
+      return;
+    }
+    let unsub = () => {};
+    (async () => {
+      const { getAuth, onAuthStateChanged, signOut } = await import("firebase/auth");
+      const auth = getAuth(app);
+      unsub = onAuthStateChanged(auth, (u) => {
+        if (!u) {
+          setStatus("signed-out");
+          setUser(null);
+        } else if (u.email !== ADMIN_EMAIL) {
+          signOut(auth);
+          setStatus("unauthorized");
+          setUser(null);
+        } else {
+          setUser(u);
+          setStatus("authorized");
+        }
+      });
+    })();
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (status !== "authorized" || !user) return;
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch("/api/admin/generations", { headers: { Authorization: `Bearer ${token}` } });
+        const d = await res.json();
+        if (!res.ok) return setError(d.error || "Failed to load generations.");
+        setItems(d.items);
+      } catch {
+        setError("Network error loading generations.");
+      }
+    })();
+  }, [status, user]);
+
+  // Loaded on first visit to the tab, then cached for the session.
+  useEffect(() => {
+    if (status !== "authorized" || !user || tab !== "refusals" || refusals) return;
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch("/api/admin/refusals", { headers: { Authorization: `Bearer ${token}` } });
+        const d = await res.json();
+        if (!res.ok) return setError(d.error || "Failed to load refusals.");
+        setRefusals(d);
+      } catch {
+        setError("Network error loading refusals.");
+      }
+    })();
+  }, [status, user, tab, refusals]);
+
+  async function signIn() {
+    setError(null);
+    const app = getFirebase();
+    const { getAuth, GoogleAuthProvider, signInWithPopup } = await import("firebase/auth");
+    try {
+      await signInWithPopup(getAuth(app), new GoogleAuthProvider());
+    } catch (e) {
+      setError(e.message || "Sign-in failed.");
+    }
+  }
+
+  async function doSignOut() {
+    const app = getFirebase();
+    const { getAuth, signOut } = await import("firebase/auth");
+    await signOut(getAuth(app));
+  }
+
+  async function toggle(item, field) {
+    const key = `${item.id}:${field}`;
+    setBusy(key);
+    setError(null);
+    const next = !item[field];
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/admin/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: item.id, field, value: next }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.ok) throw new Error(d.error || "Toggle failed.");
+      setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, [field]: next } : it)));
+    } catch (e) {
+      setError(e.message || "Toggle failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (status === "loading") return <main className="wrap admin-gate"><span className="spinner" /></main>;
+
+  if (status === "no-config") {
+    return (
+      <main className="wrap admin-gate">
+        <div className="panel admin-card">
+          <h3>Admin</h3>
+          <p className="hint">
+            Firebase client isn't configured yet — set the NEXT_PUBLIC_FIREBASE_* vars
+            in .env.local to enable sign-in.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (status === "signed-out" || status === "unauthorized") {
+    return (
+      <main className="wrap admin-gate">
+        <div className="panel admin-card">
+          <h3>Admin</h3>
+          {status === "unauthorized" && (
+            <div className="notice error">That Google account isn't authorized for this page.</div>
+          )}
+          {error && <div className="notice error">{error}</div>}
+          <button className="btn primary block" onClick={signIn}>Sign in with Google</button>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="wrap admin-wrap">
+      <div className="admin-bar">
+        <h1>Admin</h1>
+        <div className="admin-bar-right">
+          <span className="hint">{user.email}</span>
+          <button className="btn small" onClick={doSignOut}>Sign out</button>
+        </div>
+      </div>
+
+      <div className="admin-tabs">
+        <button className={tab === "generations" ? "on" : ""} onClick={() => setTab("generations")}>
+          Generations
+        </button>
+        <button className={tab === "refusals" ? "on" : ""} onClick={() => setTab("refusals")}>
+          Refused briefs
+          {refusals?.stats?.last24h ? <span className="admin-badge">{refusals.stats.last24h}</span> : null}
+        </button>
+      </div>
+
+      {error && <div className="notice error">{error}</div>}
+
+      {tab === "generations" ? (
+        !items ? (
+          <div className="admin-gate"><span className="spinner" /></div>
+        ) : items.length === 0 ? (
+          <div className="empty-canvas page-gap">
+            <div><div className="dims">No generations yet</div></div>
+          </div>
+        ) : (
+          <div className="admin-grid">
+            {items.map((it) => (
+              <div className={`admin-tile ${it.hidden ? "is-hidden" : ""}`} key={it.id}>
+                <img src={it.src} alt={it.ticker || "banner"} />
+                <div className="admin-tile-body">
+                  <div className="admin-tile-meta">
+                    <b>{it.ticker || "—"}</b>
+                    <span>{it.template} · {new Date(it.ts).toLocaleString()}</span>
+                  </div>
+                  <div className="admin-tile-flags">
+                    {FLAGS.map(([field, label]) => (
+                      <button
+                        key={field}
+                        className={`admin-flag ${it[field] ? "on" : ""}`}
+                        disabled={busy === `${it.id}:${field}`}
+                        onClick={() => toggle(it, field)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : !refusals ? (
+        <div className="admin-gate"><span className="spinner" /></div>
+      ) : refusals.items.length === 0 ? (
+        <div className="empty-canvas page-gap">
+          <div>
+            <div className="dims">No refusals recorded</div>
+            <div className="sub">Nothing has been turned down by the content filter yet.</div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="admin-stats">
+            {[
+              ["Last 24h", refusals.stats.last24h],
+              ["Last 7 days", refusals.stats.last7d],
+              ["From generating", refusals.stats.generate],
+              ["From editing", refusals.stats.edit],
+            ].map(([label, n]) => (
+              <div className="admin-stat" key={label}>
+                <b>{n}</b>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          {refusals.commonWords.length > 0 && (
+            <div className="panel admin-words">
+              <h3>What refused briefs have in common</h3>
+              <div className="hint">
+                Words appearing in more than one refused brief. A word near the top
+                is a candidate to soften in the prompt — or to warn about up front.
+              </div>
+              <div className="admin-wordlist">
+                {refusals.commonWords.map((w) => (
+                  <span className="admin-word" key={w.word}>
+                    {w.word} <b>{w.count}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="admin-refusals">
+            {refusals.items.map((r) => (
+              <div className="admin-refusal" key={r.id}>
+                <div className="admin-refusal-head">
+                  <span className={`admin-kind ${r.kind}`}>{r.kind === "edit" ? "EDIT" : "GENERATE"}</span>
+                  <b>{r.name || "—"}</b>
+                  {r.ticker ? <span className="admin-tick">{r.ticker}</span> : null}
+                  {/* what the probe blamed + what the image API itself
+                      admitted (e.g. "sexual") — the tuning signal */}
+                  {r.diagnosis && r.diagnosis !== "unknown" ? (
+                    <span className="admin-tick">blamed: {r.diagnosis}</span>
+                  ) : null}
+                  {r.violations ? <span className="admin-tick">flagged: {r.violations}</span> : null}
+                  <span className="admin-when">{new Date(r.ts).toLocaleString()}</span>
+                </div>
+                {r.instruction && <p className="admin-refusal-body"><i>Asked for:</i> {r.instruction}</p>}
+                {r.tagline && <p className="admin-refusal-body"><i>Tagline:</i> {r.tagline}</p>}
+                {r.vibe && <p className="admin-refusal-body"><i>About:</i> {r.vibe}</p>}
+                {r.detail && <details className="admin-detail"><summary>Raw response</summary><code>{r.detail}</code></details>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </main>
+  );
+}
