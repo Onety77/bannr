@@ -464,7 +464,12 @@ h1, h2, h3 {
   perspective: 1500px;
   padding: 26px 0 34px;
   --rx: 0deg; --ry: 0deg;
+  /* Opening the fan grows this, which is what lets the plates spread
+     without shrinking. Same easing as the plates so the container and
+     its contents read as one moving thing. */
+  transition: padding-bottom 0.62s cubic-bezier(0.22, 1, 0.36, 1);
 }
+.stage.fan { padding-bottom: calc(34px + 20%); }
 .stage-inner {
   position: relative;
   aspect-ratio: 2.05 / 1;
@@ -513,23 +518,48 @@ h1, h2, h3 {
 .stage.n2 .plate.p1 { right: auto; left: 8%; top: auto; bottom: 2%; width: 84%; transform: rotate(-1.5deg); filter: none; }
 
 /* THE FAN — the touch answer to "which one is behind?".
-   There is no cursor to point with on a phone, so a tap opens the
-   whole set out flat: every banner at the same size, upright, fully
-   visible, nothing overlapping and nothing dimmed. It holds a beat,
-   then folds back into the stack with the next banner in front.
-   Widths are set so three plates fit the stage height exactly — the
-   whole point is that none of them is cropped or covered. */
+   No cursor to point with on a phone, so a tap opens the set out.
+
+   Version one shrank the plates from 80% to 62% to fit three into a
+   stage that never changed size — which is compacting, the opposite
+   of opening, and it looked it. The stage itself has to grow. It does
+   that by animating its own bottom padding, so the plates keep the
+   exact size they rest at and the section below is pushed down and
+   released like something being opened. */
 .stage.fan .plate {
-  width: 44%; left: 28%; right: auto; bottom: auto;
+  width: 64%; left: 18%; right: auto; bottom: auto;
   filter: none;
-  box-shadow: 0 18px 44px -16px rgba(0,0,0,0.45);
+  box-shadow: 0 26px 60px -20px rgba(0,0,0,0.5);
   transform: translateZ(0) rotate(0deg) scale(1);
+  /* Opening overshoots very slightly and settles. The closing motion
+     uses the base easing on .plate, which is a clean decelerate — a
+     different feel each way, so it reads as one gesture with two
+     halves rather than a loop played backwards. */
+  transition: transform 0.62s cubic-bezier(0.34, 1.28, 0.52, 1),
+              filter 0.4s ease, box-shadow 0.5s ease;
 }
-.stage.fan.n3 .plate.p0 { top: 3%; }
-.stage.fan.n3 .plate.p1 { top: 35%; }
-.stage.fan.n3 .plate.p2 { top: 67%; }
-.stage.fan.n2 .plate.p0 { top: 15%; }
-.stage.fan.n2 .plate.p1 { top: 55%; }
+/* Staggered. Three plates moving on identical timing is the single
+   thing that makes a transition read as cheap. */
+.stage.fan .plate.p0 { transition-delay: 0ms; }
+.stage.fan .plate.p1 { transition-delay: 55ms; }
+.stage.fan .plate.p2 { transition-delay: 110ms; }
+/* And staggered on the way back too, front-first. */
+.plate.p2 { transition-delay: 0ms; }
+.plate.p1 { transition-delay: 55ms; }
+.plate.p0 { transition-delay: 110ms; }
+
+.stage.fan.n3 .plate.p0 { top: 0%; }
+.stage.fan.n3 .plate.p1 { top: 49%; }
+.stage.fan.n3 .plate.p2 { top: 98%; }
+.stage.fan.n2 .plate.p0 { top: 12%; }
+.stage.fan.n2 .plate.p1 { top: 74%; }
+
+/* The one that is about to take the front lifts toward the viewer
+   while the set is open — so the tap that closes it has already been
+   answered before it happens. */
+.stage.fan.n3 .plate.p1 { transform: translateZ(30px) scale(1.015); }
+.stage.fan.n2 .plate.p0 { transform: translateZ(30px) scale(1.015); }
+
 /* Spread out, every banner can carry its own label. */
 .stage.fan figcaption { opacity: 1; transform: none; }
 
@@ -541,6 +571,10 @@ h1, h2, h3 {
     filter: none;
     box-shadow: 0 50px 100px -24px rgba(0,0,0,0.5);
     z-index: 5;
+    /* The per-plate stagger above exists for the fan. Left in place
+       it would put up to 110ms of lag between pointing at a plate and
+       it lifting, which on a cursor reads as the page being slow. */
+    transition-delay: 0ms;
   }
   .plate:hover figcaption { opacity: 1; transform: none; }
 }
@@ -605,16 +639,21 @@ h1, h2, h3 {
      currently in front. */
   .plate.front figcaption { opacity: 1; transform: none; }
 
-  /* The stage is taller here, so the fan can afford wider plates. */
-  .stage.fan .plate { width: 62%; left: 19%; }
-  .stage.fan.n3 .plate.p0 { top: 3%; }
-  .stage.fan.n3 .plate.p1 { top: 34.5%; }
-  .stage.fan.n3 .plate.p2 { top: 66%; }
-  .stage.fan.n2 .plate.p0 { top: 14%; }
-  .stage.fan.n2 .plate.p1 { top: 55%; }
+  /* 80% — the exact width the plates rest at, so opening the fan
+     changes their POSITION and nothing else. Nothing shrinks. */
+  .stage.fan { padding-bottom: calc(24px + 19%); }
+  .stage.fan .plate { width: 80%; left: 10%; }
+  .stage.fan.n3 .plate.p0 { top: -4%; }
+  .stage.fan.n3 .plate.p1 { top: 41%; }
+  .stage.fan.n3 .plate.p2 { top: 86%; }
+  .stage.fan.n2 .plate.p0 { top: 8%; }
+  .stage.fan.n2 .plate.p1 { top: 62%; }
+  .stage.fan.n3 .plate.p1 { transform: translateZ(26px) scale(1.015); }
+  .stage.fan.n2 .plate.p0 { transform: translateZ(26px) scale(1.015); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .stage-inner, .plate { transition: none; }
+  .stage, .stage-inner, .plate { transition: none; }
+  .plate, .stage.fan .plate { transition: none; transition-delay: 0ms; }
 }
 
 .spot-wait {

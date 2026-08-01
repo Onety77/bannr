@@ -25,11 +25,15 @@ import { useEffect, useRef, useState } from "react";
 const MAX_CARDS = 3;
 const TILT = 9; // degrees the group turns toward the cursor
 
-// Touch fan-out. HOLD is how long the spread arrangement sits open
-// before folding back; BACK is the fold itself. Both are mirrored in
-// the CSS transition on .plate, so change them together.
-const FAN_HOLD_MS = 1150;
-const FAN_BACK_MS = 560; // ≥ the 0.55s transform transition on .plate
+// Touch fan-out. Mirrored in CSS, so change them together.
+//
+// Opening runs 620ms with a 110ms stagger across the three plates, so
+// the set is not fully open until ~730ms. HOLD is measured from the
+// tap, which leaves roughly half a second of actual stillness at the
+// top — long enough to read all three, short enough not to feel like
+// waiting. BACK covers the 550ms return plus the same stagger.
+const FAN_HOLD_MS = 1300;
+const FAN_BACK_MS = 680;
 
 export default function Spotlight() {
   const [items, setItems] = useState([]);
