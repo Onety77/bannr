@@ -96,11 +96,11 @@ export default function Landing() {
         <div className="aurora" aria-hidden="true"><i /><i /><i /></div>
         <div className="wrap">
           <h1 className="reveal">
-            Every great token<br /><span className="shimmer">looks like one.</span>
+            Every project deserves a<br />
+            <span className="shimmer">strong first impression.</span>
           </h1>
           <p className="lede reveal d1">
-            Professional DEX Screener banners in seconds. Drop a logo,
-            pick a style, get 2–4 options at exact dimensions.
+            Professional banners, art-directed around your project&apos;s identity.
           </p>
           <div className="cta-row reveal d2">
             <Link href="/create" className="btn primary large">Create your banner</Link>

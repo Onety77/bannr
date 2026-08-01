@@ -1,138 +1,151 @@
-// THE SHOWCASE STAGE — hero carousel of banners made with bannr.
-// A stacked deck: two rotated "ghost" cards peek out behind the
-// current one, the front card tilts subtly toward the cursor,
-// and a segmented progress bar (click to jump, auto-fills on a
-// timer) replaces a plain "changing every N seconds" crossfade.
+// THE SHOWCASE STAGE — a deck of real banners you flip through.
+//
+// The previous version called itself a stacked deck but crossfaded
+// between images, so it never read as cards at all — a rectangle
+// that quietly swapped its contents while a progress bar ticked
+// beside it. And the card ignored clicks, which is the first thing
+// anyone tries.
+//
+// Now the deck behaves like one: the front card lifts and rotates
+// away, the card behind rises into its place, and the whole stack
+// steps forward. Click, swipe or arrow-key to advance; hovering
+// pauses the timer so it never moves out from under you mid-look.
+//
 // Pulled from /api/spotlight — only generations an admin has
 // flagged "Highlight" on /admin7731 ever show here. Nothing is
 // generated to fill it: a homepage visitor is signed out and
 // generation costs real credits.
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-const ROTATE_MS = 10_000;
-const MAX_SEGMENTS = 8;
-const TILT_MAX = 7; // degrees
+const ROTATE_MS = 6000;
+const SWIPE_PX = 45;
 
 export default function Spotlight() {
   const [items, setItems] = useState([]);
   const [idx, setIdx] = useState(0);
+  const [leaving, setLeaving] = useState(null); // index mid-flight
+  const [paused, setPaused] = useState(false);
   const timerRef = useRef(null);
-  const frontRef = useRef(null);
-
-  async function load() {
-    try {
-      const r = await fetch("/api/spotlight");
-      const d = await r.json();
-      if (d.hero?.length) {
-        setItems(d.hero);
-        return true;
-      }
-    } catch {}
-    return false;
-  }
+  const touchRef = useRef(null);
 
   useEffect(() => {
-    // Curated generations only. This used to self-seed by calling
-    // /api/generate when nothing was featured yet — which no longer
-    // works, and shouldn't: generation now requires a signed-in
-    // account and spends real credits, so a logged-out visitor
-    // landing on the homepage must never trigger one. The wall fills
-    // itself as real runs get flagged on /admin7731.
-    load();
+    (async () => {
+      try {
+        const r = await fetch("/api/spotlight");
+        const d = await r.json();
+        if (d.hero?.length) setItems(d.hero);
+      } catch {}
+    })();
   }, []);
 
-  function goTo(i) {
-    setIdx(i);
-    restartTimer();
-  }
-
-  function restartTimer() {
-    clearInterval(timerRef.current);
-    if (items.length < 2) return;
-    timerRef.current = setInterval(() => {
-      setIdx((i) => (i + 1) % items.length);
-    }, ROTATE_MS);
-  }
+  // `leaving` holds the outgoing card so it can animate away while the
+  // next one rises. Cleared on a timer rather than transitionend,
+  // which never fires if the tab is backgrounded mid-animation.
+  const advance = useCallback(
+    (dir = 1) => {
+      setItems((list) => {
+        if (list.length < 2) return list;
+        setLeaving({ i: idx, dir });
+        setIdx((i) => (i + dir + list.length) % list.length);
+        setTimeout(() => setLeaving(null), 620);
+        return list;
+      });
+    },
+    [idx]
+  );
 
   useEffect(() => {
-    restartTimer();
+    clearInterval(timerRef.current);
+    if (items.length < 2 || paused) return;
+    timerRef.current = setInterval(() => advance(1), ROTATE_MS);
     return () => clearInterval(timerRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length]);
+  }, [items.length, paused, advance]);
 
-  function onPointerMove(e) {
-    const el = frontRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const px = (e.clientX - r.left) / r.width - 0.5;
-    const py = (e.clientY - r.top) / r.height - 0.5;
-    el.style.transform = `rotateX(${(-py * TILT_MAX).toFixed(2)}deg) rotateY(${(px * TILT_MAX).toFixed(2)}deg)`;
-  }
-  function onPointerLeave() {
-    if (frontRef.current) frontRef.current.style.transform = "";
+  // Arrow keys work only once the deck has focus, so they never fight
+  // with the rest of the page.
+  function onKeyDown(e) {
+    if (e.key === "ArrowRight" || e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      advance(1);
+    }
+    if (e.key === "ArrowLeft") { e.preventDefault(); advance(-1); }
   }
 
+  function onTouchStart(e) { touchRef.current = e.touches[0].clientX; }
+  function onTouchEnd(e) {
+    if (touchRef.current == null) return;
+    const dx = e.changedTouches[0].clientX - touchRef.current;
+    touchRef.current = null;
+    if (Math.abs(dx) > SWIPE_PX) advance(dx < 0 ? 1 : -1);
+  }
+
+  const n = items.length;
   const current = items[idx];
-  const segments = items.slice(0, MAX_SEGMENTS);
-  const prev = items.length > 1 ? items[(idx - 1 + items.length) % items.length] : null;
-  const next = items.length > 1 ? items[(idx + 1) % items.length] : null;
+
+  if (!current) {
+    return (
+      <div className="showcase-wrap">
+        <div className="showcase">
+          <div className="sc-card sc-empty">
+            <span>Featured banners land here.</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Three visible layers: the front card and the two behind it. More
+  // than that is invisible depth nobody perceives.
+  const at = (o) => items[(idx + o + n) % n];
 
   return (
     <div className="showcase-wrap">
-      <div className="showcase" onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}>
-        {prev && (
-          <div className="sc-card sc-ghost sc-prev" aria-hidden="true">
-            <img src={prev.src} alt="" />
+      <div
+        className="showcase"
+        role="button"
+        tabIndex={0}
+        aria-label="Featured banners — click or swipe for the next"
+        onClick={() => advance(1)}
+        onKeyDown={onKeyDown}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        {n > 2 && <div className="sc-card sc-deck sc-deck-2" aria-hidden="true"><img src={at(2).src} alt="" /></div>}
+        {n > 1 && <div className="sc-card sc-deck sc-deck-1" aria-hidden="true"><img src={at(1).src} alt="" /></div>}
+
+        {leaving && (
+          <div className={`sc-card sc-leaving ${leaving.dir < 0 ? "back" : ""}`} aria-hidden="true">
+            <img src={items[leaving.i].src} alt="" />
           </div>
         )}
-        {next && (
-          <div className="sc-card sc-ghost sc-next" aria-hidden="true">
-            <img src={next.src} alt="" />
-          </div>
-        )}
-        <div className="sc-card sc-front" ref={frontRef}>
-          {current ? (
-            <>
-              {items.map((it, i) => (
-                <img
-                  key={it.ts + "-" + i}
-                  src={it.src}
-                  alt={it.ticker ? `${it.ticker} banner` : "Banner example"}
-                  className="spot-img"
-                  style={{ opacity: i === idx ? 1 : 0 }}
-                />
-              ))}
-              <span className="sc-live"><i />LIVE</span>
-              {current.ticker && (
-                <span className="spot-label">
-                  <b>{current.ticker}</b> · {current.template} · made today
-                </span>
-              )}
-            </>
-          ) : (
-            /* Honest empty state — nothing is loading, there is simply
-               nothing curated yet. A spinner here would imply work
-               that isn't happening. */
-            <div className="spot-wait">
-              <span>Featured banners land here.</span>
-            </div>
+
+        <div className="sc-card sc-front" key={current.ts}>
+          <img src={current.src} alt={current.ticker ? `${current.ticker} banner` : "Banner made with bannr"} />
+          <span className="sc-live"><i />LIVE</span>
+          {current.ticker && (
+            <span className="spot-label">
+              <b>{current.ticker}</b> · {current.template}
+            </span>
           )}
         </div>
+
+        {n > 1 && <span className="sc-hint" aria-hidden="true">Tap for the next</span>}
       </div>
 
-      {segments.length > 1 && (
-        <div className="sc-progress">
-          {segments.map((it, i) => (
+      {n > 1 && (
+        <div className="sc-dots" role="tablist" aria-label="Choose a banner">
+          {items.map((it, i) => (
             <button
               key={it.ts + "-" + i}
-              className={`sc-seg ${i < idx ? "done" : ""} ${i === idx ? "active" : ""}`}
-              style={i === idx ? { "--dur": `${ROTATE_MS}ms` } : undefined}
-              onClick={() => goTo(i)}
-              aria-label={`Show banner ${i + 1}`}
-            >
-              <i />
-            </button>
+              className={`sc-dot ${i === idx ? "on" : ""}`}
+              aria-label={`Banner ${i + 1} of ${n}`}
+              aria-selected={i === idx}
+              role="tab"
+              onClick={(e) => { e.stopPropagation(); setLeaving(null); setIdx(i); }}
+            />
           ))}
         </div>
       )}
