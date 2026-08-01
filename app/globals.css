@@ -482,11 +482,16 @@ h1, h2, h3 {
 .stage.n2 .plate.p0 { left: 0; top: 4%; transform: translateZ(-130px) rotate(-5deg) scale(0.95); }
 .stage.n2 .plate.p1 { right: auto; left: 8%; top: auto; bottom: 2%; width: 84%; transform: rotate(-1.5deg); filter: none; }
 
-.plate:hover {
-  transform: translateZ(90px) rotate(0deg) scale(1.02);
-  filter: none;
-  box-shadow: 0 50px 100px -24px rgba(0,0,0,0.5);
-  z-index: 5;
+/* hover: hover only — on a touch screen these latch after a tap and
+   the plate stays stuck forward */
+@media (hover: hover) {
+  .plate:hover {
+    transform: translateZ(90px) rotate(0deg) scale(1.02);
+    filter: none;
+    box-shadow: 0 50px 100px -24px rgba(0,0,0,0.5);
+    z-index: 5;
+  }
+  .plate:hover figcaption { opacity: 1; transform: none; }
 }
 
 .plate figcaption {
@@ -503,7 +508,6 @@ h1, h2, h3 {
 }
 .plate figcaption b { font-weight: 700; color: var(--text); }
 .plate figcaption span { color: var(--muted); }
-.plate:hover figcaption { opacity: 1; transform: none; }
 
 .stage-live {
   position: absolute; top: 0; left: 0; z-index: 6;
@@ -529,14 +533,21 @@ h1, h2, h3 {
 }
 
 @media (max-width: 760px) {
-  /* No hover and no room for depth on a phone — the plates stack
-     plainly, still leaning, still all visible. */
-  .stage { perspective: none; padding: 12px 0 18px; }
-  .stage-inner { aspect-ratio: auto; transform: none; display: flex; flex-direction: column; gap: 12px; }
-  .plate { position: relative; width: 100%; left: auto; right: auto; top: auto; bottom: auto; filter: none; }
-  .plate.p0, .plate.p1, .plate.p2 { transform: rotate(-1.5deg); width: 100%; left: auto; }
-  .plate.p1 { transform: rotate(1deg); }
-  .plate figcaption { opacity: 1; transform: none; }
+  /* The arrangement IS the design, so it stays on a phone — an
+     earlier version flattened it into a plain vertical list on the
+     reasoning that touch has no hover and no room for depth. Both
+     were wrong: tap already brings a plate forward, and depth never
+     needed hover. Only the proportions change — a taller stage to
+     give the offsets room on a narrow screen, and wider plates. */
+  .stage { padding: 14px 0 24px; perspective: 900px; }
+  .stage-inner { aspect-ratio: 1.5 / 1; }
+  .plate { width: 80%; border-radius: 12px; }
+  .plate.p0 { left: 0; top: 0; transform: translateZ(-120px) rotate(-6deg) scale(0.94); }
+  .plate.p1 { right: 0; top: 30%; transform: translateZ(-60px) rotate(-3deg) scale(0.97); }
+  .plate.p2 { left: 8%; bottom: 0; width: 88%; transform: translateZ(0) rotate(-1.5deg); }
+  /* No hover on touch, so the caption belongs to whichever plate is
+     currently in front. */
+  .plate.front figcaption { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .stage-inner, .plate { transition: none; }
