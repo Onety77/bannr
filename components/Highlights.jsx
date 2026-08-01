@@ -1,88 +1,105 @@
-// THE FRESH WALL — five prints pinned to a board, arriving one at
-// a time every ~12 seconds. Only generations an admin has flagged
-// "Fresh wall" on /admin7731 show here; while nothing's curated
-// yet, CSS posters (one per template style) hold the wall so it
-// never looks empty. Once all five slots are filled, the oldest
-// print gets replaced.
+// THE PRESS LINE — banners running off the press, continuously.
+//
+// This used to be five fixed slots in a grid that swapped their
+// contents every twelve seconds: a static shape where things
+// occasionally blinked. The section's own copy promises "fresh
+// banners as they come off the press", and a grid can't say that.
+//
+// Now it's a belt. Prints travel the full width and leave at the
+// edge, running without pause. Two rows at different speeds and
+// opposite directions give the band depth and stop the loop from
+// being legible. Hovering slows it to a crawl rather than freezing —
+// a stopped belt reads as broken — and lifts the print under the
+// cursor.
+//
+// Only generations an admin has flagged "Fresh wall" on /admin7731
+// appear. Style posters pad the belt while curation is thin, so it
+// is never half-empty.
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TEMPLATES } from "@/lib/templates";
 
-const SLOT_COUNT = 5;
-const ARRIVE_MS = 12_000;
-const SLOTS = ["s1", "s2", "s3", "s4", "s5"];
+// Enough copies that the belt is always wider than any viewport. The
+// track is duplicated once more in the markup for a seamless wrap,
+// so the join never lands on screen.
+const MIN_PER_ROW = 7;
 
 export default function Highlights() {
-  const [slots, setSlots] = useState(Array(SLOT_COUNT).fill(null));
-  const pool = useRef([]);       // upcoming items, cycled
-  const cursor = useRef(0);      // next item in pool
-  const nextSlot = useRef(0);    // next slot to fill/replace
+  const [real, setReal] = useState([]);
 
   useEffect(() => {
-    let timer;
-    let alive = true;
-
-    async function buildPool() {
-      let real = [];
+    (async () => {
       try {
         const r = await fetch("/api/spotlight");
         const d = await r.json();
-        real = (d.wall || []).map((it) => ({
-          kind: "img", src: it.src, ticker: it.ticker, template: it.template, key: `img-${it.ts}`,
-        }));
+        setReal(
+          (d.wall || []).map((it) => ({
+            kind: "img", src: it.src, ticker: it.ticker, template: it.template, key: `img-${it.ts}`,
+          }))
+        );
       } catch {}
-      const posters = TEMPLATES.map((t) => ({
-        kind: "poster", accent: t.accent, ticker: "$BANNR", template: t.name, key: `poster-${t.id}`,
-      }));
-      // real banners first, posters pad the rotation
-      pool.current = [...real, ...posters];
-    }
-
-    function pinNext() {
-      if (!alive || pool.current.length === 0) return;
-      const item = pool.current[cursor.current % pool.current.length];
-      const slot = nextSlot.current % SLOT_COUNT;
-      cursor.current += 1;
-      nextSlot.current += 1;
-      setSlots((prev) => {
-        const next = [...prev];
-        // stamp uniquely so React re-runs the pin animation on replace
-        next[slot] = { ...item, stamp: `${item.key}-${cursor.current}` };
-        return next;
-      });
-    }
-
-    (async () => {
-      await buildPool();
-      if (!alive) return;
-      pinNext(); // first print immediately, the rest arrive on cadence
-      timer = setInterval(pinNext, ARRIVE_MS);
     })();
-
-    return () => { alive = false; clearInterval(timer); };
   }, []);
 
+  const rows = useMemo(() => {
+    const posters = TEMPLATES.map((t) => ({
+      kind: "poster", accent: t.accent, ticker: t.name, template: t.tagline, key: `poster-${t.id}`,
+    }));
+    // Real work leads; posters exist to fill gaps, not to headline.
+    const pool = [...real, ...posters];
+
+    const grow = (offset) => {
+      const out = [];
+      let i = offset;
+      while (out.length < MIN_PER_ROW) {
+        out.push({ ...pool[i % pool.length], slot: out.length });
+        i++;
+      }
+      return out;
+    };
+    // The second row starts further along the pool so the two rows
+    // never show the same banner side by side.
+    return [grow(0), grow(Math.ceil(pool.length / 2))];
+  }, [real]);
+
   return (
-    <div className="wall-grid">
-      {slots.map((item, i) => (
-        <div key={SLOTS[i]} className={`wall-slot ${SLOTS[i]} ${item ? "filled" : "empty"}`}>
-          {item ? (
-            <div className="wall-item" key={item.stamp}>
-              {item.kind === "img" ? (
-                <img src={item.src} alt={item.ticker ? `${item.ticker} banner` : "Banner example"} />
-              ) : (
-                <div className="wall-poster" style={{ "--pa": item.accent }}>
-                  <b>{item.ticker}</b>
-                  <span>{item.template}</span>
-                </div>
-              )}
-              {item.ticker && <span className="wall-tag">{item.ticker} · {item.template}</span>}
-            </div>
-          ) : (
-            <span><i />next print</span>
-          )}
+    <div className="press">
+      {rows.map((row, r) => (
+        <div className={`press-row r${r}`} key={r}>
+          <div className="press-track">
+            {[0, 1].map((dup) =>
+              row.map((item) => (
+                <Print key={`${r}-${dup}-${item.key}-${item.slot}`} item={item} />
+              ))
+            )}
+          </div>
         </div>
       ))}
+      <span className="press-edge left" aria-hidden="true" />
+      <span className="press-edge right" aria-hidden="true" />
+    </div>
+  );
+}
+
+function Print({ item }) {
+  return (
+    <div className="press-print">
+      {item.kind === "img" ? (
+        <img
+          src={item.src}
+          alt={item.ticker ? `${item.ticker} banner` : "Banner made with bannr"}
+          loading="lazy"
+        />
+      ) : (
+        <div className="press-poster" style={{ "--pa": item.accent }}>
+          <b>{item.ticker}</b>
+          <span>{item.template}</span>
+        </div>
+      )}
+      <span className="press-tag">
+        {item.ticker}
+        {item.kind === "img" && item.template ? ` · ${item.template}` : ""}
+      </span>
     </div>
   );
 }

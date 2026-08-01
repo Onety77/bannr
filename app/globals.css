@@ -1423,79 +1423,96 @@ body::after {
    HIGHLIGHT WALL — five prints pinned to the board, one
    arriving every ~12 seconds (components/Highlights.jsx).
    ============================================================ */
-.wall-grid {
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px;
-  padding: 10px 0;
+/* ============ the press line ============
+   Was five fixed grid slots whose contents blinked every 12s — a
+   static shape pretending to be a feed. The section promises banners
+   "as they come off the press", so it is now a belt: two rows
+   travelling opposite ways at different speeds, never stopping.
+   Hover slows it rather than halting it; a frozen belt reads as
+   broken. */
+.press {
+  position: relative;
+  display: flex; flex-direction: column; gap: 18px;
+  padding: 6px 0;
+  /* the whole band leans, matching the field behind the hero */
+  transform: rotate(-2.5deg);
 }
-.wall-slot {
-  position: relative; aspect-ratio: 3 / 1;
+.press-row { overflow: hidden; }
+.press-track {
+  display: flex; gap: 18px; width: max-content;
+  will-change: transform;
+}
+/* Each row holds the list twice, so translating by exactly -50%
+   lands on an identical frame and the wrap is invisible. */
+.press .r0 .press-track { animation: press-left 46s linear infinite; }
+.press .r1 .press-track { animation: press-right 62s linear infinite; }
+@keyframes press-left  { from { transform: translateX(0); }    to { transform: translateX(-50%); } }
+@keyframes press-right { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+
+/* slow, do not stop */
+.press:hover .press-track { animation-duration: 260s; }
+
+.press-print {
+  position: relative; flex: none;
+  width: clamp(230px, 26vw, 340px);
+  aspect-ratio: 3 / 1;
   border-radius: 14px; overflow: hidden;
-  /* one uniform lean, matching the moving banner field behind it —
-     parallel cards, not a scattered collage. */
-  transform: rotate(-4deg);
   background: var(--bg-soft);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s;
 }
-[data-theme="dark"] .wall-slot { background: var(--card-soft); }
-.wall-slot.s1 { grid-column: 1 / 5; }
-.wall-slot.s2 { grid-column: 5 / 7; align-self: center; }
-.wall-slot.s3 { grid-column: 1 / 3; }
-.wall-slot.s4 { grid-column: 3 / 5; margin-top: 14px; }
-.wall-slot.s5 { grid-column: 5 / 7; }
+[data-theme="dark"] .press-print { background: var(--card-soft); }
+.press-print img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.press-print:hover {
+  transform: translateY(-8px) scale(1.03);
+  box-shadow: 0 30px 60px -18px rgba(0,0,0,0.45);
+  z-index: 2;
+}
 
-.wall-slot.filled { box-shadow: var(--shadow-md); }
-.wall-slot.empty {
-  box-shadow: none;
-  border: 1.5px dashed var(--hairline-2);
-  display: grid; place-items: center;
-  color: var(--faint); font-size: 12.5px;
+.press-poster {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 0 20px; gap: 3px;
+  background:
+    radial-gradient(120% 140% at 12% 0%, color-mix(in srgb, var(--pa) 60%, transparent), transparent 62%),
+    radial-gradient(120% 150% at 95% 100%, color-mix(in srgb, var(--pa) 32%, transparent), transparent 58%),
+    var(--card);
 }
-.wall-slot.empty span { display: inline-flex; align-items: center; gap: 8px; }
-.wall-slot.empty i {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
-  animation: pulse 1.6s ease-in-out infinite;
-}
-@keyframes pulse { 0%, 100% { opacity: 0.25; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.15); } }
+.press-poster b { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+.press-poster span { font-size: 11.5px; color: var(--muted); }
 
-.wall-item {
-  position: absolute; inset: 0;
-  animation: pin 0.8s cubic-bezier(0.2, 1.1, 0.35, 1) both;
-}
-@keyframes pin {
-  0% { opacity: 0; transform: scale(0.9) translateY(22px); }
-  70% { opacity: 1; transform: scale(1.015) translateY(-2px); }
-  100% { opacity: 1; transform: none; }
-}
-.wall-item img { width: 100%; height: 100%; object-fit: cover; }
-.wall-tag {
+.press-tag {
   position: absolute; bottom: 8px; left: 10px;
   font-size: 11px; font-weight: 600;
   background: color-mix(in srgb, var(--bg) 70%, transparent);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   color: var(--text); padding: 4px 10px; border-radius: var(--pill);
+  opacity: 0; transition: opacity 0.3s;
 }
+.press-print:hover .press-tag { opacity: 1; }
 
-/* CSS poster — fills a slot until a real banner takes it */
-.wall-poster {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; justify-content: center; gap: 2px;
-  padding: 0 9%;
-  background:
-    radial-gradient(130% 160% at 12% 0%, color-mix(in srgb, var(--pa) 72%, #000) 0%, transparent 58%),
-    radial-gradient(120% 150% at 95% 110%, color-mix(in srgb, var(--pa) 38%, #000) 0%, #101014 62%);
+/* the belt runs past the edges rather than starting and ending there */
+.press-edge {
+  position: absolute; top: -20px; bottom: -20px; width: 12%;
+  pointer-events: none; z-index: 3;
 }
-.wall-poster b {
-  font-size: clamp(17px, 2.6vw, 26px); font-weight: 700; letter-spacing: -0.02em;
-  color: #fff;
-}
-.wall-poster span { font-size: clamp(10px, 1.2vw, 12px); color: rgba(255, 255, 255, 0.72); font-weight: 500; }
+.press-edge.left  { left: -1px;  background: linear-gradient(90deg, var(--bg), transparent); }
+.press-edge.right { right: -1px; background: linear-gradient(270deg, var(--bg), transparent); }
 
 @media (max-width: 760px) {
-  .wall-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
-  .wall-slot.s1 { grid-column: 1 / 3; }
-  .wall-slot.s2 { grid-column: 1 / 2; }
-  .wall-slot.s3 { grid-column: 2 / 3; }
-  .wall-slot.s4 { grid-column: 1 / 3; margin-top: 0; }
-  .wall-slot.s5 { display: none; }
+  .press { gap: 12px; transform: rotate(-2deg); }
+  .press-track { gap: 12px; }
+  .press-print { width: 62vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .press-track { animation: none !important; }
+  .press-row { overflow-x: auto; }
+}
+
+
+/* CSS poster — fills a slot until a real banner takes it */
+
+@media (max-width: 760px) {
 }
 
 /* ============================================================

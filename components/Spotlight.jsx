@@ -110,8 +110,12 @@ export default function Spotlight() {
         onKeyDown={onKeyDown}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
+        // pointerType-gated on purpose: onMouseEnter fires on tap on
+        // many touch devices while onMouseLeave never does, which
+        // would leave the deck paused forever on a phone — exactly
+        // where auto-advance matters most.
+        onPointerEnter={(e) => { if (e.pointerType === "mouse") setPaused(true); }}
+        onPointerLeave={(e) => { if (e.pointerType === "mouse") setPaused(false); }}
       >
         {n > 2 && <div className="sc-card sc-deck sc-deck-2" aria-hidden="true"><img src={at(2).src} alt="" /></div>}
         {n > 1 && <div className="sc-card sc-deck sc-deck-1" aria-hidden="true"><img src={at(1).src} alt="" /></div>}

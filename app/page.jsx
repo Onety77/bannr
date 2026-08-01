@@ -161,10 +161,9 @@ export default function Landing() {
         <BannerField />
         <div className="wrap">
           <div className="sec-head">
-            <h2>The highlight wall.</h2>
+            <h2>Straight off the press.</h2>
             <p className="sub">
-              Fresh banners pinned as they come off the press — a new one
-              lands every few seconds.
+              Real banners made with bannr, picked by hand. The line never stops.
             </p>
           </div>
           <Highlights />
