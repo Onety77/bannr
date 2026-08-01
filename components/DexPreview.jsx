@@ -1,60 +1,108 @@
 // ============================================================
 // DEX PREVIEW — the banner where it actually lands.
 //
-// A banner judged full-width on a laptop is judged at roughly four
-// times the size it ships at. Type that reads beautifully here can
-// be mush in the slot it was made for, and a subject pushed to one
-// edge can end up behind page furniture.
+// Modelled on a real token page: top bar, token row, pair header,
+// then the banner FULL-BLEED across the width, then the action
+// buttons and the dense stat tiles that follow it.
 //
-// So this drops the real banner into a mock token page at honest
-// proportions: header, chart, trade panel, stats. Everything around
-// it is deliberately grey and unlabelled — it's scaffolding to judge
-// the banner against, not a pixel-accurate clone of anyone's site,
-// and it must never read as one.
+// Two things that version one got wrong, both learned from a real
+// screenshot: the banner is edge to edge with no margin or rounding,
+// and what sits under it is a wall of numbers, not a chart. Both
+// change how a banner reads — a design with important content near
+// the left or right edge runs straight into the frame, and one with
+// a busy lower half competes with the tiles beneath it.
+//
+// Deliberately a MOCK, not a clone. Every label is generic, every
+// value is a grey placeholder, and there is no logo, wordmark or
+// colour borrowed from anyone. It exists to judge scale and
+// placement against, and must never read as the real site.
+//
+// Portrait on purpose: the phone layout is the tighter constraint,
+// so a banner that survives here survives anywhere.
 // ============================================================
 "use client";
 
 export default function DexPreview({ src, ticker }) {
-  const name = ticker || "TOKEN";
+  const name = (ticker || "TOKEN").replace(/^\$/, "").toUpperCase();
 
   return (
-    <div className="dexp" aria-label="Preview of how this banner appears on a token page">
-      <div className="dexp-chrome">
-        <span className="dexp-dot" /><span className="dexp-dot" /><span className="dexp-dot" />
-        <span className="dexp-url">token page preview</span>
+    <div className="dexp" aria-label="Preview of this banner on a token page">
+      {/* top bar */}
+      <div className="dexp-top">
+        <span className="dexp-avatar sq" />
+        <span className="dexp-pill w40" />
+        <span className="dexp-ico" />
+        <span className="dexp-ico" />
       </div>
 
-      <div className="dexp-body">
-        {/* The banner in its slot — the only real thing on this page. */}
-        <div className="dexp-banner">
-          <img src={src} alt="Your banner in context" />
-        </div>
-
-        <div className="dexp-idbar">
-          <span className="dexp-avatar" />
-          <span className="dexp-name">{name}</span>
-          <span className="dexp-price" />
-          <span className="dexp-chip" />
-          <span className="dexp-chip" />
-        </div>
-
-        <div className="dexp-cols">
-          <div className="dexp-chart">
-            <svg viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden="true">
-              <polyline
-                points="0,96 24,88 48,92 72,70 96,76 120,54 144,60 168,38 192,46 216,26 240,32 264,16 300,22"
-                fill="none" stroke="currentColor" strokeWidth="2" />
-            </svg>
-            <div className="dexp-axis"><i /><i /><i /><i /></div>
-          </div>
-          <div className="dexp-side">
-            <span className="dexp-btn" />
-            <span className="dexp-line" /><span className="dexp-line short" />
-            <span className="dexp-line" /><span className="dexp-line short" />
-            <span className="dexp-line" />
-          </div>
-        </div>
+      {/* token row */}
+      <div className="dexp-tokenrow">
+        <span className="dexp-avatar" />
+        <span className="dexp-tokenname">{titleCase(name)}</span>
+        <span className="dexp-kebab">⋮</span>
       </div>
+
+      {/* pair header */}
+      <div className="dexp-pair">
+        <b>{name}</b><span className="dexp-slash">/</span><b className="dim">WETH</b>
+      </div>
+      <div className="dexp-venue">
+        <span className="dexp-dot" /><span className="dexp-line w70" />
+        <span className="dexp-caret">›</span>
+        <span className="dexp-dot" /><span className="dexp-line w60" />
+      </div>
+
+      {/* THE BANNER — full bleed, no margin, no rounding. This is the
+          only real thing on the page. */}
+      <div className="dexp-banner">
+        <img src={src} alt="Your banner in context" />
+      </div>
+
+      {/* actions */}
+      <div className="dexp-actions">
+        <span className="dexp-btn"><i />Website</span>
+        <span className="dexp-btn"><i />Twitter</span>
+        <span className="dexp-btn narrow">⌄</span>
+      </div>
+
+      {/* stats */}
+      <div className="dexp-stats two">
+        <Tile label="PRICE USD" />
+        <Tile label="PRICE" />
+      </div>
+      <div className="dexp-stats three">
+        <Tile label="LIQUIDITY" small />
+        <Tile label="FDV" small />
+        <Tile label="MKT CAP" small />
+      </div>
+
+      <div className="dexp-periods">
+        {["5M", "1H", "6H", "24H"].map((p, i) => (
+          <span className={`dexp-period ${i === 3 ? "on" : ""}`} key={p}>
+            <b>{p}</b><span className="dexp-line w50" />
+          </span>
+        ))}
+      </div>
+
+      <div className="dexp-txns">
+        <div><span className="dexp-k">TXNS</span><span className="dexp-line w40" /></div>
+        <div><span className="dexp-k">BUYS</span><span className="dexp-line w50" /></div>
+        <div className="right"><span className="dexp-k">SELLS</span><span className="dexp-line w50" /></div>
+      </div>
+      <div className="dexp-bar"><i /><b /></div>
     </div>
   );
+}
+
+function Tile({ label, small }) {
+  return (
+    <div className={`dexp-tile ${small ? "sm" : ""}`}>
+      <span className="dexp-k">{label}</span>
+      <span className="dexp-v" />
+    </div>
+  );
+}
+
+function titleCase(s) {
+  return s.charAt(0) + s.slice(1).toLowerCase();
 }
