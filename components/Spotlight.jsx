@@ -58,6 +58,19 @@ export default function Spotlight() {
     el.style.setProperty("--ry", "0deg");
   }
 
+  // Plates are painted back to front, so "front" means last. Moving
+  // the tapped one to the end rotates the others back a place rather
+  // than swapping two — the whole arrangement re-forms, which is what
+  // makes it read as picking a print out of a stack.
+  function bringForward(i) {
+    setItems((list) => {
+      if (i === list.length - 1) return list;
+      const next = [...list];
+      next.push(next.splice(i, 1)[0]);
+      return next;
+    });
+  }
+
   if (!items.length) {
     return (
       <div className="showcase-wrap">
@@ -79,21 +92,38 @@ export default function Spotlight() {
         <div className="stage-inner">
           {/* Painted back to front so the nearest card is last in the
               DOM — stacking then needs no z-index bookkeeping. */}
-          {items.map((it, i) => (
-            <figure className={`plate p${i}`} key={it.ts + "-" + i}>
-              <img
-                src={it.src}
-                alt={it.ticker ? `${it.ticker} banner made with bannr` : "Banner made with bannr"}
-                loading={i === items.length - 1 ? "eager" : "lazy"}
-              />
-              {it.ticker && (
-                <figcaption>
-                  <b>{it.ticker}</b>
-                  {it.template ? <span>{it.template}</span> : null}
-                </figcaption>
-              )}
-            </figure>
-          ))}
+          {items.map((it, i) => {
+            const isFront = i === items.length - 1;
+            return (
+              // Key is the item, NOT the index: on reorder React must
+              // move the same DOM node into the new position so its
+              // transform transitions there. Keying by index would
+              // swap the images instead and the plates would jump.
+              <figure
+                className={`plate p${i} ${isFront ? "front" : ""}`}
+                key={it.ts}
+                role={isFront ? undefined : "button"}
+                tabIndex={isFront ? -1 : 0}
+                aria-label={isFront ? undefined : `Bring ${it.ticker || "this banner"} to the front`}
+                onClick={() => bringForward(i)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); bringForward(i); }
+                }}
+              >
+                <img
+                  src={it.src}
+                  alt={it.ticker ? `${it.ticker} banner made with bannr` : "Banner made with bannr"}
+                  loading={isFront ? "eager" : "lazy"}
+                />
+                {it.ticker && (
+                  <figcaption>
+                    <b>{it.ticker}</b>
+                    {it.template ? <span>{it.template}</span> : null}
+                  </figcaption>
+                )}
+              </figure>
+            );
+          })}
         </div>
         <span className="stage-live"><i />LIVE</span>
       </div>

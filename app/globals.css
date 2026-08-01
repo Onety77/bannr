@@ -1741,3 +1741,32 @@ body::after {
   padding: 1px 5px; border-radius: 4px;
   background: color-mix(in srgb, var(--text) 8%, transparent);
 }
+
+/* iOS Safari zooms the page whenever a focused input is under 16px —
+   ours were 13.5–15px, which is why tapping the contract field
+   lurched the layout. Desktop keeps its smaller type; phones get
+   exactly 16px, the threshold, so nothing zooms. */
+@media (max-width: 760px) {
+  input, textarea, select,
+  .field input, .field textarea, .ca-row input, .adv-text, .lb-edit-row textarea {
+    font-size: 16px;
+  }
+}
+
+/* clear button inside the contract field */
+.ca-field { position: relative; flex: 1; min-width: 0; display: flex; }
+.ca-field input { flex: 1; min-width: 0; padding-right: 34px; }
+.ca-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 10px; line-height: 1;
+  background: var(--hairline-2); color: var(--bg);
+  transition: background 0.15s;
+}
+.ca-clear:hover { background: var(--muted); }
+
+/* Only the plates behind are pickable — the front one is already
+   there, so it should not offer a pointer or a focus ring. */
+.plate:not(.front) { cursor: pointer; }
+.plate:not(.front):focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }

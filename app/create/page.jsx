@@ -52,6 +52,11 @@ async function fetchWithTimeout(url, options, ms) {
 // "network error" would be a guess.
 const timedOut = (e) => e?.name === "AbortError";
 
+// Same shapes the lookup route accepts: base58 Solana mints and 0x…
+// EVM addresses. Used only to reject an obvious mistype instantly —
+// the server still validates properly.
+const LOOKS_LIKE_CA = /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[a-fA-F0-9]{40})$/;
+
 function CreateInner() {
   const params = useSearchParams();
   // Multiple styles per run. Order matters: distributeStyles() gives
@@ -199,9 +204,20 @@ function CreateInner() {
 
   // "Already launched" import: paste a CA, we fetch name/ticker/
   // logo/description from on-chain metadata or DexScreener.
-  async function importCA() {
-    const addr = ca.trim();
+  // Accepts the address directly: onPaste knows the pasted text
+  // before setCa has flushed, and reading state there would fetch the
+  // PREVIOUS value.
+  async function importCA(addressArg) {
+    const addr = String(addressArg ?? ca).trim();
     if (!addr) return;
+
+    // Shape-check first. The server does this too, but catching it
+    // here means an obvious mistype never costs a round trip and the
+    // feedback is instant.
+    if (!LOOKS_LIKE_CA.test(addr)) {
+      setCaMsg("That doesn't look like a contract address. Paste a Solana or 0x… address.");
+      return;
+    }
     setCaBusy(true);
     setCaMsg(null);
     setError(null);
@@ -484,13 +500,38 @@ function CreateInner() {
           <div className="panel">
             <h3>Already launched?</h3>
             <div className="ca-row">
-              <input
-                placeholder="Paste the contract address — Solana, Ethereum, Base, BNB…"
-                value={ca}
-                onChange={(e) => setCa(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && importCA()}
-                spellCheck={false}
-              />
+              <div className="ca-field">
+                <input
+                  placeholder="Paste the contract address — Solana, Ethereum, Base, BNB…"
+                  value={ca}
+                  onChange={(e) => setCa(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && importCA()}
+                  // Pasting an address IS the intent — there is no
+                  // other reason to put one here — so it fetches
+                  // immediately rather than waiting for a second tap.
+                  onPaste={(e) => {
+                    const text = (e.clipboardData?.getData("text") || "").trim();
+                    if (!text) return;
+                    e.preventDefault();
+                    setCa(text);
+                    setCaMsg(null);
+                    importCA(text);
+                  }}
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+                {ca && !caBusy && (
+                  <button
+                    type="button"
+                    className="ca-clear"
+                    aria-label="Clear the contract address"
+                    onClick={() => { setCa(""); setCaMsg(null); }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
               <button className="btn small primary" disabled={caBusy || !ca.trim()} onClick={importCA}>
                 {caBusy ? <span className="spinner" /> : "Fetch"}
               </button>
