@@ -1,98 +1,69 @@
 // THE SHOWCASE — the hero product visual, directly under the CTA.
 //
-// A banner is wide, flat and static, so a card that simply swaps its
-// contents has nothing to say. Two earlier attempts proved it: a
-// crossfade, then a card deck. Both were containers with a picture
-// inside, and the eye reads them as one still image.
+// NOT A CAROUSEL. Three earlier versions were all the same format —
+// one rectangle whose contents changed — which is what every tool in
+// this category ships, and no transition makes that format feel like
+// anything other than a slideshow.
 //
-// So the interest comes from the CHANGE itself. The banner is cut
-// into vertical blades and the next one arrives blade by blade, left
-// to right — a split-flap board turning over. It's mechanical,
-// deliberate, and it makes the point the section exists to make:
-// there is always another banner behind this one.
+// So the banners are shown ALL AT ONCE, floating in perspective
+// space at a shared angle: a portfolio laid out, not a reel played.
+// The claim changes from "here is a banner" to "look how many good
+// ones come out of this", which is the claim the section is actually
+// for.
 //
-// Advances on its own, and on click. No instructions printed on it.
+// Nothing plays on a timer. It is alive because it answers the
+// cursor — the whole group turns toward it, and a card you point at
+// rises out of the arrangement. Movement you cause, rather than
+// movement you wait through.
 //
 // Only generations an admin has flagged "Highlight" on /admin7731
 // appear here. Nothing is generated to fill it: a homepage visitor is
 // signed out and generation costs real credits.
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const BLADES = 12;
-const ROTATE_MS = 5200;
-const BLADE_STAGGER = 34;     // ms between blades starting
-const BLADE_MS = 520;         // must match the sc-flip duration in CSS
-// The overlay is only removed once the LAST blade has landed —
-// (BLADES-1) staggers plus one full turn — otherwise the base image
-// swaps underneath a blade still mid-flip and the final column pops.
-const FLIP_MS = (BLADES - 1) * BLADE_STAGGER + BLADE_MS + 60;
-const SWIPE_PX = 45;
+const MAX_CARDS = 3;
+const TILT = 9; // degrees the group turns toward the cursor
 
 export default function Spotlight() {
   const [items, setItems] = useState([]);
-  const [idx, setIdx] = useState(0);
-  const [incoming, setIncoming] = useState(null);  // banner mid-flip
-  const [paused, setPaused] = useState(false);
-  const flipping = useRef(false);
-  const touchRef = useRef(null);
+  const stageRef = useRef(null);
 
   useEffect(() => {
     (async () => {
       try {
         const r = await fetch("/api/spotlight");
         const d = await r.json();
-        if (d.hero?.length) setItems(d.hero);
+        if (d.hero?.length) setItems(d.hero.slice(0, MAX_CARDS));
       } catch {}
     })();
   }, []);
 
-  const go = useCallback(
-    (dir = 1) => {
-      if (flipping.current) return;           // let a turn finish
-      setItems((list) => {
-        if (list.length < 2) return list;
-        const next = (idx + dir + list.length) % list.length;
-        flipping.current = true;
-        setIncoming({ item: list[next], next });
-        // Settled on a timer rather than animationend: the last blade's
-        // event never fires if the tab is backgrounded mid-flip, which
-        // would wedge `flipping` true forever.
-        setTimeout(() => {
-          setIdx(next);
-          setIncoming(null);
-          flipping.current = false;
-        }, FLIP_MS);
-        return list;
-      });
-    },
-    [idx]
-  );
-
-  useEffect(() => {
-    if (items.length < 2 || paused) return;
-    const t = setInterval(() => go(1), ROTATE_MS);
-    return () => clearInterval(t);
-  }, [items.length, paused, go]);
-
-  function onKeyDown(e) {
-    if (e.key === "ArrowRight" || e.key === "Enter" || e.key === " ") { e.preventDefault(); go(1); }
-    if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); }
+  // Written straight to CSS custom properties rather than through
+  // state: this fires on every mouse move, and a re-render per frame
+  // would cost far more than it buys.
+  function onPointerMove(e) {
+    const el = stageRef.current;
+    if (!el || e.pointerType !== "mouse") return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5;
+    const py = (e.clientY - r.top) / r.height - 0.5;
+    el.style.setProperty("--rx", `${(-py * TILT).toFixed(2)}deg`);
+    el.style.setProperty("--ry", `${(px * TILT).toFixed(2)}deg`);
   }
-  function onTouchStart(e) { touchRef.current = e.touches[0].clientX; }
-  function onTouchEnd(e) {
-    if (touchRef.current == null) return;
-    const dx = e.changedTouches[0].clientX - touchRef.current;
-    touchRef.current = null;
-    if (Math.abs(dx) > SWIPE_PX) go(dx < 0 ? 1 : -1);
+  function reset() {
+    const el = stageRef.current;
+    if (!el) return;
+    el.style.setProperty("--rx", "0deg");
+    el.style.setProperty("--ry", "0deg");
   }
 
-  const current = items[idx];
-
-  if (!current) {
+  if (!items.length) {
     return (
       <div className="showcase-wrap">
-        <div className="showcase"><div className="sc-empty"><span>Featured banners land here.</span></div></div>
+        <div className="stage">
+          <div className="stage-empty"><span>Featured banners land here.</span></div>
+        </div>
       </div>
     );
   }
@@ -100,66 +71,32 @@ export default function Spotlight() {
   return (
     <div className="showcase-wrap">
       <div
-        className="showcase"
-        role="button"
-        tabIndex={0}
-        aria-label="Featured banners"
-        onClick={() => go(1)}
-        onKeyDown={onKeyDown}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        // pointerType-gated: onMouseEnter fires on tap on many touch
-        // devices while onMouseLeave never does, which would pause
-        // the rotation forever on a phone.
-        onPointerEnter={(e) => { if (e.pointerType === "mouse") setPaused(true); }}
-        onPointerLeave={(e) => { if (e.pointerType === "mouse") setPaused(false); }}
+        className={`stage n${items.length}`}
+        ref={stageRef}
+        onPointerMove={onPointerMove}
+        onPointerLeave={reset}
       >
-        <img className="sc-base" src={current.src} alt={current.ticker ? `${current.ticker} banner` : "Banner made with bannr"} />
-
-        {/* Each blade paints the same image with a shifted background
-            position, so together they reconstruct it exactly. They
-            turn in sequence, so the new banner assembles across the
-            frame rather than appearing all at once. */}
-        {incoming && (
-          <div className="sc-blades" aria-hidden="true">
-            {Array.from({ length: BLADES }, (_, i) => (
-              <span
-                key={i}
-                className="sc-blade"
-                style={{
-                  backgroundImage: `url(${incoming.item.src})`,
-                  backgroundSize: `${BLADES * 100}% 100%`,
-                  backgroundPositionX: `${(i / (BLADES - 1)) * 100}%`,
-                  animationDelay: `${i * BLADE_STAGGER}ms`,
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        <span className="sc-live"><i />LIVE</span>
-        {current.ticker && (
-          <span className="spot-label"><b>{current.ticker}</b> · {current.template}</span>
-        )}
-      </div>
-
-      {items.length > 1 && (
-        <div className="sc-dots" role="tablist" aria-label="Choose a banner">
+        <div className="stage-inner">
+          {/* Painted back to front so the nearest card is last in the
+              DOM — stacking then needs no z-index bookkeeping. */}
           {items.map((it, i) => (
-            <button
-              key={it.ts + "-" + i}
-              className={`sc-dot ${i === idx ? "on" : ""}`}
-              role="tab"
-              aria-selected={i === idx}
-              aria-label={`Banner ${i + 1} of ${items.length}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (i !== idx && !flipping.current) go(i > idx ? 1 : -1);
-              }}
-            />
+            <figure className={`plate p${i}`} key={it.ts + "-" + i}>
+              <img
+                src={it.src}
+                alt={it.ticker ? `${it.ticker} banner made with bannr` : "Banner made with bannr"}
+                loading={i === items.length - 1 ? "eager" : "lazy"}
+              />
+              {it.ticker && (
+                <figcaption>
+                  <b>{it.ticker}</b>
+                  {it.template ? <span>{it.template}</span> : null}
+                </figcaption>
+              )}
+            </figure>
           ))}
         </div>
-      )}
+        <span className="stage-live"><i />LIVE</span>
+      </div>
     </div>
   );
 }
