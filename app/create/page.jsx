@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles } from "@/lib/templates";
 import { saveToHistory, setUser, GENERATION_COST, EDIT_COST } from "@/lib/credits";
+import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
 import ConnectButton, { ConnectNote } from "@/components/ConnectButton";
 import Lightbox from "@/components/Lightbox";
@@ -430,12 +431,14 @@ function CreateInner() {
     }
   }
 
-  function download(dataUrl, i, suffix = "") {
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    const t = (formRef.current.ticker || formRef.current.name || "banner").replace(/[^a-z0-9$ ]/gi, "").replace(/ /g, "-");
-    a.download = `bannr-${t}-v${i + 1}${suffix}.png`;
-    a.click();
+  // Async now: on a phone this opens the native share sheet rather
+  // than relying on the `download` attribute, which in-app browsers
+  // ignore. See lib/download.js.
+  async function download(dataUrl, i, suffix = "") {
+    const label = formRef.current.ticker || formRef.current.name || "banner";
+    const res = await saveImage(dataUrl, bannerFilename(label, i, suffix));
+    // A silent dead button was the original bug — never repeat it.
+    if (res.error) setError(res.error);
   }
 
   const nameFor = (id) =>
