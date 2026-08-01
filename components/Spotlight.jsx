@@ -25,9 +25,29 @@ import { useEffect, useRef, useState } from "react";
 const MAX_CARDS = 3;
 const TILT = 9; // degrees the group turns toward the cursor
 
+// Touch fan-out. HOLD is how long the spread arrangement sits open
+// before folding back; BACK is the fold itself. Both are mirrored in
+// the CSS transition on .plate, so change them together.
+const FAN_HOLD_MS = 1150;
+const FAN_BACK_MS = 560; // ≥ the 0.55s transform transition on .plate
+
 export default function Spotlight() {
   const [items, setItems] = useState([]);
+  const [expanded, setExpanded] = useState(false);
   const stageRef = useRef(null);
+  const expanding = useRef(false);   // locks out taps mid-animation
+  const timers = useRef([]);
+  const lastPointer = useRef("mouse");
+  // Which plate the cursor is over. The click is resolved from THIS
+  // rather than from the event target: the plates overlap heavily
+  // inside a preserve-3d context, so where a click actually lands is
+  // unpredictable, whereas hover is unambiguous — the pointed-at
+  // plate visibly lifts, so the user already knows which one is armed.
+  const hoverIdx = useRef(-1);
+
+  // A tap that lands while these are pending would otherwise fire
+  // after unmount and warn.
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   useEffect(() => {
     (async () => {
@@ -52,23 +72,61 @@ export default function Spotlight() {
     el.style.setProperty("--ry", `${(px * TILT).toFixed(2)}deg`);
   }
   function reset() {
+    hoverIdx.current = -1;
     const el = stageRef.current;
     if (!el) return;
     el.style.setProperty("--rx", "0deg");
     el.style.setProperty("--ry", "0deg");
   }
 
+  // One handler for the whole stage, so a click can never fall into a
+  // gap between plates and do nothing.
+  function onStageClick() {
+    if (items.length < 2) return;
+    if (lastPointer.current !== "mouse") { fanAndAdvance(); return; }
+    // Pointed at a plate: that one. Pointed at nothing: step the
+    // stack along, which is the only thing a click there could mean.
+    const i = hoverIdx.current;
+    bringForward(i >= 0 ? i : items.length - 2);
+    // The plate under the cursor just became the front one. Its DOM
+    // node moved but the pointer never left it, so pointerenter will
+    // not fire again — without this, a second click without moving
+    // the mouse would act on whatever else landed at the old index.
+    if (i >= 0) hoverIdx.current = items.length - 1;
+  }
+
   // Plates are painted back to front, so "front" means last. Moving
-  // the tapped one to the end rotates the others back a place rather
+  // the chosen one to the end rotates the others back a place rather
   // than swapping two — the whole arrangement re-forms, which is what
   // makes it read as picking a print out of a stack.
   function bringForward(i) {
     setItems((list) => {
-      if (i === list.length - 1) return list;
+      if (i < 0 || i >= list.length || i === list.length - 1) return list;
       const next = [...list];
       next.push(next.splice(i, 1)[0]);
       return next;
     });
+  }
+
+  // TOUCH: there is no cursor to point with, so tapping anywhere fans
+  // the whole set out flat — every banner fully visible, nothing
+  // overlapping — holds a moment, then folds back with the next one
+  // in front. Tap again and it walks on through the set.
+  function fanAndAdvance() {
+    if (expanding.current || items.length < 2) return;
+    expanding.current = true;
+    setExpanded(true);
+    timers.current.push(
+      setTimeout(() => {
+        setItems((list) => {
+          const next = [...list];
+          next.unshift(next.pop());   // step the whole order along
+          return next;
+        });
+        setExpanded(false);
+      }, FAN_HOLD_MS),
+      setTimeout(() => { expanding.current = false; }, FAN_HOLD_MS + FAN_BACK_MS)
+    );
   }
 
   if (!items.length) {
@@ -84,10 +142,12 @@ export default function Spotlight() {
   return (
     <div className="showcase-wrap">
       <div
-        className={`stage n${items.length}`}
+        className={`stage n${items.length} ${expanded ? "fan" : ""}`}
         ref={stageRef}
         onPointerMove={onPointerMove}
         onPointerLeave={reset}
+        onPointerDown={(e) => { lastPointer.current = e.pointerType || "mouse"; }}
+        onClick={onStageClick}
       >
         <div className="stage-inner">
           {/* Painted back to front so the nearest card is last in the
@@ -105,7 +165,9 @@ export default function Spotlight() {
                 role={isFront ? undefined : "button"}
                 tabIndex={isFront ? -1 : 0}
                 aria-label={isFront ? undefined : `Bring ${it.ticker || "this banner"} to the front`}
-                onClick={() => bringForward(i)}
+                onPointerEnter={() => { hoverIdx.current = i; }}
+                // The click itself is handled by the stage, which reads
+                // hoverIdx — see onStageClick.
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); bringForward(i); }
                 }}
