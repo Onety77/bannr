@@ -3,14 +3,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { setUser } from "@/lib/credits";
+import { PACKS } from "@/lib/packs";
 import { useAuth } from "@/lib/useAuth";
 import { useWallet, short } from "@/lib/wallet";
 
-const PACKS = [
-  { id: "starter", name: "Starter", sol: 0.05, credits: 15, gens: 5 },
-  { id: "builder", name: "Builder", sol: 0.12, credits: 45, gens: 15, featured: true },
-  { id: "degen",   name: "Degen",   sol: 0.35, credits: 160, gens: 53 },
-];
 
 export default function CreditsPage() {
   const [msg, setMsg] = useState(null);
@@ -61,9 +57,7 @@ export default function CreditsPage() {
           test flag is forgetting it's on. */}
       {testMode && (
         <div className="notice test-mode">
-          <b>TEST MODE</b> — these packs top you up instantly and no SOL is
-          moved. Remove <code>NEXT_PUBLIC_ENABLE_TEST_CREDITS</code> to switch
-          real payments on.
+          <b>TEST MODE</b> — instant credit top-ups.
         </div>
       )}
 

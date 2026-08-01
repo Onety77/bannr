@@ -10,26 +10,10 @@
 
 import { NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { creditsForSol } from "@/lib/packs";
 
 export const runtime = "nodejs";
 
-// SOL → credits. Tune after measuring real per-generation API
-// cost in Phase 0 (see blueprint §12).
-const PACKS = [
-  { id: "starter", sol: 0.05, credits: 15 },
-  { id: "builder", sol: 0.12, credits: 45 },
-  { id: "degen",   sol: 0.35, credits: 160 },
-];
-
-function matchPack(lamports) {
-  const sol = lamports / 1e9;
-  // exact-ish match with 2% tolerance; otherwise credit at starter rate
-  for (const p of PACKS) {
-    if (Math.abs(sol - p.sol) / p.sol < 0.02) return { ...p, sol };
-  }
-  const rate = PACKS[0].credits / PACKS[0].sol;
-  return { id: "custom", sol, credits: Math.floor(sol * rate) };
-}
 
 export async function POST(req) {
   const expected = process.env.HELIUS_WEBHOOK_AUTH;
@@ -71,7 +55,11 @@ export async function POST(req) {
       if (existing.exists) return; // idempotency: already processed
 
       const sender = transfer.fromUserAccount;
-      const pack = matchPack(transfer.amount);
+      // Pricing lives in lib/packs.js so the page and the payout can
+      // never disagree. Off-tier amounts are credited at the best rate
+      // they qualify for — see the note there.
+      const sol = transfer.amount / 1e9;
+      const pack = { ...creditsForSol(sol), sol };
 
       // find user by linked wallet
       const userSnap = await tx.get(

@@ -31,18 +31,11 @@ const TABS = [
       </svg>
     ),
   },
-  {
-    href: "/credits", label: "Credits",
-    icon: (
-      <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-        <circle cx="11" cy="11" r="7.5" />
-        <path d="M13.6 8.8a3 3 0 1 0 0 4.4" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  // The account screen on a phone. The top bar has no room for wallet
-  // controls at 375px, so they live here rather than in a dropdown
-  // crushed into a 52px strip.
+  // FOUR TABS, MAXIMUM. A fifth wraps to a second line on a 375px
+  // screen and breaks the bar. Credits used to sit here; it moved
+  // inside "You", which already shows the balance and a Buy button —
+  // and the credits pill in the top bar still links straight to it,
+  // so buying is never more than one tap away.
   {
     href: "/settings", label: "You",
     icon: (
@@ -58,12 +51,18 @@ export default function TabBar() {
   const path = usePathname();
   return (
     <nav className="tabbar" aria-label="Primary">
-      {TABS.map((t) => (
-        <Link key={t.href} href={t.href} className={path === t.href ? "active" : ""}>
-          {t.icon}
-          {t.label}
-        </Link>
-      ))}
+      {TABS.map((t) => {
+        // /credits has no tab of its own now, so "You" owns it —
+        // otherwise the bar shows nothing selected on that page and
+        // you appear to have navigated outside the app.
+        const active = path === t.href || (t.href === "/settings" && path === "/credits");
+        return (
+          <Link key={t.href} href={t.href} className={active ? "active" : ""}>
+            {t.icon}
+            {t.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

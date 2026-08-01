@@ -48,7 +48,6 @@ export default function RootLayout({ children }) {
         <footer className="footer wrap">
           <span>bannr © 2026</span>
           <Socials compact />
-          <span>1500×500 · 1300×500 · SOL</span>
         </footer>
         <TabBar />
       </body>

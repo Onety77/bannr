@@ -1628,7 +1628,18 @@ body::after {
      entire call to action. */
   .acct, .theme-toggle { display: none; }
   .credit-pill { padding: 6px 11px; font-size: 12px; }
-  .nav-err { display: none; }
+  /* Was display:none, which silently swallowed sign-in failures on
+     phones — the single reason a broken connect looked like an
+     endless loop. It now drops below the bar as a full-width strip
+     instead of competing for horizontal space. */
+  .nav-err {
+    position: absolute; left: 0; right: 0; top: 100%;
+    max-width: none; padding: 7px 22px;
+    background: color-mix(in srgb, var(--danger) 14%, var(--bg));
+    border-bottom: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+    font-size: 12px; line-height: 1.4;
+  }
+  .nav { position: sticky; }
   .nav-inner { gap: 14px; }
   .brand { font-size: 17px; }
   .brand img { width: 23px; height: 23px; }
