@@ -422,103 +422,96 @@ h1, h2, h3 {
   font-size: 13px; color: var(--faint);
 }
 
-/* ============ showcase stage — a deck you flip through ============
-   The old version crossfaded between images while a progress bar
-   ticked alongside, which never read as cards. Here the front card
-   lifts and rotates away, the one behind rises into its place, and
-   the stack steps forward — so the motion explains the interaction
-   without a caption. */
-.showcase-wrap { max-width: 920px; margin: 0 auto; }
+/* ============ showcase — split-flap board ============
+   A banner is wide, flat and static; a card that swaps its contents
+   reads as one still image no matter how it is framed. So the change
+   itself carries the interest: the frame is cut into vertical blades
+   and the next banner arrives blade by blade, left to right, like a
+   departure board turning over. */
+.showcase-wrap { max-width: 940px; margin: 0 auto; }
 .showcase {
   position: relative;
   aspect-ratio: 3 / 1;
-  perspective: 1600px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.showcase:focus-visible { outline: 2px solid var(--accent); outline-offset: 14px; border-radius: var(--r-lg); }
-
-.sc-card {
-  position: absolute; inset: 0;
   border-radius: var(--r-lg);
   overflow: hidden;
   background: var(--bg-soft);
   box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.45s;
 }
-.sc-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+[data-theme="dark"] .showcase { background: var(--card-soft); }
+.showcase:hover { transform: translateY(-5px); box-shadow: 0 44px 96px -26px rgba(0,0,0,0.44); }
+.showcase:focus-visible { outline: 2px solid var(--accent); outline-offset: 8px; }
 
-/* the two cards behind: pushed back and dimmed so depth is felt
-   rather than announced */
-.sc-deck { pointer-events: none; transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.55s; }
-.sc-deck-1 { transform: translateY(-5%) scale(0.945); opacity: 0.55; z-index: 2; filter: saturate(0.8) brightness(0.94); }
-.sc-deck-2 { transform: translateY(-9%) scale(0.895); opacity: 0.28; z-index: 1; filter: saturate(0.65) brightness(0.9); }
-[data-theme="dark"] .sc-deck-1 { opacity: 0.42; }
-[data-theme="dark"] .sc-deck-2 { opacity: 0.2; }
+.sc-base { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
-/* the card in hand */
-.sc-front {
-  z-index: 4;
-  animation: sc-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s;
+/* the turning blades */
+.sc-blades { position: absolute; inset: 0; display: flex; z-index: 2; }
+.sc-blade {
+  flex: 1 1 0;
+  background-repeat: no-repeat;
+  transform-origin: top center;
+  will-change: transform, opacity;
+  animation: sc-flip 0.52s cubic-bezier(0.3, 0, 0.2, 1) both;
+  /* a hairline of shading down each blade so the segmentation is felt
+     during the turn and invisible once it lands */
+  box-shadow: inset -1px 0 0 rgba(0,0,0,0.14);
 }
-@keyframes sc-rise {
-  from { transform: translateY(4%) scale(0.955); opacity: 0.4; }
-  to   { transform: none; opacity: 1; }
+@keyframes sc-flip {
+  0%   { transform: rotateX(-92deg) scaleY(0.86); opacity: 0; filter: brightness(0.55); }
+  55%  { opacity: 1; }
+  100% { transform: none; opacity: 1; filter: brightness(1); }
 }
-.showcase:hover .sc-front { transform: translateY(-6px); box-shadow: 0 40px 90px -24px rgba(0,0,0,0.42); }
-.showcase:hover .sc-deck-1 { transform: translateY(-7.5%) scale(0.95); opacity: 0.68; }
-.showcase:hover .sc-deck-2 { transform: translateY(-12.5%) scale(0.9); opacity: 0.36; }
-
-/* the outgoing card — lifted, rotated and thrown, so advancing reads
-   as dealing rather than dissolving */
-.sc-leaving {
-  z-index: 5; pointer-events: none;
-  animation: sc-throw 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-@keyframes sc-throw {
-  from { transform: none; opacity: 1; }
-  to   { transform: translate(14%, -22%) rotate(7deg) scale(0.9); opacity: 0; }
-}
-.sc-leaving.back { animation-name: sc-throw-back; }
-@keyframes sc-throw-back {
-  from { transform: none; opacity: 1; }
-  to   { transform: translate(-14%, -22%) rotate(-7deg) scale(0.9); opacity: 0; }
-}
+.sc-blades { perspective: 900px; }
 
 .sc-empty {
+  position: absolute; inset: 0;
   display: grid; place-items: center;
   color: var(--faint); font-size: 13.5px;
   box-shadow: inset 0 0 0 1px var(--hairline);
 }
 
-/* affordance, shown only until the first interaction teaches it */
-.sc-hint {
-  position: absolute; z-index: 6; right: 16px; bottom: 14px;
-  font-size: 11px; letter-spacing: 0.02em;
-  color: var(--text-2);
+.sc-live {
+  position: absolute; top: 14px; left: 16px; z-index: 3;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em;
   background: color-mix(in srgb, var(--bg) 68%, transparent);
   backdrop-filter: saturate(1.8) blur(14px);
   -webkit-backdrop-filter: saturate(1.8) blur(14px);
-  padding: 5px 10px; border-radius: var(--pill);
-  opacity: 0; transition: opacity 0.3s;
-  pointer-events: none;
+  color: var(--text-2); padding: 6px 11px;
+  border-radius: var(--pill);
+  box-shadow: var(--shadow-sm);
 }
-.showcase:hover .sc-hint { opacity: 1; }
+.sc-live i {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--ok);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 0.25; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.15); } }
 
-/* dots replace the old segmented timer bar: position at a glance,
-   no implication that something is loading */
-.sc-dots { display: flex; justify-content: center; gap: 7px; margin-top: 20px; }
+.spot-label {
+  position: absolute; bottom: 14px; left: 16px; z-index: 3;
+  font-size: 12px; font-weight: 500;
+  background: color-mix(in srgb, var(--bg) 68%, transparent);
+  backdrop-filter: saturate(1.8) blur(14px);
+  -webkit-backdrop-filter: saturate(1.8) blur(14px);
+  color: var(--text-2); padding: 6px 12px; border-radius: var(--pill);
+  box-shadow: var(--shadow-sm);
+}
+.spot-label b { color: var(--text); font-weight: 700; }
+
+.sc-dots { display: flex; justify-content: center; gap: 7px; margin-top: 22px; }
 .sc-dot {
   width: 7px; height: 7px; border-radius: 50%; padding: 0;
   background: var(--hairline-2);
   transition: background 0.25s, width 0.25s, border-radius 0.25s;
 }
 .sc-dot:hover { background: var(--muted); }
-.sc-dot.on { width: 22px; border-radius: var(--pill); background: var(--accent); }
+.sc-dot.on { width: 24px; border-radius: var(--pill); background: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
-  .sc-front, .sc-leaving { animation: none; }
-  .sc-leaving { display: none; }
+  .sc-blade { animation: sc-fade 0.3s ease both; }
+  @keyframes sc-fade { from { opacity: 0; } to { opacity: 1; } }
 }
 
 .spot-wait {
@@ -1694,7 +1687,6 @@ body::after {
   .feature-hero { grid-template-columns: 1fr; padding: 40px 28px; gap: 32px; border-radius: 22px; }
   .feature-list { grid-template-columns: 1fr; gap: 36px; padding-top: 52px; }
   .band { padding: 64px 26px; border-radius: 22px; }
-  .sc-card { border-radius: 16px; }
   .page-head { padding-top: 36px; }
   .btn.large { padding: 13px 26px; font-size: 16px; }
   .result .bar .mode { min-width: 100%; }

@@ -1,32 +1,40 @@
-// THE SHOWCASE STAGE — a deck of real banners you flip through.
+// THE SHOWCASE — the hero product visual, directly under the CTA.
 //
-// The previous version called itself a stacked deck but crossfaded
-// between images, so it never read as cards at all — a rectangle
-// that quietly swapped its contents while a progress bar ticked
-// beside it. And the card ignored clicks, which is the first thing
-// anyone tries.
+// A banner is wide, flat and static, so a card that simply swaps its
+// contents has nothing to say. Two earlier attempts proved it: a
+// crossfade, then a card deck. Both were containers with a picture
+// inside, and the eye reads them as one still image.
 //
-// Now the deck behaves like one: the front card lifts and rotates
-// away, the card behind rises into its place, and the whole stack
-// steps forward. Click, swipe or arrow-key to advance; hovering
-// pauses the timer so it never moves out from under you mid-look.
+// So the interest comes from the CHANGE itself. The banner is cut
+// into vertical blades and the next one arrives blade by blade, left
+// to right — a split-flap board turning over. It's mechanical,
+// deliberate, and it makes the point the section exists to make:
+// there is always another banner behind this one.
 //
-// Pulled from /api/spotlight — only generations an admin has
-// flagged "Highlight" on /admin7731 ever show here. Nothing is
-// generated to fill it: a homepage visitor is signed out and
-// generation costs real credits.
+// Advances on its own, and on click. No instructions printed on it.
+//
+// Only generations an admin has flagged "Highlight" on /admin7731
+// appear here. Nothing is generated to fill it: a homepage visitor is
+// signed out and generation costs real credits.
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const ROTATE_MS = 6000;
+const BLADES = 12;
+const ROTATE_MS = 5200;
+const BLADE_STAGGER = 34;     // ms between blades starting
+const BLADE_MS = 520;         // must match the sc-flip duration in CSS
+// The overlay is only removed once the LAST blade has landed —
+// (BLADES-1) staggers plus one full turn — otherwise the base image
+// swaps underneath a blade still mid-flip and the final column pops.
+const FLIP_MS = (BLADES - 1) * BLADE_STAGGER + BLADE_MS + 60;
 const SWIPE_PX = 45;
 
 export default function Spotlight() {
   const [items, setItems] = useState([]);
   const [idx, setIdx] = useState(0);
-  const [leaving, setLeaving] = useState(null); // index mid-flight
+  const [incoming, setIncoming] = useState(null);  // banner mid-flip
   const [paused, setPaused] = useState(false);
-  const timerRef = useRef(null);
+  const flipping = useRef(false);
   const touchRef = useRef(null);
 
   useEffect(() => {
@@ -39,16 +47,22 @@ export default function Spotlight() {
     })();
   }, []);
 
-  // `leaving` holds the outgoing card so it can animate away while the
-  // next one rises. Cleared on a timer rather than transitionend,
-  // which never fires if the tab is backgrounded mid-animation.
-  const advance = useCallback(
+  const go = useCallback(
     (dir = 1) => {
+      if (flipping.current) return;           // let a turn finish
       setItems((list) => {
         if (list.length < 2) return list;
-        setLeaving({ i: idx, dir });
-        setIdx((i) => (i + dir + list.length) % list.length);
-        setTimeout(() => setLeaving(null), 620);
+        const next = (idx + dir + list.length) % list.length;
+        flipping.current = true;
+        setIncoming({ item: list[next], next });
+        // Settled on a timer rather than animationend: the last blade's
+        // event never fires if the tab is backgrounded mid-flip, which
+        // would wedge `flipping` true forever.
+        setTimeout(() => {
+          setIdx(next);
+          setIncoming(null);
+          flipping.current = false;
+        }, FLIP_MS);
         return list;
       });
     },
@@ -56,48 +70,32 @@ export default function Spotlight() {
   );
 
   useEffect(() => {
-    clearInterval(timerRef.current);
     if (items.length < 2 || paused) return;
-    timerRef.current = setInterval(() => advance(1), ROTATE_MS);
-    return () => clearInterval(timerRef.current);
-  }, [items.length, paused, advance]);
+    const t = setInterval(() => go(1), ROTATE_MS);
+    return () => clearInterval(t);
+  }, [items.length, paused, go]);
 
-  // Arrow keys work only once the deck has focus, so they never fight
-  // with the rest of the page.
   function onKeyDown(e) {
-    if (e.key === "ArrowRight" || e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      advance(1);
-    }
-    if (e.key === "ArrowLeft") { e.preventDefault(); advance(-1); }
+    if (e.key === "ArrowRight" || e.key === "Enter" || e.key === " ") { e.preventDefault(); go(1); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); }
   }
-
   function onTouchStart(e) { touchRef.current = e.touches[0].clientX; }
   function onTouchEnd(e) {
     if (touchRef.current == null) return;
     const dx = e.changedTouches[0].clientX - touchRef.current;
     touchRef.current = null;
-    if (Math.abs(dx) > SWIPE_PX) advance(dx < 0 ? 1 : -1);
+    if (Math.abs(dx) > SWIPE_PX) go(dx < 0 ? 1 : -1);
   }
 
-  const n = items.length;
   const current = items[idx];
 
   if (!current) {
     return (
       <div className="showcase-wrap">
-        <div className="showcase">
-          <div className="sc-card sc-empty">
-            <span>Featured banners land here.</span>
-          </div>
-        </div>
+        <div className="showcase"><div className="sc-empty"><span>Featured banners land here.</span></div></div>
       </div>
     );
   }
-
-  // Three visible layers: the front card and the two behind it. More
-  // than that is invisible depth nobody perceives.
-  const at = (o) => items[(idx + o + n) % n];
 
   return (
     <div className="showcase-wrap">
@@ -105,50 +103,59 @@ export default function Spotlight() {
         className="showcase"
         role="button"
         tabIndex={0}
-        aria-label="Featured banners — click or swipe for the next"
-        onClick={() => advance(1)}
+        aria-label="Featured banners"
+        onClick={() => go(1)}
         onKeyDown={onKeyDown}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        // pointerType-gated on purpose: onMouseEnter fires on tap on
-        // many touch devices while onMouseLeave never does, which
-        // would leave the deck paused forever on a phone — exactly
-        // where auto-advance matters most.
+        // pointerType-gated: onMouseEnter fires on tap on many touch
+        // devices while onMouseLeave never does, which would pause
+        // the rotation forever on a phone.
         onPointerEnter={(e) => { if (e.pointerType === "mouse") setPaused(true); }}
         onPointerLeave={(e) => { if (e.pointerType === "mouse") setPaused(false); }}
       >
-        {n > 2 && <div className="sc-card sc-deck sc-deck-2" aria-hidden="true"><img src={at(2).src} alt="" /></div>}
-        {n > 1 && <div className="sc-card sc-deck sc-deck-1" aria-hidden="true"><img src={at(1).src} alt="" /></div>}
+        <img className="sc-base" src={current.src} alt={current.ticker ? `${current.ticker} banner` : "Banner made with bannr"} />
 
-        {leaving && (
-          <div className={`sc-card sc-leaving ${leaving.dir < 0 ? "back" : ""}`} aria-hidden="true">
-            <img src={items[leaving.i].src} alt="" />
+        {/* Each blade paints the same image with a shifted background
+            position, so together they reconstruct it exactly. They
+            turn in sequence, so the new banner assembles across the
+            frame rather than appearing all at once. */}
+        {incoming && (
+          <div className="sc-blades" aria-hidden="true">
+            {Array.from({ length: BLADES }, (_, i) => (
+              <span
+                key={i}
+                className="sc-blade"
+                style={{
+                  backgroundImage: `url(${incoming.item.src})`,
+                  backgroundSize: `${BLADES * 100}% 100%`,
+                  backgroundPositionX: `${(i / (BLADES - 1)) * 100}%`,
+                  animationDelay: `${i * BLADE_STAGGER}ms`,
+                }}
+              />
+            ))}
           </div>
         )}
 
-        <div className="sc-card sc-front" key={current.ts}>
-          <img src={current.src} alt={current.ticker ? `${current.ticker} banner` : "Banner made with bannr"} />
-          <span className="sc-live"><i />LIVE</span>
-          {current.ticker && (
-            <span className="spot-label">
-              <b>{current.ticker}</b> · {current.template}
-            </span>
-          )}
-        </div>
-
-        {n > 1 && <span className="sc-hint" aria-hidden="true">Tap for the next</span>}
+        <span className="sc-live"><i />LIVE</span>
+        {current.ticker && (
+          <span className="spot-label"><b>{current.ticker}</b> · {current.template}</span>
+        )}
       </div>
 
-      {n > 1 && (
+      {items.length > 1 && (
         <div className="sc-dots" role="tablist" aria-label="Choose a banner">
           {items.map((it, i) => (
             <button
               key={it.ts + "-" + i}
               className={`sc-dot ${i === idx ? "on" : ""}`}
-              aria-label={`Banner ${i + 1} of ${n}`}
-              aria-selected={i === idx}
               role="tab"
-              onClick={(e) => { e.stopPropagation(); setLeaving(null); setIdx(i); }}
+              aria-selected={i === idx}
+              aria-label={`Banner ${i + 1} of ${items.length}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (i !== idx && !flipping.current) go(i > idx ? 1 : -1);
+              }}
             />
           ))}
         </div>
