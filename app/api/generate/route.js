@@ -118,6 +118,11 @@ export async function POST(req) {
       ticker: String(form.get("ticker") || "").slice(0, 16),
       tagline: String(form.get("tagline") || "").slice(0, 80),
       vibe: String(form.get("vibe") || "").slice(0, 400),
+      // Free-text creative direction. Capped well below About: this
+      // is a steer on top of a chosen style, not a competing brief,
+      // and a wall of text here would drown the style it is meant to
+      // be adjusting.
+      direction: String(form.get("direction") || "").slice(0, 240),
     };
     if (!brief.name.trim()) return NextResponse.json({ error: "A coin name is required." }, { status: 400 });
     if (brief.ticker && !brief.ticker.startsWith("$")) brief.ticker = "$" + brief.ticker;
@@ -433,7 +438,12 @@ export async function POST(req) {
       violations = (err?.message?.match(/safety_violations=\[([^\]]*)\]/)?.[1] || "").trim();
 
       const probe = await diagnoseContent({
-        text: [brief.name, brief.ticker, brief.tagline, brief.vibe].filter(Boolean).join("\n"),
+        // Direction is included deliberately: it is free text the
+        // client wrote, so it is now one of the likelier things to
+        // trip the filter. Leaving it out would misdiagnose a wording
+        // problem as an image problem and send them to re-upload a
+        // logo that was never at fault.
+        text: [brief.name, brief.ticker, brief.tagline, brief.vibe, brief.direction].filter(Boolean).join("\n"),
         imageB64: logoBase64,
       });
       // Copy is stage-aware: the client shows a different set of

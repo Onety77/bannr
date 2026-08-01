@@ -81,6 +81,7 @@ function CreateInner() {
     ticker: (params.get("ticker") || "").slice(0, 16),
     tagline: (params.get("tagline") || "").slice(0, 80),
     vibe: (params.get("vibe") || "").slice(0, 400),
+    direction: (params.get("direction") || "").slice(0, 240),
   });
   const [variants, setVariants] = useState(3);
   // Per-style advanced overrides: { [styleId]: { key: value } }.
@@ -189,7 +190,14 @@ function CreateInner() {
   // Clear every field that describes a specific token. Used before a
   // CA import repopulates them — see the note at the call site.
   function resetBrief() {
-    formRef.current = { name: "", ticker: "", tagline: "", vibe: "" };
+    formRef.current = {
+      name: "", ticker: "", tagline: "", vibe: "",
+      // Deliberately preserved. resetBrief clears what describes the
+      // TOKEN before a CA import repopulates it; direction describes
+      // the BANNER, and someone who asked for "black and white only"
+      // still wants that when they paste a second contract.
+      direction: formRef.current.direction || "",
+    };
     setLogoFile(null);
     setLogoPreview((p) => {
       if (p) URL.revokeObjectURL(p);
@@ -634,6 +642,51 @@ function CreateInner() {
                 maxLength={400}
               />
               <div className="hint">This is what the AI reads to decide the whole treatment — the more real, the less generic.</div>
+            </div>
+
+            {/* Creative direction. Sits here, in the main brief, rather
+                than inside the advanced panel — most people never open
+                that, and this is the single most useful thing they can
+                tell us. Styled as a highlighted field so it reads as an
+                invitation rather than another optional box.
+
+                Kept clearly separate from About above, because the two
+                get confused: About is CONTEXT about the project and is
+                never rendered; this is an INSTRUCTION about the banner
+                and is obeyed. The labels and hints carry that. */}
+            <div className="field field-accent">
+              <label>
+                What do you want?
+                <span className="tag-opt">optional, but worth it</span>
+              </label>
+              <textarea
+                placeholder="Say it however you like — “make it feel expensive”, “only black and white”, “put the name really big”, “no cartoon characters”…"
+                value={formRef.current.direction}
+                onChange={(e) => setField("direction", e.target.value)}
+                maxLength={240}
+                rows={2}
+              />
+              <div className="chips">
+                {["black and white only","make the name huge","lots of empty space","no characters or mascots","feels like a movie poster"].map((ex) => (
+                  <button
+                    type="button"
+                    key={ex}
+                    className="chip"
+                    // Appends rather than replaces, so tapping two
+                    // builds a sentence instead of losing the first.
+                    onClick={() => {
+                      const cur = formRef.current.direction.trim();
+                      if (cur.toLowerCase().includes(ex.toLowerCase())) return;
+                      setField("direction", (cur ? cur.replace(/[,.]$/, "") + ", " + ex : ex).slice(0, 240));
+                    }}
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
+              <div className="hint">
+                Anything you say here outranks the style you pick. Leave it blank and we&rsquo;ll decide for you.
+              </div>
             </div>
           </div>
 
