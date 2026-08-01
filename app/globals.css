@@ -441,7 +441,14 @@ h1, h2, h3 {
 .hero-note { margin-top: 18px; font-size: 13px; color: var(--faint); }
 
 /* hero visual — the product, floating */
-.visual-stage { position: relative; padding: 74px 0 26px; }
+.visual-stage {
+  position: relative; padding: 74px 0 26px;
+  /* The fan throws plates past the left and right edges on purpose.
+     Without this that becomes a horizontal scrollbar on a phone.
+     "clip" rather than "hidden" so the vertical axis stays visible
+     instead of silently becoming a scroll container. */
+  overflow-x: clip;
+}
 .visual-stage::before {
   content: ""; position: absolute; inset: 0 -10% -30%;
   background: radial-gradient(46% 60% at 50% 45%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 72%);
@@ -464,12 +471,7 @@ h1, h2, h3 {
   perspective: 1500px;
   padding: 26px 0 34px;
   --rx: 0deg; --ry: 0deg;
-  /* Opening the fan grows this, which is what lets the plates spread
-     without shrinking. Same easing as the plates so the container and
-     its contents read as one moving thing. */
-  transition: padding-bottom 0.62s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.stage.fan { padding-bottom: calc(34px + 20%); }
 .stage-inner {
   position: relative;
   aspect-ratio: 2.05 / 1;
@@ -518,47 +520,44 @@ h1, h2, h3 {
 .stage.n2 .plate.p1 { right: auto; left: 8%; top: auto; bottom: 2%; width: 84%; transform: rotate(-1.5deg); filter: none; }
 
 /* THE FAN — the touch answer to "which one is behind?".
-   No cursor to point with on a phone, so a tap opens the set out.
+   No cursor to point with on a phone, so a tap throws the set open.
 
-   Version one shrank the plates from 80% to 62% to fit three into a
-   stage that never changed size — which is compacting, the opposite
-   of opening, and it looked it. The stage itself has to grow. It does
-   that by animating its own bottom padding, so the plates keep the
-   exact size they rest at and the section below is pushed down and
-   released like something being opened. */
+   Two earlier versions were built around a requirement nobody asked
+   for: that all three be completely visible at once. That is what
+   forced them to shrink, and then forced the stage to grow to stop
+   them shrinking. Neither looked good, and the constraint was
+   invented. Plates running off the edges is fine — better, even. It
+   is a deck being spread, and a spread deck overlaps.
+
+   So they now go BIGGER than they rest at (80% to 100%), sweep out
+   past both edges, and sit at three different angles and depths. What
+   you lose is a clean view of the ones behind. What you get is a
+   gesture that looks like something. */
 .stage.fan .plate {
-  width: 64%; left: 18%; right: auto; bottom: auto;
+  width: 76%; right: auto; bottom: auto;
   filter: none;
-  box-shadow: 0 26px 60px -20px rgba(0,0,0,0.5);
-  transform: translateZ(0) rotate(0deg) scale(1);
-  /* Opening overshoots very slightly and settles. The closing motion
-     uses the base easing on .plate, which is a clean decelerate — a
-     different feel each way, so it reads as one gesture with two
-     halves rather than a loop played backwards. */
-  transition: transform 0.62s cubic-bezier(0.34, 1.28, 0.52, 1),
+  box-shadow: 0 34px 74px -22px rgba(0,0,0,0.55);
+  transition: transform 0.6s cubic-bezier(0.32, 1.3, 0.5, 1),
               filter 0.4s ease, box-shadow 0.5s ease;
 }
-/* Staggered. Three plates moving on identical timing is the single
-   thing that makes a transition read as cheap. */
+/* Staggered. Three plates on identical timing is the single thing
+   that makes a transition read as cheap. */
 .stage.fan .plate.p0 { transition-delay: 0ms; }
 .stage.fan .plate.p1 { transition-delay: 55ms; }
 .stage.fan .plate.p2 { transition-delay: 110ms; }
-/* And staggered on the way back too, front-first. */
+/* Staggered coming back too, front-first. */
 .plate.p2 { transition-delay: 0ms; }
 .plate.p1 { transition-delay: 55ms; }
 .plate.p0 { transition-delay: 110ms; }
 
-.stage.fan.n3 .plate.p0 { top: 0%; }
-.stage.fan.n3 .plate.p1 { top: 49%; }
-.stage.fan.n3 .plate.p2 { top: 98%; }
-.stage.fan.n2 .plate.p0 { top: 12%; }
-.stage.fan.n2 .plate.p1 { top: 74%; }
-
-/* The one that is about to take the front lifts toward the viewer
-   while the set is open — so the tap that closes it has already been
-   answered before it happens. */
-.stage.fan.n3 .plate.p1 { transform: translateZ(30px) scale(1.015); }
-.stage.fan.n2 .plate.p0 { transform: translateZ(30px) scale(1.015); }
+/* Alternating overhang, so the spread has a rhythm rather than being
+   three parallel slabs. Depth does the stacking: p1 is nearest, which
+   is deliberate — it is the one about to take the front. */
+.stage.fan.n3 .plate.p0 { left: -14%; top: -3%; transform: translateZ(-50px) rotate(-6deg); }
+.stage.fan.n3 .plate.p1 { left:  38%; top: 24%; transform: translateZ(60px)  rotate(3deg) scale(1.02); }
+.stage.fan.n3 .plate.p2 { left:   6%; top: 51%; transform: translateZ(0)     rotate(-2deg); }
+.stage.fan.n2 .plate.p0 { left: -10%; top:  6%; transform: translateZ(55px)  rotate(-4deg) scale(1.02); }
+.stage.fan.n2 .plate.p1 { left:  30%; top: 46%; transform: translateZ(-30px) rotate(3deg); }
 
 /* Spread out, every banner can carry its own label. */
 .stage.fan figcaption { opacity: 1; transform: none; }
@@ -639,17 +638,14 @@ h1, h2, h3 {
      currently in front. */
   .plate.front figcaption { opacity: 1; transform: none; }
 
-  /* 80% — the exact width the plates rest at, so opening the fan
-     changes their POSITION and nothing else. Nothing shrinks. */
-  .stage.fan { padding-bottom: calc(24px + 19%); }
-  .stage.fan .plate { width: 80%; left: 10%; }
-  .stage.fan.n3 .plate.p0 { top: -4%; }
-  .stage.fan.n3 .plate.p1 { top: 41%; }
-  .stage.fan.n3 .plate.p2 { top: 86%; }
-  .stage.fan.n2 .plate.p0 { top: 8%; }
-  .stage.fan.n2 .plate.p1 { top: 62%; }
-  .stage.fan.n3 .plate.p1 { transform: translateZ(26px) scale(1.015); }
-  .stage.fan.n2 .plate.p0 { transform: translateZ(26px) scale(1.015); }
+  /* GROWS on opening — 80% at rest to 100% spread, running off both
+     edges. The opposite of the first attempt, which shrank them. */
+  .stage.fan .plate { width: 100%; }
+  .stage.fan.n3 .plate.p0 { left: -18%; top: -2%; transform: translateZ(-44px) rotate(-7deg); }
+  .stage.fan.n3 .plate.p1 { left:  16%; top: 26%; transform: translateZ(50px)  rotate(4deg) scale(1.02); }
+  .stage.fan.n3 .plate.p2 { left:  -8%; top: 54%; transform: translateZ(0)     rotate(-2deg); }
+  .stage.fan.n2 .plate.p0 { left: -12%; top:  8%; transform: translateZ(48px)  rotate(-5deg) scale(1.02); }
+  .stage.fan.n2 .plate.p1 { left:  12%; top: 50%; transform: translateZ(-26px) rotate(3deg); }
 }
 @media (prefers-reduced-motion: reduce) {
   .stage, .stage-inner, .plate { transition: none; }
