@@ -514,23 +514,25 @@ h1, h2, h3 {
     saturate(calc(var(--ar) + (1 - var(--ar)) * var(--f)))
     brightness(calc(var(--br) + (1 - var(--br)) * var(--f)));
 
-  /* Opening and closing by TAP animates. Opening overshoots slightly
-     and settles, which is what stops it reading as a plain slide. */
-  transition:
-    left 0.62s cubic-bezier(0.34, 1.28, 0.52, 1),
-    top 0.62s cubic-bezier(0.34, 1.28, 0.52, 1),
-    width 0.62s cubic-bezier(0.34, 1.28, 0.52, 1),
-    transform 0.62s cubic-bezier(0.34, 1.28, 0.52, 1),
-    filter 0.45s ease,
-    box-shadow 0.5s ease;
+  /* NO TRANSITION. --f comes from the scroll position, so the plates
+     must land exactly where the page says they are — a transition here
+     would put them permanently a few frames behind the finger, which
+     is the difference between "attached to the scroll" and "laggy". */
 }
-/* Staggered, so the three do not move as one slab. */
-.plate.p1 { transition-delay: 55ms; }
-.plate.p0 { transition-delay: 110ms; }
 
-/* Scrolling scrubs it: the plates must track the scroll exactly, so
-   every transition and delay comes off while it is being dragged. */
-.stage.scrub .plate { transition: none; transition-delay: 0ms; }
+/* The exception: reordering swaps which plate holds which set of
+   variables, and without a transition they teleport. Switched on for
+   the length of that move only, by the component. */
+.stage.animating .plate {
+  transition:
+    left 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    top 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.5s ease;
+}
+.stage.animating .plate.p1 { transition-delay: 45ms; }
+.stage.animating .plate.p0 { transition-delay: 90ms; }
 
 [data-theme="dark"] .plate { background: var(--card-soft); }
 .plate img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -567,19 +569,14 @@ h1, h2, h3 {
   --lf: 8;   --tf: 36.6; --wf: 84; --zf: 0;    --rf: -1.5; --sf: 1;
 }
 
-/* hover: hover only — on a touch screen these latch after a tap and
-   the plate stays stuck forward. Suppressed while the set is open,
-   where lifting one plate out of a deliberate arrangement only breaks
-   the arrangement. */
+/* Hover no longer lifts a plate. It would have to overwrite the whole
+   scroll-driven transform to do it, snapping the plate out of an
+   arrangement the page is actively positioning — and there is no
+   resting state left to lift OUT of, since the set is only ever fully
+   folded when it is off the edge of the screen. The cursor still tilts
+   the group, which is the part that reads as alive. */
 @media (hover: hover) {
-  .stage:not(.open) .plate:hover {
-    transform: translateZ(90px) rotate(0deg) scale(1.02);
-    filter: none;
-    box-shadow: 0 50px 100px -24px rgba(0,0,0,0.5);
-    z-index: 5;
-    transition-delay: 0ms;
-  }
-  .stage:not(.open) .plate:hover figcaption { opacity: 1; transform: none; }
+  .plate:hover figcaption { opacity: 1; }
 }
 
 .plate figcaption {
@@ -594,26 +591,9 @@ h1, h2, h3 {
   /* Fades in with the fan, so an open set labels every banner. */
   opacity: var(--f);
   transform: translateY(calc((1 - var(--f)) * 4px));
-  transition: opacity 0.35s, transform 0.35s;
 }
 .plate figcaption b { font-weight: 700; color: var(--text); }
 .plate figcaption span { color: var(--muted); }
-
-/* The invitation. Without it, tapping the picture is a secret — and
-   it doubles as the keyboard control for the whole interaction. */
-.stage-toggle {
-  position: absolute; right: 0; top: 0; z-index: 6;
-  font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
-  background: color-mix(in srgb, var(--bg) 68%, transparent);
-  backdrop-filter: saturate(1.8) blur(14px);
-  -webkit-backdrop-filter: saturate(1.8) blur(14px);
-  color: var(--text-2); padding: 7px 13px; border-radius: var(--pill);
-  box-shadow: var(--shadow-sm);
-  transition: color 0.2s, background 0.2s;
-}
-.stage-toggle:hover { color: var(--text); background: color-mix(in srgb, var(--bg) 88%, transparent); }
-.stage-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.stage.n1 .stage-toggle { display: none; }
 
 .stage-live {
   /* A label, not a control — it sits over the back plate's corner and
@@ -676,8 +656,9 @@ h1, h2, h3 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* The component also stops driving --f, so this is belt and braces. */
   .stage-inner, .plate { transition: none; }
-  .plate { transition-delay: 0ms; }
+  .stage.animating .plate { transition: none; transition-delay: 0ms; }
 }
 
 .spot-wait {
