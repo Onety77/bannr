@@ -178,21 +178,10 @@ Remaining:
   who closes the wallet popup leaves one behind forever
 - **G10** — Delete `/api/dev/grant` before launch. It is guarded by
   `NODE_ENV`, but the safest guard is the route not existing
-- **G13** — Run `node scripts/migrate-identities.cjs --commit` against
-  production. NOT a prerequisite — `getOrCreateByIdentity` adopts legacy
-  accounts on sight — but it tidies the 15 existing accounts and backfills
-  `payments.accountId` so billing history finds pre-split purchases
-- **G14** — Confirm the Firestore rules deny client access to the new
-  `identities` collection. It maps an identity to an account id. The Admin
-  SDK bypasses rules so nothing depends on them being open. There is no
-  `firestore.rules` in the repo — the rules live in the console
-- **G15** — Delete the seeded test `payments` documents (`sig_big_*`,
-  `sig_builder_*`, `sig_custom_*`) before launch. They are attached to real
-  accounts and will appear in billing history as purchases that never
-  happened
-- **G16** — Let an account unlink an identity from the settings page.
-  `unlinkIdentity` exists and already refuses to remove the last one, so
-  this is UI only
+- **G14** — Paste `firestore.rules` and `storage.rules` into the Firebase
+  console. Both deny all client access, which is correct — no browser code
+  touches Firestore or Storage, and the Admin SDK bypasses rules. Until this
+  is done, a permissive test-mode rule would let anyone set their own credits
 
 ---
 
