@@ -1,0 +1,49 @@
+rules_version = '2';
+
+// ============================================================
+// BANNR — FIRESTORE SECURITY RULES
+//
+// DENY EVERYTHING. That is not a placeholder, it is the correct
+// answer, and it is worth explaining why so nobody "fixes" it later.
+//
+// No browser code in this app ever touches Firestore. The client
+// bundle imports firebase/auth and nothing else — sign-in only. Every
+// read and write goes through a server route using the Firebase Admin
+// SDK, which authenticates as a service account and BYPASSES these
+// rules completely. So closing the client door costs us nothing and
+// removes the entire category of attack.
+//
+// What that protects, concretely:
+//
+//   users/         credit balances. If a client could write here it
+//                  could set its own balance — which is the exact bug
+//                  that moving credits off localStorage was meant to
+//                  end. This is the one that matters most.
+//   identities/    maps a Google uid or wallet address to an account
+//                  id. Readable, this is an enumeration of who has an
+//                  account; writable, it is account takeover.
+//   payments/      purchase records keyed by transaction signature.
+//   generations/   every banner made, including ones not featured.
+//   nonces/        single-use sign-in challenges.
+//   settings/      saved per-account preferences.
+//   refusals/      content-filter diagnostics.
+//
+// IF YOU EVER ADD CLIENT-SIDE FIRESTORE: do not loosen this file to
+// make it work. Add a server route instead. The Admin SDK path is
+// already there, it is already the only writer, and a rule that says
+// "signed-in users may write their own document" is one typo away
+// from letting them write the credits field.
+//
+// Deploy:  firebase deploy --only firestore:rules
+// Or paste into: Firebase Console -> Firestore Database -> Rules
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Every collection, every document, now and in future.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

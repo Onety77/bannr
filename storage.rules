@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// ============================================================
+// BANNR — FIREBASE STORAGE SECURITY RULES
+//
+// DENY EVERYTHING, for the same reason as firestore.rules: no browser
+// code in this app reads or writes Storage. The client imports
+// firebase/auth only. Uploads and reads happen in server routes
+// through the Admin SDK, which bypasses these rules.
+//
+// Banner images are served to the browser as data URLs or through our
+// own routes, never by giving the client a Storage handle — so there
+// is nothing to open up here.
+//
+// Note for when history moves to Storage (G5 in NEXT-ACTIONS.md): the
+// browser still should not talk to Storage directly. Generate a signed
+// URL server-side, hand that to the client, and leave this file alone.
+// A signed URL expires; a loosened rule does not.
+//
+// Deploy:  firebase deploy --only storage
+// Or paste into: Firebase Console -> Storage -> Rules
+// ============================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

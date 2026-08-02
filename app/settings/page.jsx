@@ -28,8 +28,23 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [theme, setTheme] = useState(null);
+  // Kept separate from auth.user: the id of each identity is needed to
+  // remove one, and publicUser deliberately doesn't expose them.
+  const [identities, setIdentities] = useState(null);
+
+  const loadIdentities = useCallback(async () => {
+    try {
+      const r = await fetch("/api/auth/identities");
+      if (!r.ok) return;
+      const d = await r.json();
+      setIdentities(d.identities || []);
+    } catch {}
+  }, []);
 
   useEffect(() => setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light"), []);
+
+  // Only once signed in — the endpoint 401s otherwise.
+  useEffect(() => { if (auth.user) loadIdentities(); }, [auth.user?.accountId, loadIdentities]);
 
   useEffect(() => {
     if (!auth.user) return;
@@ -124,6 +139,57 @@ export default function SettingsPage() {
             <span className="set-v">{auth.user.freeEditsLeft}</span>
           </div>
         </div>
+        {/* ---------- ways in ----------
+            Adding is the useful half. Every account that existed before
+            identities was created with a wallet, so signing in meant an
+            extension and a miserable time on a phone; linking Google
+            gives those people the easy door without abandoning their
+            credits. Removing is here mostly so linking feels safe. */}
+        <div className="set-ident">
+          <span className="set-k">Ways to sign in</span>
+          <ul className="ident-list">
+            {(identities || []).map((i) => (
+              <li key={i.type + i.id}>
+                <span className="ident-what">
+                  <b>{i.type === "google" ? "Google" : "Wallet"}</b>
+                  <span className="mono">{i.type === "wallet" ? short(i.id) : auth.user.email || "linked"}</span>
+                </span>
+                {identities.length > 1 && (
+                  <button
+                    className="btn small"
+                    disabled={auth.busy}
+                    onClick={async () => {
+                      const ok = await auth.unlinkIdentity(i.type, i.id);
+                      if (ok) loadIdentities();
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="set-row-actions">
+            {!identities?.some((i) => i.type === "google") && (
+              <button className="btn small" disabled={auth.busy}
+                onClick={async () => { if (await auth.linkGoogle()) loadIdentities(); }}>
+                Add Google
+              </button>
+            )}
+            {auth.walletAvailable && (
+              <button className="btn small" disabled={auth.busy}
+                onClick={async () => { if (await auth.linkWallet()) loadIdentities(); }}>
+                Add a wallet
+              </button>
+            )}
+          </div>
+          <p className="hint">
+            {identities?.length > 1
+              ? "Either one opens this account and the same credits."
+              : "Add a second so you can sign in from anywhere. You can't remove the last one."}
+          </p>
+        </div>
+
         <div className="set-row-actions">
           <Link href="/credits" className="btn small primary">Buy credits</Link>
           <button className="btn small" onClick={toggleTheme}>
