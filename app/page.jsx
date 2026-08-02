@@ -7,7 +7,9 @@ import Spotlight from "@/components/Spotlight";
 import Socials from "@/components/Socials";
 import Highlights from "@/components/Highlights";
 import BannerField from "@/components/BannerField";
-import { TEMPLATES } from "@/lib/templates";
+// Metadata only. This page is a server component, but it renders
+// client components that pull the same module into their bundle.
+import { STYLES as TEMPLATES } from "@/lib/styles";
 
 const FEATURES = [
   {

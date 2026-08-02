@@ -9,7 +9,8 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { TEMPLATES, AUTO_ID, AUTO_NAME } from "@/lib/templates";
+// Metadata only — see the note in lib/styles.js.
+import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME } from "@/lib/styles";
 import { countTouched } from "@/lib/advanced";
 import { useAuth } from "@/lib/useAuth";
 import { getHistory } from "@/lib/credits";

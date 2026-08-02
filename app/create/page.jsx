@@ -2,7 +2,9 @@
 "use client";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles } from "@/lib/templates";
+// Metadata only. lib/templates.js is server-only — importing it here
+// would ship every prompt in the product to the browser.
+import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles } from "@/lib/styles";
 import { loadDraft, saveDraft, setInFlight, getInFlight } from "@/lib/draft";
 import { saveToHistory, setUser, GENERATION_COST, EDIT_COST } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";

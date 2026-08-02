@@ -17,7 +17,8 @@
 // is never half-empty.
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { TEMPLATES } from "@/lib/templates";
+// Metadata only — see the note in lib/styles.js.
+import { STYLES as TEMPLATES } from "@/lib/styles";
 
 // Enough copies that the belt is always wider than any viewport. The
 // track is duplicated once more in the markup for a seamless wrap,
