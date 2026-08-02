@@ -466,12 +466,23 @@ h1, h2, h3 {
    because the cursor moves, and a plate rises when pointed at. */
 .showcase-wrap { max-width: 1000px; margin: 0 auto; }
 
+/* ---------- the stage ----------
+   Every plate holds TWO positions: where it rests in the stack (r)
+   and where it sits fanned open (f). A single number, --f, slides
+   between them, so 0 is stacked, 1 is wide open, and every value in
+   between is a real arrangement rather than a frame of an animation.
+   That is what lets scrolling scrub it closed continuously instead of
+   playing a fixed transition at it. */
 .stage {
   position: relative;
   perspective: 1500px;
   padding: 26px 0 34px;
   --rx: 0deg; --ry: 0deg;
+  --f: 0;
+  cursor: pointer;
 }
+.stage.n1 { cursor: default; }
+
 .stage-inner {
   position: relative;
   aspect-ratio: 2.05 / 1;
@@ -483,99 +494,92 @@ h1, h2, h3 {
 .plate {
   position: absolute;
   margin: 0;
-  width: 74%;
   aspect-ratio: 3 / 1;
   border-radius: 16px;
   overflow: hidden;
   background: var(--bg-soft);
   box-shadow: 0 30px 70px -22px rgba(0,0,0,0.42);
   transform-style: preserve-3d;
-  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.55s, filter 0.55s;
-}
-[data-theme="dark"] .plate { background: var(--card-soft); }
-.plate img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  will-change: transform, left, top, width;
 
-/* Three depths on one axis, so the group reads as a set held at an
-   angle rather than three unrelated cards scattered about. */
-.plate.p0 {
-  left: 0; top: 2%;
-  transform: translateZ(-190px) rotate(-6deg) scale(0.94);
-  filter: saturate(0.72) brightness(0.86);
-}
-.plate.p1 {
-  right: 0; top: 26%;
-  transform: translateZ(-95px) rotate(-3deg) scale(0.97);
-  filter: saturate(0.86) brightness(0.94);
-}
-.plate.p2 {
-  left: 8%; bottom: 0;
-  width: 84%;
-  transform: translateZ(0) rotate(-1.5deg);
-}
+  /* the interpolation */
+  left:  calc((var(--lr) + (var(--lf) - var(--lr)) * var(--f)) * 1%);
+  top:   calc((var(--tr) + (var(--tf) - var(--tr)) * var(--f)) * 1%);
+  width: calc((var(--wr) + (var(--wf) - var(--wr)) * var(--f)) * 1%);
+  transform:
+    translateZ(calc((var(--zr) + (var(--zf) - var(--zr)) * var(--f)) * 1px))
+    rotate(calc((var(--rr) + (var(--rf) - var(--rr)) * var(--f)) * 1deg))
+    scale(calc(var(--sr) + (var(--sf) - var(--sr)) * var(--f)));
+  filter:
+    saturate(calc(var(--ar) + (1 - var(--ar)) * var(--f)))
+    brightness(calc(var(--br) + (1 - var(--br)) * var(--f)));
 
-/* fewer featured banners: keep the composition balanced rather than
-   leaving a lopsided gap */
-.stage.n1 .plate.p0 { left: 8%; top: auto; bottom: 6%; width: 84%; transform: rotate(-1.5deg); filter: none; }
-.stage.n2 .plate.p0 { left: 0; top: 4%; transform: translateZ(-130px) rotate(-5deg) scale(0.95); }
-.stage.n2 .plate.p1 { right: auto; left: 8%; top: auto; bottom: 2%; width: 84%; transform: rotate(-1.5deg); filter: none; }
-
-/* THE FAN — the touch answer to "which one is behind?".
-   No cursor to point with on a phone, so a tap throws the set open.
-
-   Two earlier versions were built around a requirement nobody asked
-   for: that all three be completely visible at once. That is what
-   forced them to shrink, and then forced the stage to grow to stop
-   them shrinking. Neither looked good, and the constraint was
-   invented. Plates running off the edges is fine — better, even. It
-   is a deck being spread, and a spread deck overlaps.
-
-   So they now go BIGGER than they rest at (80% to 100%), sweep out
-   past both edges, and sit at three different angles and depths. What
-   you lose is a clean view of the ones behind. What you get is a
-   gesture that looks like something. */
-.stage.fan .plate {
-  width: 76%; right: auto; bottom: auto;
-  filter: none;
-  box-shadow: 0 34px 74px -22px rgba(0,0,0,0.55);
-  transition: transform 0.6s cubic-bezier(0.32, 1.3, 0.5, 1),
-              filter 0.4s ease, box-shadow 0.5s ease;
+  /* Opening and closing by TAP animates. Opening overshoots slightly
+     and settles, which is what stops it reading as a plain slide. */
+  transition:
+    left 0.62s cubic-bezier(0.34, 1.28, 0.52, 1),
+    top 0.62s cubic-bezier(0.34, 1.28, 0.52, 1),
+    width 0.62s cubic-bezier(0.34, 1.28, 0.52, 1),
+    transform 0.62s cubic-bezier(0.34, 1.28, 0.52, 1),
+    filter 0.45s ease,
+    box-shadow 0.5s ease;
 }
-/* Staggered. Three plates on identical timing is the single thing
-   that makes a transition read as cheap. */
-.stage.fan .plate.p0 { transition-delay: 0ms; }
-.stage.fan .plate.p1 { transition-delay: 55ms; }
-.stage.fan .plate.p2 { transition-delay: 110ms; }
-/* Staggered coming back too, front-first. */
-.plate.p2 { transition-delay: 0ms; }
+/* Staggered, so the three do not move as one slab. */
 .plate.p1 { transition-delay: 55ms; }
 .plate.p0 { transition-delay: 110ms; }
 
-/* Alternating overhang, so the spread has a rhythm rather than being
-   three parallel slabs. Depth does the stacking: p1 is nearest, which
-   is deliberate — it is the one about to take the front. */
-.stage.fan.n3 .plate.p0 { left: -14%; top: -3%; transform: translateZ(-50px) rotate(-6deg); }
-.stage.fan.n3 .plate.p1 { left:  38%; top: 24%; transform: translateZ(60px)  rotate(3deg) scale(1.02); }
-.stage.fan.n3 .plate.p2 { left:   6%; top: 51%; transform: translateZ(0)     rotate(-2deg); }
-.stage.fan.n2 .plate.p0 { left: -10%; top:  6%; transform: translateZ(55px)  rotate(-4deg) scale(1.02); }
-.stage.fan.n2 .plate.p1 { left:  30%; top: 46%; transform: translateZ(-30px) rotate(3deg); }
+/* Scrolling scrubs it: the plates must track the scroll exactly, so
+   every transition and delay comes off while it is being dragged. */
+.stage.scrub .plate { transition: none; transition-delay: 0ms; }
 
-/* Spread out, every banner can carry its own label. */
-.stage.fan figcaption { opacity: 1; transform: none; }
+[data-theme="dark"] .plate { background: var(--card-soft); }
+.plate img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---- three plates: rest, then fanned ----
+   Fanned, they are bigger than they rest at and hang off both edges,
+   alternating left and right so the spread has a rhythm. Depth does
+   the stacking: p1 sits nearest, because it is the one that takes the
+   front when the set closes. */
+.stage.n3 .plate.p0 {
+  --lr: 0;   --tr: 2;    --wr: 74; --zr: -190; --rr: -6;   --sr: 0.94; --ar: 0.72; --br: 0.86;
+  --lf: -14; --tf: -3;   --wf: 76; --zf: -50;  --rf: -6;   --sf: 1;
+}
+.stage.n3 .plate.p1 {
+  --lr: 26;  --tr: 26;   --wr: 74; --zr: -95;  --rr: -3;   --sr: 0.97; --ar: 0.86; --br: 0.94;
+  --lf: 38;  --tf: 24;   --wf: 76; --zf: 60;   --rf: 3;    --sf: 1.02;
+}
+.stage.n3 .plate.p2 {
+  --lr: 8;   --tr: 42.6; --wr: 84; --zr: 0;    --rr: -1.5; --sr: 1;    --ar: 1;    --br: 1;
+  --lf: 6;   --tf: 51;   --wf: 76; --zf: 0;    --rf: -2;   --sf: 1;
+}
+
+/* ---- fewer featured banners: keep the composition balanced ---- */
+.stage.n2 .plate.p0 {
+  --lr: 0;   --tr: 4;    --wr: 74; --zr: -130; --rr: -5;   --sr: 0.95; --ar: 0.8;  --br: 0.9;
+  --lf: -10; --tf: 6;    --wf: 76; --zf: 55;   --rf: -4;   --sf: 1.02;
+}
+.stage.n2 .plate.p1 {
+  --lr: 8;   --tr: 40.6; --wr: 84; --zr: 0;    --rr: -1.5; --sr: 1;    --ar: 1;    --br: 1;
+  --lf: 30;  --tf: 46;   --wf: 76; --zf: -30;  --rf: 3;    --sf: 1;
+}
+.stage.n1 .plate.p0 {
+  --lr: 8;   --tr: 36.6; --wr: 84; --zr: 0;    --rr: -1.5; --sr: 1;    --ar: 1;    --br: 1;
+  --lf: 8;   --tf: 36.6; --wf: 84; --zf: 0;    --rf: -1.5; --sf: 1;
+}
 
 /* hover: hover only — on a touch screen these latch after a tap and
-   the plate stays stuck forward */
+   the plate stays stuck forward. Suppressed while the set is open,
+   where lifting one plate out of a deliberate arrangement only breaks
+   the arrangement. */
 @media (hover: hover) {
-  .plate:hover {
+  .stage:not(.open) .plate:hover {
     transform: translateZ(90px) rotate(0deg) scale(1.02);
     filter: none;
     box-shadow: 0 50px 100px -24px rgba(0,0,0,0.5);
     z-index: 5;
-    /* The per-plate stagger above exists for the fan. Left in place
-       it would put up to 110ms of lag between pointing at a plate and
-       it lifting, which on a cursor reads as the page being slow. */
     transition-delay: 0ms;
   }
-  .plate:hover figcaption { opacity: 1; transform: none; }
+  .stage:not(.open) .plate:hover figcaption { opacity: 1; transform: none; }
 }
 
 .plate figcaption {
@@ -587,17 +591,33 @@ h1, h2, h3 {
   -webkit-backdrop-filter: saturate(1.8) blur(14px);
   padding: 5px 11px; border-radius: var(--pill);
   box-shadow: var(--shadow-sm);
-  opacity: 0; transform: translateY(4px);
+  /* Fades in with the fan, so an open set labels every banner. */
+  opacity: var(--f);
+  transform: translateY(calc((1 - var(--f)) * 4px));
   transition: opacity 0.35s, transform 0.35s;
 }
 .plate figcaption b { font-weight: 700; color: var(--text); }
 .plate figcaption span { color: var(--muted); }
 
+/* The invitation. Without it, tapping the picture is a secret — and
+   it doubles as the keyboard control for the whole interaction. */
+.stage-toggle {
+  position: absolute; right: 0; top: 0; z-index: 6;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--bg) 68%, transparent);
+  backdrop-filter: saturate(1.8) blur(14px);
+  -webkit-backdrop-filter: saturate(1.8) blur(14px);
+  color: var(--text-2); padding: 7px 13px; border-radius: var(--pill);
+  box-shadow: var(--shadow-sm);
+  transition: color 0.2s, background 0.2s;
+}
+.stage-toggle:hover { color: var(--text); background: color-mix(in srgb, var(--bg) 88%, transparent); }
+.stage-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.stage.n1 .stage-toggle { display: none; }
+
 .stage-live {
-  /* Sits directly over the back plate's top-left corner at z-index 6,
-     which is exactly where that plate is most exposed — so it was
-     eating the clicks meant to bring it forward. It is a label, not a
-     control; it should never take a pointer. */
+  /* A label, not a control — it sits over the back plate's corner and
+     would otherwise eat the taps meant for the stage. */
   pointer-events: none;
   position: absolute; top: 0; left: 0; z-index: 6;
   display: inline-flex; align-items: center; gap: 6px;
@@ -622,34 +642,42 @@ h1, h2, h3 {
 }
 
 @media (max-width: 760px) {
-  /* The arrangement IS the design, so it stays on a phone — an
-     earlier version flattened it into a plain vertical list on the
-     reasoning that touch has no hover and no room for depth. Both
-     were wrong: tap already brings a plate forward, and depth never
-     needed hover. Only the proportions change — a taller stage to
-     give the offsets room on a narrow screen, and wider plates. */
+  /* The arrangement IS the design, so it stays on a phone. Only the
+     proportions change — a taller stage to give the offsets room on a
+     narrow screen, and wider plates. */
   .stage { padding: 14px 0 24px; perspective: 900px; }
   .stage-inner { aspect-ratio: 1.5 / 1; }
-  .plate { width: 80%; border-radius: 12px; }
-  .plate.p0 { left: 0; top: 0; transform: translateZ(-120px) rotate(-6deg) scale(0.94); }
-  .plate.p1 { right: 0; top: 30%; transform: translateZ(-60px) rotate(-3deg) scale(0.97); }
-  .plate.p2 { left: 8%; bottom: 0; width: 88%; transform: translateZ(0) rotate(-1.5deg); }
-  /* No hover on touch, so the caption belongs to whichever plate is
-     currently in front. */
-  .plate.front figcaption { opacity: 1; transform: none; }
+  .plate { border-radius: 12px; }
 
-  /* GROWS on opening — 80% at rest to 100% spread, running off both
-     edges. The opposite of the first attempt, which shrank them. */
-  .stage.fan .plate { width: 100%; }
-  .stage.fan.n3 .plate.p0 { left: -18%; top: -2%; transform: translateZ(-44px) rotate(-7deg); }
-  .stage.fan.n3 .plate.p1 { left:  16%; top: 26%; transform: translateZ(50px)  rotate(4deg) scale(1.02); }
-  .stage.fan.n3 .plate.p2 { left:  -8%; top: 54%; transform: translateZ(0)     rotate(-2deg); }
-  .stage.fan.n2 .plate.p0 { left: -12%; top:  8%; transform: translateZ(48px)  rotate(-5deg) scale(1.02); }
-  .stage.fan.n2 .plate.p1 { left:  12%; top: 50%; transform: translateZ(-26px) rotate(3deg); }
+  .stage.n3 .plate.p0 {
+    --lr: 0;   --tr: 0;  --wr: 80;  --zr: -120; --rr: -6;   --sr: 0.94;
+    --lf: -18; --tf: -2; --wf: 100; --zf: -44;  --rf: -7;   --sf: 1;
+  }
+  .stage.n3 .plate.p1 {
+    --lr: 20;  --tr: 30; --wr: 80;  --zr: -60;  --rr: -3;   --sr: 0.97;
+    --lf: 16;  --tf: 26; --wf: 100; --zf: 50;   --rf: 4;    --sf: 1.02;
+  }
+  .stage.n3 .plate.p2 {
+    --lr: 8;   --tr: 56; --wr: 88;  --zr: 0;    --rr: -1.5; --sr: 1;
+    --lf: -8;  --tf: 54; --wf: 100; --zf: 0;    --rf: -2;   --sf: 1;
+  }
+  .stage.n2 .plate.p0 {
+    --lr: 0;   --tr: 4;  --wr: 80;  --zr: -110; --rr: -5;   --sr: 0.95;
+    --lf: -12; --tf: 8;  --wf: 100; --zf: 48;   --rf: -5;   --sf: 1.02;
+  }
+  .stage.n2 .plate.p1 {
+    --lr: 8;   --tr: 52; --wr: 88;  --zr: 0;    --rr: -1.5; --sr: 1;
+    --lf: 12;  --tf: 50; --wf: 100; --zf: -26;  --rf: 3;    --sf: 1;
+  }
+  .stage.n1 .plate.p0 { --tr: 50; --tf: 50; }
+
+  /* No hover on touch, so the front plate keeps its label at rest. */
+  .plate.front figcaption { opacity: 1; transform: none; }
 }
+
 @media (prefers-reduced-motion: reduce) {
-  .stage, .stage-inner, .plate { transition: none; }
-  .plate, .stage.fan .plate { transition: none; transition-delay: 0ms; }
+  .stage-inner, .plate { transition: none; }
+  .plate { transition-delay: 0ms; }
 }
 
 .spot-wait {
@@ -1925,12 +1953,8 @@ body::after {
 
 /* Only the plates behind are pickable — the front one is already
    there, so it should not offer a pointer or a focus ring. */
-/* The whole stage takes the click — a tap that falls in a gap
-   between plates steps the stack along rather than doing nothing. */
-.stage { cursor: pointer; }
-.stage.n1 { cursor: default; }
-.plate:not(.front) { cursor: pointer; }
-.plate:not(.front):focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }
+/* The plates are no longer individually clickable — the whole stage
+   is one toggle, and .stage-toggle is the focusable control. */
 
 /* ---------- ways to sign in (settings) ---------- */
 .set-ident { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--hairline); }

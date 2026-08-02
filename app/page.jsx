@@ -96,7 +96,7 @@ export default function Landing() {
         <div className="aurora" aria-hidden="true"><i /><i /><i /></div>
         <div className="wrap">
           <h1 className="reveal">
-            Win the<br /><span className="shimmer">first glance.</span>
+            First impressions<br /><span className="shimmer">perfected.</span>
           </h1>
           <p className="lede reveal d1">
             Professional banners, art-directed around your project&apos;s identity.

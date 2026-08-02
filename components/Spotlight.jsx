@@ -8,50 +8,37 @@
 // So the banners are shown ALL AT ONCE, floating in perspective
 // space at a shared angle: a portfolio laid out, not a reel played.
 // The claim changes from "here is a banner" to "look how many good
-// ones come out of this", which is the claim the section is actually
-// for.
+// ones come out of this", which is the claim the section is for.
 //
-// Nothing plays on a timer. It is alive because it answers the
-// cursor — the whole group turns toward it, and a card you point at
-// rises out of the arrangement. Movement you cause, rather than
-// movement you wait through.
+// THE FAN. A tap or click throws the set open — plates bigger than
+// they rest at, sweeping past both edges at three angles and depths.
+// It then STAYS open. It closes only when the visitor decides it
+// closes: another tap, or scrolling it off the screen.
+//
+// The scroll close is not a timer, it is scrubbed. How far the stage
+// has left the viewport IS how far the plates have returned to the
+// stack, so the moment it is fully out of sight is the moment it is
+// fully closed. Scroll back mid-way and it opens again, because the
+// mapping is continuous in both directions.
+//
+// Identical on desktop and phone. There is no reason for a cursor to
+// get different choreography from a finger, and the earlier
+// pointer-type branching only made two things to maintain.
 //
 // Only generations an admin has flagged "Highlight" on /admin7731
 // appear here. Nothing is generated to fill it: a homepage visitor is
 // signed out and generation costs real credits.
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const MAX_CARDS = 3;
 const TILT = 9; // degrees the group turns toward the cursor
 
-// Touch fan-out. Mirrored in CSS, so change them together.
-//
-// Opening runs 620ms with a 110ms stagger across the three plates, so
-// the set is not fully open until ~730ms. HOLD is measured from the
-// tap, which leaves roughly half a second of actual stillness at the
-// top — long enough to read all three, short enough not to feel like
-// waiting. BACK covers the 550ms return plus the same stagger.
-const FAN_HOLD_MS = 1300;
-const FAN_BACK_MS = 680;
-
 export default function Spotlight() {
   const [items, setItems] = useState([]);
-  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
   const stageRef = useRef(null);
-  const expanding = useRef(false);   // locks out taps mid-animation
-  const timers = useRef([]);
-  const lastPointer = useRef("mouse");
-  // Which plate the cursor is over. The click is resolved from THIS
-  // rather than from the event target: the plates overlap heavily
-  // inside a preserve-3d context, so where a click actually lands is
-  // unpredictable, whereas hover is unambiguous — the pointed-at
-  // plate visibly lifts, so the user already knows which one is armed.
   const hoverIdx = useRef(-1);
-
-  // A tap that lands while these are pending would otherwise fire
-  // after unmount and warn.
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   useEffect(() => {
     (async () => {
@@ -63,9 +50,16 @@ export default function Spotlight() {
     })();
   }, []);
 
-  // Written straight to CSS custom properties rather than through
-  // state: this fires on every mouse move, and a re-render per frame
-  // would cost far more than it buys.
+  // --f is the single number the whole arrangement is built from:
+  // 0 is stacked, 1 is fanned wide open, and every value between is a
+  // real position. Written straight to the element rather than held in
+  // state, because scrolling sets it every frame and a re-render per
+  // frame would cost far more than it buys.
+  const setFan = useCallback((v) => {
+    stageRef.current?.style.setProperty("--f", String(v));
+  }, []);
+
+  // Cursor tilt, same reasoning — no state, no re-render.
   function onPointerMove(e) {
     const el = stageRef.current;
     if (!el || e.pointerType !== "mouse") return;
@@ -83,54 +77,76 @@ export default function Spotlight() {
     el.style.setProperty("--ry", "0deg");
   }
 
-  // One handler for the whole stage, so a click can never fall into a
-  // gap between plates and do nothing.
-  function onStageClick() {
-    if (items.length < 2) return;
-    if (lastPointer.current !== "mouse") { fanAndAdvance(); return; }
-    // Pointed at a plate: that one. Pointed at nothing: step the
-    // stack along, which is the only thing a click there could mean.
-    const i = hoverIdx.current;
-    bringForward(i >= 0 ? i : items.length - 2);
-    // The plate under the cursor just became the front one. Its DOM
-    // node moved but the pointer never left it, so pointerenter will
-    // not fire again — without this, a second click without moving
-    // the mouse would act on whatever else landed at the old index.
-    if (i >= 0) hoverIdx.current = items.length - 1;
-  }
+  // SCROLLING CLOSES IT, in proportion. r.bottom is how much of the
+  // stage is still below the top edge of the screen, so dividing by
+  // its height gives exactly "how much of this is left to see" — 1
+  // while it is fully below, 0 the instant it clears the top. Feeding
+  // that straight into --f means the set finishes closing at the same
+  // moment it finishes leaving.
+  useEffect(() => {
+    if (!open) return;
+    const el = stageRef.current;
+    if (!el) return;
 
-  // Plates are painted back to front, so "front" means last. Moving
-  // the chosen one to the end rotates the others back a place rather
-  // than swapping two — the whole arrangement re-forms, which is what
-  // makes it read as picking a print out of a stack.
-  function bringForward(i) {
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const node = stageRef.current;
+        if (!node) return;
+        const r = node.getBoundingClientRect();
+        const f = Math.max(0, Math.min(1, r.bottom / Math.max(r.height, 1)));
+        // Transitions have to be off while scrubbing or the plates lag
+        // behind the finger instead of tracking it.
+        node.classList.add("scrub");
+        setFan(f);
+        // Fully gone: drop out of the open state, so scrolling back up
+        // finds it stacked rather than silently re-opening something
+        // the visitor already scrolled past.
+        if (f <= 0.002) setOpen(false);
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [open, setFan]);
+
+  // Plates are painted back to front, so "front" means last. Stepping
+  // the whole order along rotates the set rather than swapping two, so
+  // the arrangement re-forms instead of flickering.
+  const advance = useCallback(() => {
     setItems((list) => {
-      if (i < 0 || i >= list.length || i === list.length - 1) return list;
+      if (list.length < 2) return list;
       const next = [...list];
-      next.push(next.splice(i, 1)[0]);
+      next.unshift(next.pop());
       return next;
     });
-  }
+  }, []);
 
-  // TOUCH: there is no cursor to point with, so tapping anywhere fans
-  // the whole set out flat — every banner fully visible, nothing
-  // overlapping — holds a moment, then folds back with the next one
-  // in front. Tap again and it walks on through the set.
-  function fanAndAdvance() {
-    if (expanding.current || items.length < 2) return;
-    expanding.current = true;
-    setExpanded(true);
-    timers.current.push(
-      setTimeout(() => {
-        setItems((list) => {
-          const next = [...list];
-          next.unshift(next.pop());   // step the whole order along
-          return next;
-        });
-        setExpanded(false);
-      }, FAN_HOLD_MS),
-      setTimeout(() => { expanding.current = false; }, FAN_HOLD_MS + FAN_BACK_MS)
-    );
+  function toggle() {
+    if (items.length < 2) return;
+    const el = stageRef.current;
+    // A tap is a decision, so it animates — scrubbing turned the
+    // transition off and this turns it back on.
+    el?.classList.remove("scrub");
+
+    if (open) {
+      // Closing by choice also brings the next banner to the front, so
+      // repeated taps walk through the set. Closing by SCROLLING does
+      // not: leaving something behind is not a request for the next one.
+      advance();
+      setOpen(false);
+      setFan(0);
+    } else {
+      setOpen(true);
+      setFan(1);
+    }
   }
 
   if (!items.length) {
@@ -146,12 +162,11 @@ export default function Spotlight() {
   return (
     <div className="showcase-wrap">
       <div
-        className={`stage n${items.length} ${expanded ? "fan" : ""}`}
+        className={`stage n${items.length}${open ? " open" : ""}`}
         ref={stageRef}
         onPointerMove={onPointerMove}
         onPointerLeave={reset}
-        onPointerDown={(e) => { lastPointer.current = e.pointerType || "mouse"; }}
-        onClick={onStageClick}
+        onClick={toggle}
       >
         <div className="stage-inner">
           {/* Painted back to front so the nearest card is last in the
@@ -164,17 +179,9 @@ export default function Spotlight() {
               // transform transitions there. Keying by index would
               // swap the images instead and the plates would jump.
               <figure
-                className={`plate p${i} ${isFront ? "front" : ""}`}
+                className={`plate p${i}${isFront ? " front" : ""}`}
                 key={it.ts}
-                role={isFront ? undefined : "button"}
-                tabIndex={isFront ? -1 : 0}
-                aria-label={isFront ? undefined : `Bring ${it.ticker || "this banner"} to the front`}
                 onPointerEnter={() => { hoverIdx.current = i; }}
-                // The click itself is handled by the stage, which reads
-                // hoverIdx — see onStageClick.
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); bringForward(i); }
-                }}
               >
                 <img
                   src={it.src}
@@ -191,6 +198,20 @@ export default function Spotlight() {
             );
           })}
         </div>
+
+        {/* One control for the whole stage, so the interaction is
+            reachable by keyboard and announced properly. The plates
+            themselves are decorative to a screen reader — they carry
+            their own alt text and nothing else to activate. */}
+        <button
+          type="button"
+          className="stage-toggle"
+          aria-pressed={open}
+          onClick={(e) => { e.stopPropagation(); toggle(); }}
+        >
+          {open ? "Close the set" : "See all three"}
+        </button>
+
         <span className="stage-live"><i />LIVE</span>
       </div>
     </div>
