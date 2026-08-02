@@ -1934,8 +1934,9 @@ body::after {
 
 /* Only the plates behind are pickable — the front one is already
    there, so it should not offer a pointer or a focus ring. */
-/* The plates are no longer individually clickable — the whole stage
-   is one toggle, and .stage-toggle is the focusable control. */
+/* The plates are not individually clickable. The stage takes one
+   click, which steps the order along — the spread itself is driven by
+   scroll position, not by anything to press. */
 
 /* ---------- ways to sign in (settings) ---------- */
 .set-ident { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--hairline); }
