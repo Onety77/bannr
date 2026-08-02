@@ -56,3 +56,22 @@ Six to twelve is a good set. Fewer and the rotation repeats; many more
 and you are mostly adding files nobody has looked at critically. Every
 one should be something you would be pleased to have made — a
 reference you are lukewarm about teaches lukewarm.
+
+## The tech set, and why two are held back
+
+`_review/` is ignored by the loader (the extension filter skips
+directories), so anything in there is parked rather than deleted. Move
+a file back up one level to bring it into rotation.
+
+**`apple-tv-poster-grid.jpg`** — not a banner. It is a screenshot of a
+streaming app's poster wall: twenty different pieces of artwork in a
+grid. As a reference for a single 3:1 banner it teaches the one thing
+a banner must never be, which is a grid of thumbnails.
+
+**`dippy-eth-lowpoly.jpg`** — wireframe lettering and low-poly
+mountains. Competent, but it is close to the generic futurism the Tech
+brief explicitly warns against, and the style is meant to clear a
+higher bar than this. A reference you are lukewarm about teaches
+lukewarm, and with a set this small each one carries real weight.
+
+Both are judgement calls, not facts. If you disagree, move them back.
