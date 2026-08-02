@@ -61,7 +61,15 @@ export async function POST(req) {
       const sol = transfer.amount / 1e9;
       const pack = { ...creditsForSol(sol), sol };
 
-      // find user by linked wallet
+      // THE BACKSTOP PATH. The primary route is now /api/pay/claim:
+      // someone paying from a signed-in session tells us the signature
+      // directly, so attribution never has to be guessed. This runs
+      // when that didn't happen — a closed tab, or SOL sent by hand to
+      // the treasury address — and falls back to the old rule of
+      // matching the sender against addresses registered to an
+      // account. Both paths write this same payments/{signature}
+      // document, so whichever arrives first wins and the other is a
+      // no-op.
       const userSnap = await tx.get(
         db.collection("users").where("wallets", "array-contains", sender).limit(1)
       );
@@ -81,9 +89,13 @@ export async function POST(req) {
         credits: (userDoc.data().credits || 0) + pack.credits,
       });
       tx.set(payRef, {
-        userId: userDoc.id, wallet: sender, amountSol: pack.sol,
+        // accountId is the field billing history queries. userId is
+        // kept because older documents have it and nothing gains from
+        // rewriting history.
+        accountId: userDoc.id, userId: userDoc.id,
+        wallet: sender, amountSol: pack.sol,
         packId: pack.id, creditsGranted: pack.credits,
-        status: "credited", ts: Date.now(),
+        status: "credited", via: "webhook", ts: Date.now(),
       });
     });
 

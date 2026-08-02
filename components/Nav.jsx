@@ -25,6 +25,18 @@ const MoonIcon = (
   </svg>
 );
 
+// An account may now have an email, a wallet, both, or neither
+// visible — so the nav shows whichever identity it actually has
+// rather than assuming there is an address.
+function accountLabel(user) {
+  if (user.email) {
+    const [name] = user.email.split("@");
+    return name.length > 14 ? name.slice(0, 13) + "…" : name;
+  }
+  if (user.wallet) return short(user.wallet);
+  return "Account";
+}
+
 export default function Nav() {
   const path = usePathname();
   const auth = useAuth();
@@ -78,11 +90,11 @@ export default function Nav() {
               <Link href="/credits" className="credit-pill">{user.credits} credits</Link>
               <div className="acct" onClick={(e) => e.stopPropagation()}>
                 <button className="acct-btn" onClick={() => setMenu((m) => !m)} aria-expanded={menu}>
-                  {short(user.wallet)}
+                  {accountLabel(user)}
                 </button>
                 {menu && (
                   <div className="acct-menu">
-                    <span className="acct-addr">{short(user.wallet)}</span>
+                    <span className="acct-addr">{accountLabel(user)}</span>
                     <Link href="/settings" onClick={() => setMenu(false)}>Settings</Link>
                     <Link href="/history" onClick={() => setMenu(false)}>My banners</Link>
                     <Link href="/credits" onClick={() => setMenu(false)}>Buy credits</Link>

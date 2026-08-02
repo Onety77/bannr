@@ -18,13 +18,15 @@ const PAYMENT_LIMIT = 25;
 // The blockchain is the receipt — every purchase already has a
 // permanent, publicly verifiable record, so the account page links
 // straight to it rather than us emailing anything.
-async function billingHistory(wallet) {
+async function billingHistory(accountId) {
   const db = getAdminDb();
   if (!db) return [];
   try {
     const snap = await db
       .collection("payments")
-      .where("wallet", "==", wallet)
+      // By ACCOUNT, not by wallet — an account can pay from any
+      // number of wallets, and a Google-only account has none at all.
+      .where("accountId", "==", accountId)
       .limit(PAYMENT_LIMIT)
       .get();
     return snap.docs
@@ -50,9 +52,9 @@ export async function GET(req) {
   if (!session) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
 
   const [user, settings, payments] = await Promise.all([
-    getUser(session.wallet),
-    getSettings(session.wallet),
-    billingHistory(session.wallet),
+    getUser(session.accountId),
+    getSettings(session.accountId),
+    billingHistory(session.accountId),
   ]);
 
   return NextResponse.json({ ok: true, user: publicUser(user), settings, payments });
@@ -69,6 +71,6 @@ export async function POST(req) {
     return NextResponse.json({ error: "Could not read those settings." }, { status: 400 });
   }
 
-  const settings = await saveSettings(session.wallet, body.settings || {});
+  const settings = await saveSettings(session.accountId, body.settings || {});
   return NextResponse.json({ ok: true, settings });
 }

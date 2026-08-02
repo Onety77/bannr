@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/useAuth";
 import { getHistory } from "@/lib/credits";
 import { short } from "@/lib/wallet";
 import AdvancedPanel from "@/components/AdvancedPanel";
-import ConnectButton from "@/components/ConnectButton";
+import ConnectButton, { WalletSignIn, ConnectNote } from "@/components/ConnectButton";
 
 const EMPTY = { defaults: {}, avoid: "", styles: [], variants: 3 };
 
@@ -75,8 +75,12 @@ export default function SettingsPage() {
   if (!auth.user) {
     return (
       <main className="wrap">
-        <div className="page-head"><h1>Settings</h1><p>Connect your wallet to see your account.</p></div>
-        <div className="panel set-signin"><ConnectButton auth={auth} size="" block /></div>
+        <div className="page-head"><h1>Settings</h1><p>Sign in to see your account.</p></div>
+        <div className="panel set-signin">
+          <ConnectButton auth={auth} size="" block label="Sign in with Google" />
+          <WalletSignIn auth={auth} />
+          <ConnectNote auth={auth} />
+        </div>
       </main>
     );
   }
@@ -87,7 +91,7 @@ export default function SettingsPage() {
     <main className="wrap set-wrap">
       <div className="page-head">
         <h1>Settings</h1>
-        <p>Saved to your wallet, so they follow you to any device.</p>
+        <p>Saved to your account, so they follow you to any device.</p>
       </div>
 
       {/* ---------- account ---------- */}
@@ -95,8 +99,21 @@ export default function SettingsPage() {
         <div className="panel-head"><h3>Account</h3></div>
         <div className="set-acct">
           <div>
-            <span className="set-k">Wallet</span>
-            <span className="set-v mono">{short(auth.user.wallet)}</span>
+            <span className="set-k">Signed in as</span>
+            <span className="set-v mono">
+              {auth.user.email || (auth.user.wallet ? short(auth.user.wallet) : "—")}
+            </span>
+          </div>
+          <div>
+            <span className="set-k">Paying wallets</span>
+            {/* Populated by paying, not by linking. Nothing needs to be
+                set up here — any wallet you pay from is remembered so a
+                later hand-sent transfer still finds this account. */}
+            <span className="set-v mono">
+              {auth.user.wallets?.length
+                ? auth.user.wallets.map(short).join(", ")
+                : "none yet — any wallet works"}
+            </span>
           </div>
           <div>
             <span className="set-k">Credits</span>

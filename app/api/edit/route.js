@@ -52,11 +52,11 @@ export async function POST(req) {
     const session = requireUser(req);
     if (!session) {
       return NextResponse.json(
-        { error: "Connect your wallet to edit banners.", code: "signin_required" },
+        { error: "Sign in to edit banners.", code: "signin_required" },
         { status: 401 }
       );
     }
-    if (rateLimited(session.wallet)) {
+    if (rateLimited(session.accountId)) {
       return NextResponse.json({ error: "Slow down — too many edits in one minute." }, { status: 429 });
     }
 
@@ -118,14 +118,14 @@ export async function POST(req) {
     // Charged here — after validation, before the paid API call.
     // Free daily edits come out of the account allowance first; only
     // once those run out does this touch credits.
-    const paid = await consumeEdit(session.wallet);
+    const paid = await consumeEdit(session.accountId);
     if (!paid.ok) {
       return NextResponse.json(
         { error: "You're out of free edits and credits. Top up to keep editing.", code: "insufficient_credits" },
         { status: 402 }
       );
     }
-    if (paid.paidWith === "credits") charged = { wallet: session.wallet, amount: EDIT_COST };
+    if (paid.paidWith === "credits") charged = { accountId: session.accountId, amount: EDIT_COST };
 
     // Same retry ladder as generation: one silent second attempt with
     // the reassurance block if the first was refused on content
@@ -151,7 +151,7 @@ export async function POST(req) {
 
     return NextResponse.json({
       ok: true,
-      user: publicUser(await getUser(session.wallet)),
+      user: publicUser(await getUser(session.accountId)),
       paidWith: paid.paidWith,
       dataUrl: `data:image/png;base64,${finalPng.toString("base64")}`,
       bg: `data:image/jpeg;base64,${bgJpeg.toString("base64")}`,
@@ -166,7 +166,7 @@ export async function POST(req) {
     // a spent free daily edit is deliberately not restored, since
     // returning one would mint currency that never existed.
     if (charged) {
-      try { await refundCredits(charged.wallet, charged.amount); }
+      try { await refundCredits(charged.accountId, charged.amount); }
       catch (e) { console.error("[edit] REFUND FAILED", charged, e); }
     }
     const { error, status, reason } = publicError(err, "edit");

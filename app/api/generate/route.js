@@ -100,7 +100,7 @@ export async function POST(req) {
     const session = requireUser(req);
     if (!session) {
       return NextResponse.json(
-        { error: "Connect your wallet to generate banners.", code: "signin_required" },
+        { error: "Sign in to generate banners.", code: "signin_required" },
         { status: 401 }
       );
     }
@@ -108,7 +108,7 @@ export async function POST(req) {
     // Rate limit per account now rather than per IP. The old in-memory
     // IP map never worked on serverless anyway (each invocation can be
     // a fresh instance); an account is a far more meaningful bucket.
-    if (rateLimited(session.wallet)) {
+    if (rateLimited(session.accountId)) {
       return NextResponse.json({ error: "Slow down — too many generations in one minute." }, { status: 429 });
     }
 
@@ -162,7 +162,7 @@ export async function POST(req) {
     // wouldn't be much of a rule. Merged into every style rather than
     // replacing a per-run Avoid, so the two combine instead of one
     // silently winning.
-    const accountAvoid = (await getSettings(session.wallet)).avoid?.trim();
+    const accountAvoid = (await getSettings(session.accountId)).avoid?.trim();
     if (accountAvoid) {
       for (const id of styleIds) {
         const s = advanced[id] || {};
@@ -241,7 +241,7 @@ export async function POST(req) {
     // last credits. Everything below is wrapped by the catch, which
     // refunds on any failure.
     if (!demoMode) {
-      const remaining = await spendCredits(session.wallet, GENERATION_COST);
+      const remaining = await spendCredits(session.accountId, GENERATION_COST);
       if (remaining === null) {
         return NextResponse.json(
           {
@@ -251,7 +251,7 @@ export async function POST(req) {
           { status: 402 }
         );
       }
-      charged = { wallet: session.wallet, amount: GENERATION_COST };
+      charged = { accountId: session.accountId, amount: GENERATION_COST };
     }
 
     // Each variant carries its own style now. Normal ("auto") sends no
@@ -388,7 +388,7 @@ export async function POST(req) {
 
     // The authoritative balance travels with the result, so the UI
     // never has to guess or keep its own running total.
-    const after = demoMode ? null : await getUser(session.wallet);
+    const after = demoMode ? null : await getUser(session.accountId);
 
     return NextResponse.json({
       ok: true,
@@ -411,7 +411,7 @@ export async function POST(req) {
     // even if the user never sees the response.
     if (charged) {
       try {
-        await refundCredits(charged.wallet, charged.amount);
+        await refundCredits(charged.accountId, charged.amount);
       } catch (e) {
         // A failed refund is a real loss to a real person — make it
         // loud in the log rather than swallowing it.

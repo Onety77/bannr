@@ -6,7 +6,7 @@ import { TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles } from "@/lib/templates
 import { saveToHistory, setUser, GENERATION_COST, EDIT_COST } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
-import ConnectButton, { ConnectNote } from "@/components/ConnectButton";
+import ConnectButton, { ConnectNote, WalletSignIn } from "@/components/ConnectButton";
 import Lightbox from "@/components/Lightbox";
 import StageAura from "@/components/StageAura";
 import AdvancedPanel from "@/components/AdvancedPanel";
@@ -288,7 +288,7 @@ function CreateInner() {
     const { name } = formRef.current;
     if (!name.trim()) return setError("Coin name is required — it's the one thing every banner needs.");
     if (!logoFile) return setError("A logo or pfp is required — the banner is built around it.");
-    if (!auth.user) return setError("Connect your wallet to generate banners.");
+    if (!auth.user) return setError("Sign in to generate banners.");
     if (auth.user.credits < GENERATION_COST)
       return setError(`Not enough credits (need ${GENERATION_COST}). Top up on the credits page.`);
 
@@ -413,7 +413,7 @@ function CreateInner() {
   async function applyEdit(instruction, refFiles = []) {
     const idx = lightbox?.index;
     if (idx == null) return { error: "Nothing to edit." };
-    if (!auth.user) return { error: "Connect your wallet to edit banners." };
+    if (!auth.user) return { error: "Sign in to edit banners." };
     if (auth.user.freeEditsLeft <= 0 && auth.user.credits < EDIT_COST)
       return { error: "You're out of free edits and credits — top up on the credits page." };
 
@@ -877,7 +877,8 @@ function CreateInner() {
                 at this point rather than before starting. */}
             {!auth.loading && !auth.user ? (
               <>
-                <ConnectButton auth={auth} size="" block label="Connect wallet to generate" />
+                <ConnectButton auth={auth} size="" block label="Sign in to generate" />
+                <WalletSignIn auth={auth} />
                 <ConnectNote auth={auth} />
               </>
             ) : (

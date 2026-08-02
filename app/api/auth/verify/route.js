@@ -5,7 +5,8 @@
 // it can never read or forge.
 import { NextResponse } from "next/server";
 import { verifySignIn, createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
-import { getOrCreateUser, publicUser } from "@/lib/users";
+import { getOrCreateByIdentity, publicUser, addPayingWallet } from "@/lib/users";
+import { identitiesFor } from "@/lib/identities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,12 +30,20 @@ export async function POST(req) {
       );
     }
 
-    // First sign-in creates the account and grants free credits, once
-    // per wallet — see the idempotency note in lib/users.js.
-    const user = await getOrCreateUser(wallet);
+    // The signature proved they hold this address. That address is an
+    // IDENTITY now, not the account itself — it resolves to an account
+    // id, creating one on first sight. Free credits are granted with
+    // the account, so linking this wallet to an existing Google account
+    // later never grants them twice.
+    const user = await getOrCreateByIdentity("wallet", wallet);
+    // Signing in from a wallet also says "payments from here are mine".
+    await addPayingWallet(user.id, wallet);
 
-    const res = NextResponse.json({ ok: true, user: publicUser(user) });
-    res.cookies.set(SESSION_COOKIE, createSession(wallet), sessionCookieOptions);
+    const res = NextResponse.json({
+      ok: true,
+      user: publicUser(user, await identitiesFor(user.id)),
+    });
+    res.cookies.set(SESSION_COOKIE, createSession(user.id), sessionCookieOptions);
     return res;
   } catch (err) {
     console.error("[auth/verify]", err);

@@ -46,8 +46,8 @@ export async function POST(req) {
     amount = Math.min(Math.max(parseInt(body.amount, 10) || 45, 1), MAX_GRANT);
   } catch {}
 
-  await refundCredits(session.wallet, amount);
-  const user = await getUser(session.wallet);
-  console.log(`[dev/grant] +${amount} credits to ${session.wallet}`);
+  await refundCredits(session.accountId, amount);
+  const user = await getUser(session.accountId);
+  console.log(`[dev/grant] +${amount} credits to ${session.accountId}`);
   return NextResponse.json({ ok: true, granted: amount, user: publicUser(user) });
 }

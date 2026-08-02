@@ -22,7 +22,7 @@ export default function CreditsPage() {
 
   async function buy(pack) {
     setErr(null); setMsg(null);
-    if (!auth.user) return setErr("Connect your wallet first.");
+    if (!auth.user) return setErr("Sign in first.");
 
     if (!treasuryConfigured) {
       // Nothing is paid in test mode. The grant happens SERVER-side and
@@ -40,10 +40,50 @@ export default function CreditsPage() {
       setMsg(`TEST TOP-UP — ${pack.credits} credits added, no SOL moved. With payments live this sends ${pack.sol} SOL to the treasury and Helius credits you automatically.`);
       return;
     }
-    if (!wallet.address) return setErr("Connect a wallet first.");
-    const res = await wallet.payTreasury(pack.sol);
+    // Connecting happens HERE, at the moment of paying, and not a
+    // moment before. It is the only step in the whole product that
+    // needs a wallet — signing in, generating and editing all work
+    // without one.
+    if (!wallet.address) {
+      const c = await wallet.connect();
+      if (c?.error) return setErr(c.error);
+    }
+
+    // The account id is stamped into the transaction as a memo, which
+    // is what lets any wallet pay for this account without being
+    // registered to it first. See /api/pay/claim.
+    const res = await wallet.payTreasury(pack.sol, auth.user.accountId);
     if (res.error) return setErr(res.error);
-    setMsg(`Payment sent (${res.signature.slice(0, 12)}…). Credits land automatically the moment it confirms — no refresh ritual required.`);
+
+    setMsg(`Payment sent (${res.signature.slice(0, 12)}…). Confirming…`);
+    const out = await claim(res.signature);
+    if (out.error) return setErr(out.error);
+    setUser(out.user);
+    setMsg(`${out.credits} credits added. Thank you.`);
+  }
+
+  // Poll the claim endpoint until the transaction lands. The webhook
+  // is still running as a backstop, and both paths write the same
+  // payments/{signature} document, so whichever gets there first wins
+  // and the other becomes a no-op. Closing the tab mid-poll therefore
+  // costs nothing.
+  async function claim(signature) {
+    for (let i = 0; i < 20; i++) {
+      const r = await fetch("/api/pay/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature }),
+      });
+      const d = await r.json();
+      if (r.ok) return d;
+      // 202 means "not confirmed yet" — the only status worth waiting
+      // on. Everything else is a real answer.
+      if (r.status !== 202) return { error: d.error || "Couldn't confirm that payment." };
+      await new Promise((res) => setTimeout(res, 3000));
+    }
+    return {
+      error: "Still confirming. Your credits will appear automatically — no need to pay again.",
+    };
   }
 
   return (
