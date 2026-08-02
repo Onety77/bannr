@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles } from "@/lib/templates";
+import { loadDraft, saveDraft, setInFlight, getInFlight } from "@/lib/draft";
 import { saveToHistory, setUser, GENERATION_COST, EDIT_COST } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
@@ -69,8 +70,23 @@ function CreateInner() {
       .split(",")
       .map((s) => s.trim())
       .filter((id) => id === AUTO_ID || TEMPLATES.some((t) => t.id === id));
-    return from.length ? [...new Set(from)] : [AUTO_ID];
+    if (from.length) return [...new Set(from)];
+    // Declared before `saved` below, so it reads the store itself. A
+    // URL param still wins, for the same reason it does there.
+    const d = params.toString().length === 0 ? loadDraft() : null;
+    return d?.styleIds?.length ? d.styleIds : [AUTO_ID];
   });
+
+  // WHAT WAS ALREADY HERE. Read once, synchronously, before any state
+  // initialiser below — so the first render is already the restored
+  // page rather than an empty one that fills in a frame later.
+  //
+  // A URL param beats the draft every time: arriving with ?name= or
+  // ?style= means a specific brief was asked for, usually History's
+  // "re-run this", and silently overriding that with whatever was last
+  // typed would be worse than forgetting.
+  const fromUrl = params.toString().length > 0;
+  const saved = fromUrl ? null : loadDraft();
 
   // Re-running from History restores the whole brief, not just the style.
   // The page promises "re-run any brief with one click" and previously
@@ -83,31 +99,86 @@ function CreateInner() {
     vibe: (params.get("vibe") || "").slice(0, 400),
     direction: (params.get("direction") || "").slice(0, 240),
   });
-  const [variants, setVariants] = useState(3);
+  const [variants, setVariants] = useState(() => saved?.variants ?? 3);
   // Per-style advanced overrides: { [styleId]: { key: value } }.
   // Kept for every style, not just selected ones, so toggling a style
   // off and back on does not silently discard what was configured.
-  const [advanced, setAdvanced] = useState({});
-  const [expanded, setExpanded] = useState(null); // one panel open at a time
+  const [advanced, setAdvanced] = useState(() => saved?.advanced ?? {});
+  const [expanded, setExpanded] = useState(() => saved?.expanded ?? null); // one panel open at a time
   const [lightbox, setLightbox] = useState(null);
-  const [logoFile, setLogoFile] = useState(null);
-  const [logoPreview, setLogoPreview] = useState(null);
+  // The File itself survives, not a copy of it — which is the whole
+  // reason this is a module store and not sessionStorage.
+  const [logoFile, setLogoFile] = useState(() => saved?.logoFile ?? null);
+  // The PREVIEW is rebuilt rather than restored. Its object URL is
+  // revoked when this component unmounts (see below), so the one saved
+  // on the way out is already dead by the time we come back — it would
+  // restore as a broken image. Making a fresh one from the File that
+  // did survive is both correct and cheap.
+  const [logoPreview, setLogoPreview] = useState(() =>
+    saved?.logoFile ? URL.createObjectURL(saved.logoFile) : null
+  );
   const [drag, setDrag] = useState(false);
-  const [busy, setBusy] = useState(false);
+  // True on arrival if a generation is still running from before —
+  // see the re-attach effect below.
+  const [busy, setBusy] = useState(() => Boolean(getInFlight()));
   const [error, setError] = useState(null);
   const [errorCode, setErrorCode] = useState(null); // "image_flagged" unlocks the reimagine offer
-  const [results, setResults] = useState(null);
-  const [demoMode, setDemoMode] = useState(false);
-  const [converted, setConverted] = useState({});   // index -> dataUrl
+  const [results, setResults] = useState(() => saved?.results ?? null);
+  const [demoMode, setDemoMode] = useState(() => saved?.demoMode ?? false);
+  const [converted, setConverted] = useState(() => saved?.converted ?? {});   // index -> dataUrl
   const [convBusy, setConvBusy] = useState(null);   // index being converted
-  const [ca, setCa] = useState("");
+  const [ca, setCa] = useState(() => saved?.ca ?? "");
   const [caBusy, setCaBusy] = useState(false);
   const [caMsg, setCaMsg] = useState(null);
-  const [refImages, setRefImages] = useState([]); // [{ file, url }]
+  // Same again: the files survive, the object URLs are remade.
+  const [refImages, setRefImages] = useState(() =>
+    (saved?.refImages ?? []).map((r) => ({ file: r.file, url: URL.createObjectURL(r.file) }))
+  ); // [{ file, url }]
   const fileRef = useRef(null);
   const refsRef = useRef(null);
-  const formRef = useRef({ ...preset.current });
+  const formRef = useRef(saved?.form ? { ...saved.form } : { ...preset.current });
   const [, force] = useState(0);
+
+  // Mirror everything worth keeping into the store, on every change.
+  // Cheap: it is one object assignment, and it means leaving the page
+  // at any instant preserves exactly what was on screen.
+  useEffect(() => {
+    saveDraft({
+      form: { ...formRef.current },
+      styleIds, variants, advanced, expanded,
+      logoFile,
+      // Object URLs are deliberately NOT stored — they do not survive
+      // the unmount that is about to revoke them. The files do, and the
+      // URLs are remade on the way back in.
+      refImages: refImages.map((r) => ({ file: r.file })),
+      results, converted, demoMode, ca,
+    });
+  });
+
+  // RE-ATTACH to a generation that was already running when this page
+  // was last left. The request was never cancelled — it is the same
+  // promise, still in flight — so this receives the result it always
+  // would have, rather than the credits being spent on nothing.
+  useEffect(() => {
+    const running = getInFlight();
+    if (!running) return;
+    let live = true;
+    setBusy(true);
+    const collect = () => {
+      if (!live) return;
+      // The generation wrote its outcome to the store on the way past.
+      const d = loadDraft();
+      if (d?.results) {
+        setResults(d.results);
+        setDemoMode(Boolean(d.demoMode));
+        setConverted({});
+      }
+      setBusy(false);
+      auth.refresh(); // the balance moved while we were away
+    };
+    running.then(collect, collect);
+    return () => { live = false; };
+  }, []);
 
   // Advances only while a generation is in flight; resets after, so the
   // next run always starts the narration from the top.
@@ -295,6 +366,10 @@ function CreateInner() {
     setBusy(true);
     setResults(null);
     setConverted({});
+    // Clear the stored result at the same moment. Otherwise leaving the
+    // page mid-run and coming back would show the PREVIOUS run beside a
+    // spinner for the current one.
+    saveDraft({ ...(loadDraft() || {}), results: null, converted: {} });
 
     try {
       const fd = new FormData();
@@ -342,6 +417,12 @@ function CreateInner() {
         return;
       }
 
+      // Written to the store as well as to state, because state
+      // belongs to a component that may have been unmounted while this
+      // request was in the air. The page that comes back reads it from
+      // here — see the re-attach effect. Without this the credits were
+      // spent and the banners simply vanished.
+      saveDraft({ ...(loadDraft() || {}), results: data.variants, demoMode: data.demoMode, converted: {} });
       setDemoMode(data.demoMode);
       setResults(data);
       if (data.user) setUser(data.user);
@@ -854,7 +935,7 @@ function CreateInner() {
                 their own image is always the first thing offered. */}
             {!busy && errorCode === "stage_nudge" && (
               <div className="notice-actions">
-                <button className="btn small primary" onClick={() => generate("nudge")}>
+                <button className="btn small primary" onClick={() => setInFlight(generate("nudge"))}>
                   Try again with my image — {GENERATION_COST} credits
                 </button>
                 <button className="btn small" onClick={() => fileRef.current?.click()}>
@@ -868,7 +949,7 @@ function CreateInner() {
             )}
             {!busy && errorCode === "stage_reimagine" && (
               <div className="notice-actions">
-                <button className="btn small primary" onClick={() => generate("reimagine")}>
+                <button className="btn small primary" onClick={() => setInFlight(generate("reimagine"))}>
                   Reimagine my image — {GENERATION_COST} credits
                 </button>
                 <button className="btn small" onClick={() => fileRef.current?.click()}>
@@ -900,7 +981,7 @@ function CreateInner() {
               /* NOT onClick={generate}: that would pass the click event
                  into the assist parameter, and a truthy event would
                  silently restyle every user's logo. */
-              <button className="btn primary block" disabled={busy} onClick={() => generate()}>
+              <button className="btn primary block" disabled={busy} onClick={() => setInFlight(generate())}>
                 {busy
                   ? (<><span className="spinner" /> Creating {variants} options…</>)
                   : (<>Generate — {GENERATION_COST} credits</>)}

@@ -30,7 +30,7 @@ const FEATURES = [
     ),
   },
   {
-    title: "Five tuned styles",
+    title: "Six tuned styles",
     body: "Each one art-directed and refined until the output stopped looking generated.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -79,7 +79,7 @@ const STEPS = [
   },
   {
     title: "Pick a style",
-    body: "Five moods to steer the art, or leave it on Auto and let bannr find the best fit for your project itself.",
+    body: "Six moods to steer the art, or leave it on Default and let bannr find the best fit for your project itself.",
   },
   {
     title: "Download and ship",
@@ -162,7 +162,7 @@ export default function Landing() {
           <div className="sec-head">
             <h2>Straight off the press.</h2>
             <p className="sub">
-              Real banners made with bannr, picked by hand. The line never stops.
+              Real banners made with bannr. The line never stops.
             </p>
           </div>
           <Highlights />
