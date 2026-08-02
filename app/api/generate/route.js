@@ -332,7 +332,11 @@ export async function POST(req) {
 
           let artBuf;
           try {
-            artBuf = await generateBackground(prompt, { logo: logoBase64, refs, styleRefs, reimagine, restyle: job.template?.restyle || "" });
+            artBuf = await generateBackground(prompt, {
+              logo: logoBase64, refs, styleRefs, reimagine,
+              restyle: job.template?.restyle || "",
+              mark: Boolean(job.template?.graphic),
+            });
           } catch (err) {
             // Only the untouched first run climbs a rung on its own —
             // an assisted run already carries the strongest wording
@@ -340,7 +344,9 @@ export async function POST(req) {
             // and a second API call to fail the same way.
             if (assist || !isPolicyError(err)) throw err;
             artBuf = await generateBackground(`${prompt}\n\n${REASSURANCE}`, {
-              logo: logoBase64, refs, styleRefs, restyle: job.template?.restyle || "",
+              logo: logoBase64, refs, styleRefs,
+              restyle: job.template?.restyle || "",
+              mark: Boolean(job.template?.graphic),
             });
           }
           usedEngine = "gpt-image";
