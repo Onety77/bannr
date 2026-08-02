@@ -1,7 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // sharp runs in API routes (server only)
-  experimental: { serverComponentsExternalPackages: ["sharp", "firebase-admin"] },
+  experimental: {
+    serverComponentsExternalPackages: ["sharp", "firebase-admin"],
+    // Style references live outside public/ so they are never served,
+    // which also means Next has no reason to guess they are needed.
+    // Without this they are simply absent in production and the styles
+    // that use them quietly lose them — the worst kind of bug, because
+    // it works perfectly on a laptop.
+    outputFileTracingIncludes: {
+      "/api/generate": ["./references/**/*"],
+    },
+  },
 
   // ------------------------------------------------------------
   // Serve Firebase's sign-in helper from OUR origin.

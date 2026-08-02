@@ -32,6 +32,7 @@ import { recordRefusal } from "@/lib/refusals";
 import { requireUser } from "@/lib/auth";
 import { spendCredits, refundCredits, getUser, publicUser, getSettings, GENERATION_COST } from "@/lib/users";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { styleReferences } from "@/lib/references";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -319,9 +320,19 @@ export async function POST(req) {
           if (assist === "nudge") extras.push(ASSIST_NUDGE);
           const prompt = [basePrompt, ...extras].join("\n\n");
 
+          // A style that opts in gets a rotating slice of its own
+          // reference set, keyed on the variant index — so the options
+          // in one run are pulled toward different examples instead of
+          // all converging on whichever came first. An empty folder
+          // yields an empty array and the style behaves exactly as it
+          // did before.
+          const styleRefs = job.template?.useReferences
+            ? await styleReferences(job.template.id, job.i)
+            : [];
+
           let artBuf;
           try {
-            artBuf = await generateBackground(prompt, { logo: logoBase64, refs, reimagine, restyle: job.template?.restyle || "" });
+            artBuf = await generateBackground(prompt, { logo: logoBase64, refs, styleRefs, reimagine, restyle: job.template?.restyle || "" });
           } catch (err) {
             // Only the untouched first run climbs a rung on its own —
             // an assisted run already carries the strongest wording
@@ -329,7 +340,7 @@ export async function POST(req) {
             // and a second API call to fail the same way.
             if (assist || !isPolicyError(err)) throw err;
             artBuf = await generateBackground(`${prompt}\n\n${REASSURANCE}`, {
-              logo: logoBase64, refs, restyle: job.template?.restyle || "",
+              logo: logoBase64, refs, styleRefs, restyle: job.template?.restyle || "",
             });
           }
           usedEngine = "gpt-image";
