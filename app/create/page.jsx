@@ -316,6 +316,15 @@ function CreateInner() {
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
+        // A session that expired mid-visit came back as a plain error
+        // message next to a button that still looked signed in. Clear
+        // the stale client state so the sign-in panel returns and the
+        // next click actually leads somewhere.
+        if (data.code === "signin_required") {
+          await auth.refresh();
+          setError("Your session expired. Sign in again — nothing was charged.");
+          return;
+        }
         // The server refunds; we only re-read the balance so the UI
         // reflects what actually happened rather than assuming.
         if (data.user) setUser(data.user); else auth.refresh();
@@ -425,7 +434,13 @@ function CreateInner() {
 
       const res = await fetchWithTimeout("/api/edit", { method: "POST", body: fd }, TIMEOUTS.edit);
       const data = await res.json();
-      if (!res.ok || !data.ok) return { error: data.error || "The edit failed — you weren't charged." };
+      if (!res.ok || !data.ok) {
+        if (data.code === "signin_required") {
+          await auth.refresh();
+          return { error: "Your session expired. Sign in again — nothing was charged." };
+        }
+        return { error: data.error || "The edit failed — you weren't charged." };
+      }
 
       // The server charged (free allowance first, then credits) and
       // returned the resulting balance.

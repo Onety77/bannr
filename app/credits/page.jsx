@@ -101,29 +101,29 @@ export default function CreditsPage() {
         </div>
       )}
 
+      {/* This used to lead with "Connect wallet", which is now both
+          unnecessary and misleading: picking a pack connects one for
+          you, and any wallet works because the payment carries the
+          account id. So the panel states the balance, and mentions the
+          wallet only when one happens to be connected. */}
       <div className="panel page-gap-top">
-        <h3>Wallet</h3>
+        <h3>Balance</h3>
         <div className="wallet-row">
-          {wallet.address ? (
+          <span className="wallet-balance">
+            <b>{credits}</b> credits
+          </span>
+          {wallet.address && (
             <>
               <span className="addr">{short(wallet.address)}</span>
               <button className="btn small" onClick={wallet.disconnect}>Disconnect</button>
             </>
-          ) : (
-            <button
-              className="btn small"
-              onClick={async () => {
-                const r = await wallet.connect();
-                if (r.error) setErr(r.error);
-              }}
-            >
-              Connect wallet (Phantom / Solflare)
-            </button>
           )}
-          <span className="hint wallet-balance">
-            Balance: <b>{credits} credits</b>
-          </span>
         </div>
+        <p className="hint">
+          {wallet.address
+            ? "Connected. Pick a pack to pay — or disconnect and pay from a different wallet, it makes no difference to your account."
+            : "Pick a pack and your wallet opens for approval. Any wallet works, and you can use a different one every time."}
+        </p>
       </div>
 
       {msg && <div className="notice money page-gap-top">{msg}</div>}

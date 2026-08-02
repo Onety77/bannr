@@ -143,13 +143,28 @@ validated against real inputs.**
 against real Firestore, plus 15 crypto unit tests covering forgery,
 replay, tampering and expiry.
 
-Decisions taken: wallet-only, no email, no multi-wallet, no self-serve
-recovery. Free credits granted **once per wallet** on first sign-in,
-server-side. Sign-in **required** to generate or edit.
+**REVISED — accounts are no longer wallets.** The original decision here
+was "wallet-only, no email, no multi-wallet". That fused three separate
+things together: who you are, how you sign in, and how you pay. It meant
+changing wallet lost your credits, and that you had to install an
+extension before you could even look at the product — which filters out
+most of the marketing and design people who actually buy banners.
 
-Done: G1 sign-in · G2 wallet linking · G3 sessions · G4 credits to
-Firestore · G6 daily edit allowance to the account · G7 (guest credits
-no longer exist, so there is nothing to merge).
+Decisions now: an **account** is its own record with an opaque id.
+Identities point at it (`identities/{type}:{id}`), and **Google leads**,
+because it works in any browser on any phone with no extension. Wallet
+sign-in stays as the second option. Free credits are granted **once per
+ACCOUNT**, so adding a second sign-in method never re-grants. Sign-in is
+still required to generate or edit.
+
+Paying needs **no wallet linking at all**: the transaction carries the
+account id as an SPL memo, so any wallet can pay for any account and
+nobody else can claim it. See `/api/pay/claim`.
+
+Done: G1 sign-in · G2 identities (replaces "wallet linking") · G3
+sessions · G4 credits to Firestore · G6 daily edit allowance to the
+account · G7 (guest credits no longer exist) · G11 Google sign-in ·
+G12 connect-and-pay.
 
 Remaining:
 
@@ -163,6 +178,21 @@ Remaining:
   who closes the wallet popup leaves one behind forever
 - **G10** — Delete `/api/dev/grant` before launch. It is guarded by
   `NODE_ENV`, but the safest guard is the route not existing
+- **G13** — Run `node scripts/migrate-identities.cjs --commit` against
+  production. NOT a prerequisite — `getOrCreateByIdentity` adopts legacy
+  accounts on sight — but it tidies the 15 existing accounts and backfills
+  `payments.accountId` so billing history finds pre-split purchases
+- **G14** — Confirm the Firestore rules deny client access to the new
+  `identities` collection. It maps an identity to an account id. The Admin
+  SDK bypasses rules so nothing depends on them being open. There is no
+  `firestore.rules` in the repo — the rules live in the console
+- **G15** — Delete the seeded test `payments` documents (`sig_big_*`,
+  `sig_builder_*`, `sig_custom_*`) before launch. They are attached to real
+  accounts and will appear in billing history as purchases that never
+  happened
+- **G16** — Let an account unlink an identity from the settings page.
+  `unlinkIdentity` exists and already refuses to remove the last one, so
+  this is UI only
 
 ---
 
@@ -176,8 +206,10 @@ Remaining:
   server-side. Today the client decides what it can afford — anyone can set
   their own balance from the console
 - **H2** — Close the webhook loop end to end: pay → Helius → credited → visible
-- **H3** — Claim flow for `status: "unclaimed"` payments (payments from wallets
-  not yet linked to an account)
+- **H3** — Claim flow for `status: "unclaimed"` payments. Far rarer now that
+  `/api/pay/claim` attributes payments directly, but still the recovery path
+  for SOL sent by hand to the treasury address. The 3 such records today are
+  all seeded test data
 - **H4** — Test the idempotency path — replay the same signature, confirm no
   double-credit
 - **H5** — Validate pack pricing against measured cost (~$0.073/run at 3
