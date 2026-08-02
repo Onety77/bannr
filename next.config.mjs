@@ -16,11 +16,9 @@ const nextConfig = {
   // Proxying the path makes the whole exchange same-origin, which is
   // Firebase's own documented fix for this.
   //
-  // INERT UNTIL SWITCHED ON: this rewrite does nothing by itself. It
-  // only takes effect once NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN points at
-  // this site's own domain instead of the firebaseapp.com one — so the
-  // proxy can be in place and proven before anything about sign-in
-  // actually moves.
+  // ACTIVE. lib/firebaseClient.js sets authDomain to our own host, so
+  // every sign-in now comes through this proxy. If it is removed,
+  // sign-in breaks everywhere — the two belong together.
   // ------------------------------------------------------------
   async rewrites() {
     const project = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
