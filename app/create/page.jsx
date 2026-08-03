@@ -125,7 +125,11 @@ function CreateInner() {
   const [busy, setBusy] = useState(() => Boolean(getInFlight()));
   const [error, setError] = useState(null);
   const [errorCode, setErrorCode] = useState(null); // "image_flagged" unlocks the reimagine offer
-  const [results, setResults] = useState(() => saved?.results ?? null);
+  const [results, setResults] = useState(() => (saved?.results?.variants ? saved.results : null));
+  // The brief and styles of the run that PRODUCED those results —
+  // captured at generation time, because by the time someone hits
+  // Download the form may already describe a different token.
+  const [runMeta, setRunMeta] = useState(() => saved?.runMeta ?? null);
   const [demoMode, setDemoMode] = useState(() => saved?.demoMode ?? false);
   const [converted, setConverted] = useState(() => saved?.converted ?? {});   // index -> dataUrl
   const [convBusy, setConvBusy] = useState(null);   // index being converted
@@ -147,6 +151,7 @@ function CreateInner() {
   useEffect(() => {
     saveDraft({
       form: { ...formRef.current },
+      runMeta,
       styleIds, variants, advanced, expanded,
       logoFile,
       // Object URLs are deliberately NOT stored — they do not survive
@@ -170,7 +175,7 @@ function CreateInner() {
       if (!live) return;
       // The generation wrote its outcome to the store on the way past.
       const d = loadDraft();
-      if (d?.results) {
+      if (d?.results?.variants) {
         setResults(d.results);
         setDemoMode(Boolean(d.demoMode));
         setConverted({});
@@ -424,37 +429,35 @@ function CreateInner() {
       // request was in the air. The page that comes back reads it from
       // here — see the re-attach effect. Without this the credits were
       // spent and the banners simply vanished.
-      saveDraft({ ...(loadDraft() || {}), results: data.variants, demoMode: data.demoMode, converted: {} });
+      // The store holds the SAME shape the component keeps in state —
+      // the whole response, because the render reads results.variants.
+      // An earlier version stored just the variants array here, which
+      // meant a restore after a tab switch handed the render a shape
+      // it would crash on.
+      saveDraft({
+        ...(loadDraft() || {}),
+        results: data,
+        demoMode: data.demoMode,
+        converted: {},
+        runMeta: {
+          brief: data.brief,
+          styles: (data.styles || [data.template?.id]).filter(Boolean).join(","),
+        },
+      });
       setDemoMode(data.demoMode);
       setResults(data);
       if (data.user) setUser(data.user);
 
-      // Deliberately outside the network try/catch below. History is a
-      // convenience, and localStorage can legitimately fail (quota) —
-      // letting that surface as "Network error, credits refunded"
-      // would be a lie about a run that actually succeeded, and would
-      // hand back credits that were properly spent.
-      try {
-        // Summarised from the variants actually returned rather than
-        // from what was requested — if a style's option failed, history
-        // should reflect what exists, not what was asked for.
-        const produced = [...new Set(data.variants.map((v) => v.templateName))];
-        await saveToHistory(
-          {
-            brief: data.brief,
-            // Comma-separated so the re-run link restores every style.
-            templateId: (data.styles || [data.template?.id]).filter(Boolean).join(","),
-            templateName: produced
-              .map((n) => {
-                const c = data.variants.filter((v) => v.templateName === n).length;
-                return c > 1 ? `${n} ×${c}` : n;
-              })
-              .join(" · "),
-            variantCount: data.variants.length,
-          },
-          data.variants[0].dataUrl
-        );
-      } catch {}
+      // NOT saved to history here. A run used to auto-save one entry
+      // thumbed with whichever variant happened to be first — so the
+      // saved banner was rarely the one the person actually chose, and
+      // options nobody wanted were archived while the downloaded one
+      // was represented only by its sibling. Saving now happens in
+      // download(): the banner you keep is the banner that is kept.
+      setRunMeta({
+        brief: data.brief,
+        styles: (data.styles || [data.template?.id]).filter(Boolean).join(","),
+      });
     } catch (e) {
       // A dropped connection can't tell us whether the server charged
       // or refunded, so ask rather than guess.
@@ -560,7 +563,35 @@ function CreateInner() {
     const label = formRef.current.ticker || formRef.current.name || "banner";
     const res = await saveImage(dataUrl, bannerFilename(label, i, suffix));
     // A silent dead button was the original bug — never repeat it.
-    if (res.error) setError(res.error);
+    if (res.error) { setError(res.error); return; }
+
+    // THE DOWNLOAD IS THE SAVE. Downloading is the one unambiguous
+    // signal that a banner mattered to this person, so this is the
+    // moment it enters history — the chosen banner, not whichever
+    // variant happened to be first in the run.
+    //
+    // Always the ORIGINAL 1500×500, even when the file being saved is
+    // the X conversion: history thumbs are 3:1 and the re-run link
+    // reproduces the run, and both belong to the source banner.
+    // Failure is swallowed — localStorage quota must never make a
+    // successful download look broken.
+    try {
+      const v = results?.variants?.[i];
+      if (v?.dataUrl) {
+        await saveToHistory(
+          {
+            brief: runMeta?.brief || null,
+            templateId: runMeta?.styles || "",
+            templateName: v.templateName || "",
+            // Image-derived, so re-downloading (or downloading the X
+            // version after the PNG) never duplicates the card, while
+            // an edit — different bytes — saves as its own.
+            sig: `${v.dataUrl.length}.${v.dataUrl.slice(1000, 1040)}`,
+          },
+          v.dataUrl
+        );
+      }
+    } catch {}
   }
 
   const nameFor = (id) =>
