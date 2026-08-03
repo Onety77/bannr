@@ -274,22 +274,36 @@ export async function POST(req) {
     // the jobs run exactly as they always did.
     const conceptByJob = {};
     if (!demoMode) {
+      // Keyed by the DIRECTOR, not the style. Default jobs have no
+      // template flags at all (autoTemplate strips them) and would
+      // otherwise be grouped under whichever template they borrowed for
+      // layout data — which is exactly the leak that was just closed.
       const wanting = {};
       jobs.forEach((job) => {
-        if (job.template?.concepts) (wanting[job.template.id] ||= []).push(job.i);
+        if (job.isAuto) (wanting[AUTO_ID] ||= []).push(job.i);
+        else if (job.template?.concepts) (wanting[job.template.id] ||= []).push(job.i);
       });
       await Promise.all(
         Object.entries(wanting).map(async ([styleId, indices]) => {
-          const tpl = getTemplate(styleId);
+          const isDefault = styleId === AUTO_ID;
+          const tpl = isDefault ? null : getTemplate(styleId);
           const settings = advanced[styleId] || {};
           const list = await generateConcepts({
             brief,
-            styleBrief: tpl.mood,
+            // Default has no house style to work inside — that is the
+            // whole point of it — so it gets the brief and nothing else.
+            styleBrief: isDefault
+              ? "No house style. You are choosing the direction yourself, from the project alone."
+              : tpl.mood,
             count: indices.length,
             constraints: buildDirection(styleId, settings),
             // `concepts` is either true (the design director) or the
             // name of the one this style wants.
-            director: typeof tpl.concepts === "string" ? tpl.concepts : "design",
+            director: isDefault ? "default" : (typeof tpl.concepts === "string" ? tpl.concepts : "design"),
+            // Only the Default director asks to see it — see `vision`
+            // in lib/openai.js. It is the one most often working from a
+            // brief with no description at all.
+            logo: logoBase64,
           });
           indices.forEach((jobIndex, k) => {
             if (list[k]) conceptByJob[jobIndex] = list[k];
