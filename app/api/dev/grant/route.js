@@ -66,7 +66,7 @@ export async function POST(req) {
   // probing should not learn that the route exists and they are
   // merely the wrong person.
   const me = await getUser(session.accountId);
-  if (!canMintTestCredits(me?.email)) {
+  if (!canMintTestCredits(me)) {
     console.warn(`[dev/grant] refused: ${me?.email || session.accountId}`);
     return new NextResponse("Not found", { status: 404 });
   }
