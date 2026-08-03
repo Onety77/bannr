@@ -55,37 +55,6 @@ function rateLimited(ip) {
   return arr.length > 6;
 }
 
-// Every generation is recorded so it *can* be featured later — it
-// isn't public until an admin flags it on /admin7731. Firestore is
-// the real store; when it isn't configured yet, an in-memory list
-// keeps local/demo dev working exactly as before (unmoderated).
-globalThis.__bannrSpotlight = globalThis.__bannrSpotlight || [];
-async function pushSpotlight(finalPng, brief, templateName) {
-  try {
-    const thumb = await sharp(finalPng).resize(760).jpeg({ quality: 74 }).toBuffer();
-    const item = {
-      src: `data:image/jpeg;base64,${thumb.toString("base64")}`,
-      ticker: brief.ticker || brief.name,
-      template: templateName,
-      ts: Date.now(),
-    };
-
-    const db = getAdminDb();
-    if (db) {
-      await db.collection("generations").add({
-        ...item,
-        featuredWall: false,
-        featuredHero: false,
-        hidden: false,
-      });
-      return;
-    }
-
-    globalThis.__bannrSpotlight.unshift(item);
-    globalThis.__bannrSpotlight.splice(12);
-  } catch {}
-}
-
 export async function POST(req) {
   // Hoisted so the catch below can record exactly which brief was
   // refused, and run the free text-vs-image diagnosis on it — that's
@@ -452,7 +421,13 @@ export async function POST(req) {
     charged = null;
 
     results.sort((a, b) => a.i - b.i);
-    await pushSpotlight(results[0]._finalPng, brief, results[0].templateName);
+    // NOTHING is recorded to the featuring pool here any more. This
+    // line used to push results[0] — the first variant of every run,
+    // chosen by nothing but position — so the admin board filled with
+    // first-renders while the banners people actually downloaded were
+    // never candidates at all. Downloading is the signal a banner
+    // mattered; the pool is fed from the download click now (POST
+    // /api/spotlight) and from admin uploads, nothing else.
 
     // The authoritative balance travels with the result, so the UI
     // never has to guess or keep its own running total.

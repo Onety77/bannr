@@ -5,6 +5,7 @@
 // in-memory feed so local/demo dev still shows something.
 import { NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { requireUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +66,10 @@ export async function GET() {
         queryFeatured(db, "featuredHero", HERO_LIMIT),
         queryFeatured(db, "featuredWall", WALL_LIMIT),
       ]);
-      return NextResponse.json({ hero, wall, curated: true });
+      // no-store at every layer. An admin un-features a banner and
+      // reloads the site expecting it gone; any cache between here and
+      // that reload makes the flags look broken.
+      return NextResponse.json({ hero, wall, curated: true }, { headers: { "Cache-Control": "no-store" } });
     } catch (e) {
       console.error("[spotlight] Firestore query failed:", e.message);
       // fall through to the unmoderated fallback below
@@ -73,5 +77,51 @@ export async function GET() {
   }
 
   const items = (globalThis.__bannrSpotlight || []).slice(0, 8);
-  return NextResponse.json({ hero: items, wall: items, curated: false });
+  return NextResponse.json({ hero: items, wall: items, curated: false }, { headers: { "Cache-Control": "no-store" } });
+}
+
+// POST /api/spotlight — nominate a downloaded banner for featuring.
+//
+// The pool used to fill itself with the FIRST variant of every run,
+// which meant the admin curated from banners chosen by position while
+// the ones people actually downloaded were never candidates. Now the
+// download click nominates. Requires a signed-in session (downloads
+// only happen signed in), dedupes by image signature so re-downloads
+// and the X version do not stack, and lands unlisted exactly like an
+// upload — featuring stays a deliberate admin act.
+const MAX_SRC = 400_000; // base64 chars; a 900x300 jpeg is ~80-160k
+
+export async function POST(req) {
+  const session = requireUser(req);
+  if (!session) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
+
+  const db = getAdminDb();
+  if (!db) return NextResponse.json({ ok: true, stored: false });
+
+  let body;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request." }, { status: 400 }); }
+  const src = String(body?.src || "");
+  if (!src.startsWith("data:image/") || src.length > MAX_SRC) {
+    return NextResponse.json({ error: "Bad image." }, { status: 400 });
+  }
+  const sig = String(body?.sig || "").slice(0, 80);
+
+  const col = db.collection("generations");
+  if (sig) {
+    const dup = await col.where("sig", "==", sig).limit(1).get();
+    if (!dup.empty) return NextResponse.json({ ok: true, deduped: true });
+  }
+
+  await col.add({
+    src,
+    ticker: String(body?.ticker || "").slice(0, 24),
+    template: String(body?.template || "").slice(0, 40),
+    sig,
+    ts: Date.now(),
+    downloaded: true,
+    featuredWall: false,
+    featuredHero: false,
+    hidden: false,
+  });
+  return NextResponse.json({ ok: true });
 }

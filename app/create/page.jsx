@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 // would ship every prompt in the product to the browser.
 import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles } from "@/lib/styles";
 import { loadDraft, saveDraft, setInFlight, getInFlight } from "@/lib/draft";
-import { saveToHistory, setUser, getRecentCAs, saveRecentCA, GENERATION_COST, EDIT_COST } from "@/lib/credits";
+import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_COST, EDIT_COST } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
 import ConnectButton, { ConnectNote, WalletSignIn } from "@/components/ConnectButton";
@@ -597,6 +597,25 @@ function CreateInner() {
           },
           v.dataUrl
         );
+
+        // The same click also nominates this banner for the featuring
+        // pool the admin curates from. Fire-and-forget: featuring is
+        // our concern, not the downloader's, and a failure here must
+        // never surface on their download. 900px wide — enough for the
+        // hero highlight, a tenth of the bytes of the original.
+        const candidate = await shrink(v.dataUrl, 900, 300);
+        if (candidate) {
+          fetch("/api/spotlight", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              src: candidate,
+              ticker: runMeta?.brief?.ticker || runMeta?.brief?.name || "",
+              template: v.templateName || "",
+              sig: `${v.dataUrl.length}.${v.dataUrl.slice(1000, 1040)}`,
+            }),
+          }).catch(() => {});
+        }
       }
     } catch {}
   }

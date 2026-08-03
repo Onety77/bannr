@@ -44,7 +44,7 @@ export default function Spotlight() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/spotlight");
+        const r = await fetch("/api/spotlight", { cache: "no-store" });
         const d = await r.json();
         if (d.hero?.length) setItems(d.hero.slice(0, MAX_CARDS));
       } catch {}

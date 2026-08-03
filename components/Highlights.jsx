@@ -31,7 +31,9 @@ export default function Highlights() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/spotlight");
+        // no-store: an un-featured banner must be gone on the next
+        // reload, not whenever a cache feels like expiring.
+        const r = await fetch("/api/spotlight", { cache: "no-store" });
         const d = await r.json();
         setReal(
           (d.wall || []).map((it) => ({
