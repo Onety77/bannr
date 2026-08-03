@@ -312,6 +312,9 @@ export async function POST(req) {
             styleBrief: tpl.mood,
             count: indices.length,
             constraints: buildDirection(styleId, settings),
+            // `concepts` is either true (the design director) or the
+            // name of the one this style wants.
+            director: typeof tpl.concepts === "string" ? tpl.concepts : "design",
           });
           indices.forEach((jobIndex, k) => {
             if (list[k]) conceptByJob[jobIndex] = list[k];

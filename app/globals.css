@@ -1218,7 +1218,16 @@ h1, h2, h3 {
 .aura-orb {
   position: absolute; border-radius: 50%;
   filter: blur(46px);
-  will-change: transform;
+  /* NO will-change. Three orbs per card and up to four cards on screen
+     means twelve permanently promoted compositor layers, each holding
+     a 46px blur — which is exactly the sort of load a phone answers by
+     quietly dropping the animation and leaving a still image. The
+     promotion buys smoothness for a few elements and costs everything
+     at twelve. */
+}
+@media (max-width: 760px) {
+  /* Cheaper blur on the device that has to draw the most of them. */
+  .aura-orb { filter: blur(30px); }
 }
 /* Same three hues as the hero aurora: iris, pink, sky. */
 .aura-orb.o1 {
@@ -1253,6 +1262,16 @@ h1, h2, h3 {
   background: radial-gradient(120% 90% at 50% 45%, transparent 35%, rgba(0,0,0,0.34) 100%);
 }
 @keyframes aura-breathe { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
+
+/* Opacity rides along with the drift. Transform animations are the
+   first thing a throttling compositor abandons; opacity is close to
+   free and survives, so there is still visible life in the surface
+   even on a device that has decided not to move the layers. */
+.aura-orb.o1 { animation: aura-a 11s ease-in-out infinite alternate, aura-pulse-a 9s ease-in-out infinite; }
+.aura-orb.o2 { animation: aura-b 14s ease-in-out infinite alternate, aura-pulse-b 12s ease-in-out infinite; }
+.aura-orb.o3 { animation: aura-c 17s ease-in-out infinite alternate, aura-pulse-a 15s ease-in-out infinite; }
+@keyframes aura-pulse-a { 0%, 100% { opacity: 0.62; } 50% { opacity: 1; } }
+@keyframes aura-pulse-b { 0%, 100% { opacity: 1; } 50% { opacity: 0.58; } }
 
 .skel-phase {
   display: inline-flex; align-items: center; gap: 8px;

@@ -3,7 +3,7 @@
 // definitions in lib/advanced.js rather than hand-written markup.
 // Adding a control there makes it appear here automatically.
 //
-// Everything starts at "Auto", and Auto contributes nothing to the
+// Everything starts at "Default", which contributes nothing to the
 // prompt (see the note atop lib/advanced.js). The Reset link only
 // appears once something has actually been moved, so the panel
 // never implies you've changed things you haven't.
@@ -20,7 +20,7 @@ export default function AdvancedPanel({ styleId, settings, onChange, onReset, to
     <div className="adv">
       <div className="adv-head">
         <span className="hint">
-          Everything here is optional — anything left on Auto is decided for you.
+          Everything here is optional — anything left on Default is left to the AI.
         </span>
         {touched > 0 && (
           <button type="button" className="adv-reset" onClick={onReset}>
@@ -42,7 +42,7 @@ export default function AdvancedPanel({ styleId, settings, onChange, onReset, to
 
             {c.type === "scale" ? (
               // -1 is the "no opinion" position. A slider parked at a
-              // middle stop would still be an instruction, so Auto has
+              // middle stop would still be an instruction, so Default has
               // to be its own place on the track rather than the centre.
               <div className="adv-scale">
                 <input
@@ -55,7 +55,7 @@ export default function AdvancedPanel({ styleId, settings, onChange, onReset, to
                   aria-label={c.label}
                 />
                 <span className="adv-scale-value">
-                  {v === -1 ? "Auto" : c.stops[v].label}
+                  {v === -1 ? "Default" : c.stops[v].label}
                 </span>
               </div>
             ) : c.type === "text" ? (
