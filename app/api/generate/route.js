@@ -25,7 +25,7 @@
 import sharp from "sharp";
 import { NextResponse } from "next/server";
 import {
-  getTemplate, randomTemplate, buildPrompt, distributeStyles,
+  getTemplate, autoTemplate, buildPrompt, distributeStyles,
   VARIANT_SEASONING, REASSURANCE, ASSIST_NUDGE, AUTO_ID, AUTO_NAME,
   BANNER_W, BANNER_H,
 } from "@/lib/templates";
@@ -264,14 +264,20 @@ export async function POST(req) {
     // Each variant carries its own style now. Normal ("auto") sends no
     // style guidance at all, but demo mode and /api/convert still need
     // a concrete template to hang layout data off, so one is picked at
-    // random purely for that — it never reaches the AI prompt, and the
-    // result is labelled "Normal" rather than the borrowed id, which
-    // would mislabel the option and could wrongly pin a future
-    // "re-run this style" to something the model was never told.
+    // random purely for that — see autoTemplate(), which strips every
+    // field that would otherwise instruct the model. This comment used
+    // to claim the borrowed template "never reaches the AI prompt";
+    // that stopped being true the moment styles gained structural
+    // flags, and it went unnoticed because the symptom was randomness
+    // in a mode whose whole job is to vary.
+    //
+    // The result is still labelled "Default" rather than the borrowed
+    // id, which would mislabel the option and could wrongly pin a
+    // future "re-run this style" to something never chosen.
     const jobs = Array.from({ length: variantCount }, (_, i) => {
       const styleId = perVariantStyle[i];
       const isAuto = styleId === AUTO_ID;
-      const template = isAuto ? randomTemplate() : getTemplate(styleId);
+      const template = isAuto ? autoTemplate() : getTemplate(styleId);
       return {
         i,
         isAuto,
