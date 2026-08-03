@@ -3,7 +3,7 @@
 // re-verified server-side (see lib/adminAuth.js) since the client
 // check below is UX only, not the real security boundary.
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getFirebase } from "@/lib/firebaseClient";
 import { ADMIN_EMAIL } from "@/lib/admin";
 
@@ -97,6 +97,39 @@ export default function AdminPage() {
     await signOut(getAuth(app));
   }
 
+  // Hand-placed banners: any image an admin uploads joins the same
+  // list with the same flags, so featuring it is the same two clicks
+  // as featuring a generated one.
+  const [upBusy, setUpBusy] = useState(false);
+  const [upTicker, setUpTicker] = useState("");
+  const upRef = useRef(null);
+
+  async function uploadBanner(file) {
+    if (!file || upBusy) return;
+    setUpBusy(true);
+    setError(null);
+    try {
+      const token = await user.getIdToken();
+      const fd = new FormData();
+      fd.set("image", file);
+      if (upTicker.trim()) fd.set("ticker", upTicker.trim());
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const d = await res.json();
+      if (!res.ok) return setError(d.error || "Upload failed.");
+      setItems((l) => [d.item, ...(l || [])]);
+      setUpTicker("");
+    } catch {
+      setError("Network error uploading.");
+    } finally {
+      setUpBusy(false);
+      if (upRef.current) upRef.current.value = "";
+    }
+  }
+
   async function toggle(item, field) {
     const key = `${item.id}:${field}`;
     setBusy(key);
@@ -171,6 +204,31 @@ export default function AdminPage() {
       </div>
 
       {error && <div className="notice error">{error}</div>}
+
+      {tab === "generations" && (
+        <div className="admin-upload">
+          <input
+            ref={upRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            id="admin-up"
+            onChange={(e) => uploadBanner(e.target.files?.[0])}
+          />
+          <input
+            className="admin-up-ticker"
+            placeholder="$TICKER (optional)"
+            value={upTicker}
+            onChange={(e) => setUpTicker(e.target.value)}
+            maxLength={24}
+          />
+          <label htmlFor="admin-up" className={`btn small primary${upBusy ? " is-busy" : ""}`}>
+            {upBusy ? "Uploading…" : "Upload a banner"}
+          </label>
+          <span className="hint">
+            Lands unlisted — feature it with the same buttons as any generation.
+          </span>
+        </div>
+      )}
 
       {tab === "generations" ? (
         !items ? (
