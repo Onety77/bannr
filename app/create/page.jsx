@@ -668,9 +668,12 @@ function CreateInner() {
         )}
       </div>
 
-      {/* Two surfaces, two different design problems. The tabs exist
-          now rather than at launch so the second one is discoverable
-          while it is still being built. */}
+      {/* Two surfaces, two different design problems. Named by where
+          the artwork LANDS rather than what it depicts — an X header is
+          also for a token project, so "token banners vs X headers"
+          would have implied the second one is not, which is wrong.
+          The tabs exist now rather than at launch so the second is
+          discoverable while it is still being built. */}
       <div className="surface-tabs" role="tablist" aria-label="What are you designing?">
         <button
           role="tab"
@@ -678,7 +681,7 @@ function CreateInner() {
           className={surface === "dex" ? "on" : ""}
           onClick={() => setSurface("dex")}
         >
-          Token banners
+          DEX banners
         </button>
         <button
           role="tab"
@@ -686,7 +689,7 @@ function CreateInner() {
           className={surface === "x" ? "on" : ""}
           onClick={() => setSurface("x")}
         >
-          Banners for <span className="tab-x">𝕏</span>
+          <span className="tab-x">𝕏</span> headers
           <span className="tab-soon">Soon</span>
         </button>
       </div>
