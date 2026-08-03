@@ -102,6 +102,27 @@
 
 html { scroll-behavior: smooth; }
 
+/* NOTHING SCROLLS SIDEWAYS. The page could be dragged left and right
+   on a phone, which left the right margin stranded off-screen and the
+   whole layout looking crooked.
+
+   "clip" rather than "hidden" on purpose: hidden turns these into
+   scroll containers, and this site has four sticky elements — the nav,
+   the settings save bar and two others — every one of which would
+   silently stop sticking. clip contains the overflow and creates no
+   scroll container, so they keep working.
+
+   This is containment, not a cure: something is still wider than the
+   viewport somewhere. But a stray few pixels should never be able to
+   tilt an entire page, and the containment belongs here regardless of
+   what turns out to be causing it. */
+html, body { overflow-x: clip; }
+
+/* Belt and braces for the layout wrapper, since a grid or flex child
+   holding something long and unbreakable is the usual culprit and this
+   is where it would show up. */
+.wrap { max-width: 100%; }
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -273,7 +294,20 @@ h1, h2, h3 {
 .set-save .btn { width: 100%; }
 
 @media (max-width: 700px) {
-  .set-acct { grid-template-columns: 1fr 1fr; }
+  /* Two columns could not hold an email address or a sentence, so
+     values were breaking across three and four lines. One row each,
+     label left and value right, which is what this always wanted to
+     be. */
+  .set-acct { grid-template-columns: 1fr; gap: 0; }
+  .set-acct > div {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; padding: 11px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .set-acct > div:last-child { border-bottom: 0; }
+  .set-k { margin-bottom: 0; flex: none; }
+  .set-v { font-size: 16px; text-align: right; }
+  .set-v.mono { font-size: 13px; overflow-wrap: anywhere; }
   .set-when { margin-left: 0; width: 100%; }
   /* clears the fixed tab bar */
   .set-save { bottom: calc(58px + env(safe-area-inset-bottom)); }
@@ -1409,6 +1443,14 @@ h1, h2, h3 {
 .history-card .meta { padding: 13px 17px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .history-card .meta b { font-size: 14px; font-weight: 600; }
 .history-card .meta span { color: var(--muted); font-size: 12.5px; flex: 1; }
+
+@media (max-width: 560px) {
+  /* Ticker, meta and buttons were competing for one narrow row, so a
+     six-word line broke across three. They get a row each. */
+  .history-card .meta { flex-direction: column; align-items: stretch; gap: 6px; }
+  .history-card .meta span { flex: none; }
+  .history-card .history-actions { margin-top: 2px; }
+}
 
 /* ---------- credits ---------- */
 .packs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 26px; }

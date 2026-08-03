@@ -54,8 +54,11 @@ export default function HistoryPage() {
               <div className="meta">
                 <b>{it.brief?.ticker || it.brief?.name || "Untitled"}</b>
                 <span>
-                  {it.templateName} · {it.variantCount} options ·{" "}
-                  {new Date(it.ts).toLocaleDateString()}
+                  {/* templateName already reads "Tech x3" when a run
+                      produced three of one style, so "3 options" after
+                      it was the same fact twice — and the third of
+                      three things fighting for one narrow line. */}
+                  {it.templateName} · {new Date(it.ts).toLocaleDateString()}
                 </span>
                 <div className="history-actions">
                   <Link href={rerunHref(it)} className="btn small">Re-run brief</Link>

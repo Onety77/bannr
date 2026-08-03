@@ -120,17 +120,17 @@ export default function SettingsPage() {
               {auth.user.email || (auth.user.wallet ? short(auth.user.wallet) : "—")}
             </span>
           </div>
-          <div>
-            <span className="set-k">Paying wallets</span>
-            {/* Populated by paying, not by linking. Nothing needs to be
-                set up here — any wallet you pay from is remembered so a
-                later hand-sent transfer still finds this account. */}
-            <span className="set-v mono">
-              {auth.user.wallets?.length
-                ? auth.user.wallets.map(short).join(", ")
-                : "none yet — any wallet works"}
-            </span>
-          </div>
+          {/* Only once there is something to report. Populated by
+              PAYING, not by linking — so before a first purchase the
+              row said "none yet — any wallet works", which is a whole
+              sentence squeezed into a value slot to tell someone that
+              nothing has happened yet. Nothing to say, nothing shown. */}
+          {auth.user.wallets?.length > 0 && (
+            <div>
+              <span className="set-k">Paying wallets</span>
+              <span className="set-v mono">{auth.user.wallets.map(short).join(", ")}</span>
+            </div>
+          )}
           <div>
             <span className="set-k">Credits</span>
             <span className="set-v">{auth.user.credits}</span>
