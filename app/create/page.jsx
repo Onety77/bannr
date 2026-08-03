@@ -1117,21 +1117,42 @@ function CreateInner() {
         </div>
 
         {/* ------------ RIGHT: proofs ------------ */}
-        <div>
+        {/* Sticky, because the brief on the left is several panels tall
+            and this column was one short box followed by a void. It now
+            follows you down instead of scrolling away. */}
+        <div className="proofs">
           {demoMode && results && (
             <div className="notice">
               PREVIEW MODE — sample backgrounds are shown below. Full generation isn't live on this build yet.
             </div>
           )}
+          {/* The idle state now shows the SHAPE of the run rather than
+              one empty rectangle: one ghost frame per option, labelled
+              with the style that option will actually use. Same layout
+              the results arrive in, so nothing jumps when they do — and
+              it answers "what am I about to get for three credits"
+              before the money is spent. */}
           {!results && !busy && (
-            <div className="empty-canvas">
-              <div>
-                <div className="dims">1500 × 500</div>
-                <div className="sub">
-                  Your {Math.max(variants, styleIds.length)} options land here — exact DEX Screener
-                  dimensions, ready to upload.
-                </div>
-              </div>
+            <div className="results">
+              {plan.slice(0, Math.max(variants, styleIds.length)).map((styleId, i) => {
+                const tpl = TEMPLATES.find((t) => t.id === styleId);
+                return (
+                  <div className="result ghost" key={i}>
+                    <div className="ghost-canvas">
+                      {tpl?.thumb ? (
+                        <img src={`/styles/${tpl.thumb}`} alt="" aria-hidden="true" />
+                      ) : null}
+                      <span className="ghost-dims">1500 × 500</span>
+                    </div>
+                    <div className="bar">
+                      <span className="mode">
+                        OPTION {i + 1} · <b>{nameFor(styleId)}</b>
+                      </span>
+                      <span className="hint">{i === 0 ? "exact DEX Screener size" : ""}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
           {busy && (
