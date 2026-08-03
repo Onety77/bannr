@@ -750,7 +750,7 @@ function CreateInner() {
             </span>
             <div className="hint">
               More art of your character, background shots, mood references —
-              the AI works them into the banner.
+              they get worked into the banner.
             </div>
             <div className="refs-grid">
               {refImages.map((r, i) => (
@@ -809,7 +809,7 @@ function CreateInner() {
                 onChange={(e) => setField("vibe", e.target.value)}
                 maxLength={400}
               />
-              <div className="hint">This is what the AI reads to decide the whole treatment — the more real, the less generic.</div>
+              <div className="hint">This decides the whole treatment — the more real, the less generic.</div>
             </div>
 
             {/* Creative direction. Sits here, in the main brief, rather

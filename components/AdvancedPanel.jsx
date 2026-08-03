@@ -20,7 +20,7 @@ export default function AdvancedPanel({ styleId, settings, onChange, onReset, to
     <div className="adv">
       <div className="adv-head">
         <span className="hint">
-          Everything here is optional — anything left on Default is left to the AI.
+          Everything here is optional. Anything left on Default is decided for you.
         </span>
         {touched > 0 && (
           <button type="button" className="adv-reset" onClick={onReset}>

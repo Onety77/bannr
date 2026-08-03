@@ -24,7 +24,7 @@ const FEATURES = [
   },
   {
     title: "Type that belongs to the art",
-    body: "No slapped-on label — your name and ticker are rendered natively, in a face and placement the AI chose for this piece.",
+    body: "No slapped-on label — your name and ticker are rendered natively, in a typeface and placement chosen for this piece alone.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M5 6V4h14v2M12 4v16M9 20h6" />
