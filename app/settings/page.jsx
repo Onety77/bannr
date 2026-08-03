@@ -13,7 +13,6 @@ import { useCallback, useEffect, useState } from "react";
 import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME } from "@/lib/styles";
 import { countTouched } from "@/lib/advanced";
 import { useAuth } from "@/lib/useAuth";
-import { getHistory } from "@/lib/credits";
 import { short } from "@/lib/wallet";
 import AdvancedPanel from "@/components/AdvancedPanel";
 import ConnectButton, { WalletSignIn, ConnectNote } from "@/components/ConnectButton";
@@ -330,24 +329,12 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ---------- danger ---------- */}
-      <div className="panel">
-        <div className="panel-head"><h3>Local data</h3></div>
-        <p className="hint set-note">
-          {getHistory().length} run{getHistory().length === 1 ? "" : "s"} stored in this
-          browser. History isn&apos;t on your account yet, so it doesn&apos;t follow you
-          between devices.
-        </p>
-        <button
-          className="btn small"
-          onClick={() => {
-            try { localStorage.removeItem("bannr.history"); } catch {}
-            location.reload();
-          }}
-        >
-          Clear history on this device
-        </button>
-      </div>
+      {/* The "Local data" panel used to live here, explaining that
+          history was stuck in this browser. It is not — banners now
+          follow the account (see /api/history) — so a panel describing
+          the limitation would be describing something that no longer
+          exists. Deleting saved banners lives where the banners are:
+          each card on the My banners page. */}
 
       <div className="set-save">
         <button className="btn primary" disabled={saving || !loaded} onClick={save}>

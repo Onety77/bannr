@@ -1,13 +1,14 @@
-// MY BANNERS — every past run, with its brief intact.
+// MY BANNERS — every downloaded banner, with its brief intact.
 //
-// Still localStorage: these records hold a thumbnail, and moving them
-// to the account needs Firebase Storage rather than Firestore docs
-// (full-res banners blow the 1 MiB document limit). See G5 in
-// NEXT-ACTIONS.md.
+// Follows the ACCOUNT: entries live under users/{account}/history and
+// show up on every device you sign into. Anything stranded in this
+// browser from the localStorage era is swept up to the account on
+// first load (the server dedupes). What is stored is the card — brief,
+// style, thumbnail; the full-resolution archive is still G5b.
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getHistory, deleteFromHistory } from "@/lib/credits";
+import { loadHistory, deleteFromHistory } from "@/lib/credits";
 
 // The page promises "re-run any brief with one click", so the link has
 // to carry the ENTIRE brief — not just the style, which was all it used
@@ -24,10 +25,14 @@ function rerunHref(it) {
 }
 
 export default function HistoryPage() {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(null); // null = still loading
   const [confirming, setConfirming] = useState(null);
 
-  useEffect(() => setItems(getHistory()), []);
+  useEffect(() => {
+    let live = true;
+    loadHistory().then((list) => { if (live) setItems(list); });
+    return () => { live = false; };
+  }, []);
 
   return (
     <main className="wrap">
@@ -36,7 +41,9 @@ export default function HistoryPage() {
         <p>Every run, saved with its brief. Re-run any of them with one click.</p>
       </div>
 
-      {items.length === 0 ? (
+      {items === null ? (
+        <div className="empty-canvas page-gap"><div className="dims">LOADING…</div></div>
+      ) : items.length === 0 ? (
         <div className="empty-canvas page-gap">
           <div>
             <div className="dims">NOTHING PRINTED YET</div>
@@ -68,7 +75,11 @@ export default function HistoryPage() {
                     <>
                       <button
                         className="btn small danger"
-                        onClick={() => { setItems(deleteFromHistory(it.id)); setConfirming(null); }}
+                        onClick={async () => {
+                          setItems((l) => l.filter((h) => h.id !== it.id));
+                          setConfirming(null);
+                          await deleteFromHistory(it.id);
+                        }}
                       >
                         Delete
                       </button>

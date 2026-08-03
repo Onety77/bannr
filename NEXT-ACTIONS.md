@@ -168,9 +168,13 @@ G12 connect-and-pay.
 
 Remaining:
 
-- **G5** — Migrate history to the account. Still localStorage, and it
-  holds full-resolution data URLs — this needs Firebase Storage, not
-  Firestore documents. Decide J1 first
+- **G5** — DONE: history follows the account. Entries (brief + style +
+  ~20KB thumb) live at users/{account}/history, saved on download,
+  deduped account-wide by image signature, capped at 24. Anything
+  stranded in a browser from the localStorage era is swept up on the
+  next visit to My banners. Remaining as **G5b**: the full-resolution
+  archive (Firebase Storage) so old banners can be re-downloaded at
+  1500×500, not just re-run
 - **G8** — Account page: balance, wallet, billing history with Solscan
   links (the data is already in `payments/{signature}`)
 - **G9** — Set a Firestore **TTL policy on `nonces.expires`** — one
