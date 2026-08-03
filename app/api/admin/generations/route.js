@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
 const LIST_LIMIT = 60;
 const FILTER_LIMIT = 200;
 
-const FIELD = { wall: "featuredWall", hero: "featuredHero", hidden: "hidden" };
+const FIELD = { wall: "featuredWall", hero: "featuredHero", x: "featuredX", hidden: "hidden" };
 
 export async function GET(req) {
   const admin = await requireAdmin(req);
@@ -54,14 +54,16 @@ export async function GET(req) {
   // it does not read the documents it counts.
   let counts = {};
   try {
-    const [wall, hero, hidden] = await Promise.all([
+    const [wall, hero, x, hidden] = await Promise.all([
       col.where("featuredWall", "==", true).count().get(),
       col.where("featuredHero", "==", true).count().get(),
+      col.where("featuredX", "==", true).count().get(),
       col.where("hidden", "==", true).count().get(),
     ]);
     counts = {
       wall: wall.data().count,
       hero: hero.data().count,
+      x: x.data().count,
       hidden: hidden.data().count,
     };
   } catch {

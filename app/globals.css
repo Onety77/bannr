@@ -2106,8 +2106,11 @@ body::after {
 
 /* ============================================================
    HEADERS FOR X — the teaser.
+   Three profiles in a loose scatter, not a row. A row of three equal
+   rectangles is a table of contents; this has to make someone want a
+   thing that is not built yet.
    ============================================================ */
-.xcs { padding: 30px 0 90px; }
+.xcs { padding: 34px 0 90px; }
 
 .xcs-head { max-width: 620px; }
 .xcs-badge {
@@ -2123,94 +2126,72 @@ body::after {
   letter-spacing: -0.03em; margin-bottom: 14px;
 }
 .xcs-x { font-family: var(--body); }
-.xcs-head p { color: var(--muted); font-size: 17px; max-width: 46ch; }
+.xcs-head p { color: var(--muted); font-size: 17px; max-width: 44ch; }
 
-.xcs-stage { margin: 40px 0 52px; display: grid; place-items: center; }
+/* ---- the scatter ---- */
+.xcs-scatter {
+  position: relative;
+  height: clamp(400px, 46vw, 560px);
+  margin-top: 46px;
+  perspective: 1400px;
+}
+.xp {
+  position: absolute;
+  width: 46%;
+  border-radius: 14px; overflow: hidden;
+  background: var(--bg-soft);
+  box-shadow: 0 0 0 1px var(--hairline), 0 34px 70px -26px rgba(0,0,0,0.55);
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.55s;
+}
+/* Three depths on one axis, so it reads as a set held at an angle
+   rather than three cards dropped at random. */
+.xp.p0 { left: 0;    top: 4%;  transform: translateZ(-140px) rotate(-6.5deg); z-index: 1; }
+.xp.p1 { right: 2%;  top: 0;   transform: translateZ(-70px)  rotate(4.5deg);  z-index: 2; }
+.xp.p2 { left: 24%;  bottom: 0; width: 52%; transform: translateZ(0) rotate(-1.5deg); z-index: 3; }
+
+@media (hover: hover) {
+  .xp:hover {
+    transform: translateZ(60px) rotate(0deg);
+    box-shadow: 0 0 0 1px var(--hairline), 0 50px 90px -28px rgba(0,0,0,0.62);
+    z-index: 4;
+  }
+}
 
 /* ---- the profile mockup ---- */
-.xp {
-  width: min(100%, 560px);
-  border-radius: 16px; overflow: hidden;
-  background: var(--bg-soft);
-  box-shadow: 0 0 0 1px var(--hairline), var(--shadow-lg);
-}
 .xp-header { position: relative; aspect-ratio: 3 / 1; background: var(--card-soft); }
 .xp-header img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .xp-empty { width: 100%; height: 100%; background: linear-gradient(120deg, var(--card-soft), var(--bg-soft)); }
-
-/* The two things that ruin a header, drawn where they land. */
 .xp-crop {
-  position: absolute; top: 0; bottom: 0; width: 13%;
+  position: absolute; top: 0; bottom: 0; width: 12%;
   background: repeating-linear-gradient(
-    45deg, rgba(0,0,0,0.42) 0 6px, rgba(0,0,0,0.22) 6px 12px
+    45deg, rgba(0,0,0,0.38) 0 5px, rgba(0,0,0,0.18) 5px 10px
   );
-  backdrop-filter: saturate(0.4);
-  -webkit-backdrop-filter: saturate(0.4);
 }
-.xp-crop.left { left: 0; border-right: 1px dashed rgba(255,255,255,0.5); }
-.xp-crop.right { right: 0; border-left: 1px dashed rgba(255,255,255,0.5); }
-.xp-cropnote {
-  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-  font-size: 9.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
-  color: #fff; background: rgba(0,0,0,0.55);
-  padding: 4px 10px; border-radius: var(--pill);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-}
+.xp-crop.left { left: 0; border-right: 1px dashed rgba(255,255,255,0.45); }
+.xp-crop.right { right: 0; border-left: 1px dashed rgba(255,255,255,0.45); }
 
-.xp-body { position: relative; padding: 0 18px 20px; }
+.xp-body { position: relative; padding: 0 14px 16px; }
 .xp-avatar {
-  position: absolute; left: 18px; top: -34px;
-  width: 78px; height: 78px; border-radius: 50%;
+  position: absolute; left: 14px; top: -22%;
+  width: 26%; aspect-ratio: 1; border-radius: 50%;
   background: var(--card-soft);
-  box-shadow: 0 0 0 4px var(--bg-soft);
+  box-shadow: 0 0 0 3px var(--bg-soft);
 }
-.xp-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 12px; }
-.xp-dot { width: 30px; height: 30px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--hairline-2); }
-.xp-follow { width: 84px; height: 30px; border-radius: var(--pill); background: var(--text); opacity: 0.85; }
-.xp-lines { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
-.xp-line { display: block; height: 11px; border-radius: 3px; background: var(--hairline-2); }
-.xp-line.dim { opacity: 0.55; height: 9px; }
-.xp-line.w30 { width: 30%; } .xp-line.w45 { width: 45%; }
-.xp-line.w60 { width: 60%; } .xp-line.w80 { width: 80%; }
-
-/* ---- why it is a different problem ---- */
-.xcs-why {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px;
-  padding-top: 44px; border-top: 1px solid var(--hairline);
-}
-.xcs-n {
-  display: block; margin-bottom: 12px;
-  font-family: var(--mono, monospace); font-size: 12px;
-  letter-spacing: 0.1em; color: var(--accent);
-}
-.xcs-point h3 { font-size: 17px; letter-spacing: -0.01em; margin-bottom: 8px; }
-.xcs-point p { color: var(--muted); font-size: 14.5px; line-height: 1.6; }
-
-/* ---- a strip of real work ---- */
-.xcs-strip {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-  margin-top: 48px;
-}
-.xcs-card {
-  margin: 0; border-radius: 12px; overflow: hidden;
-  background: var(--bg-soft);
-  box-shadow: 0 0 0 1px var(--hairline);
-}
-.xcs-card img { width: 100%; aspect-ratio: 3/1; object-fit: cover; display: block; }
-.xcs-card figcaption {
-  padding: 9px 13px; font-size: 12px; color: var(--muted);
-}
-
-.xcs-foot {
-  margin-top: 44px; padding-top: 22px;
-  border-top: 1px solid var(--hairline);
-  color: var(--faint); font-size: 14px; max-width: 60ch;
-}
+.xp-actions { display: flex; justify-content: flex-end; padding-top: 10px; }
+.xp-follow { width: 62px; height: 22px; border-radius: var(--pill); background: var(--text); opacity: 0.8; }
+.xp-lines { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.xp-line { display: block; height: 8px; border-radius: 3px; background: var(--hairline-2); }
+.xp-line.dim { opacity: 0.5; height: 6px; }
+.xp-line.w30 { width: 30%; } .xp-line.w45 { width: 45%; } .xp-line.w80 { width: 80%; }
 
 @media (max-width: 860px) {
-  .xcs-why { grid-template-columns: 1fr; gap: 28px; }
-  .xcs-strip { grid-template-columns: 1fr; }
-  .surface-tabs button { padding: 9px 14px; font-size: 13px; }
+  /* Tighter, but still a scatter — stacking them into a column would
+     turn it back into the list this exists to avoid. */
+  .xcs-scatter { height: clamp(330px, 76vw, 460px); perspective: 900px; }
+  .xp { width: 62%; }
+  .xp.p0 { left: 0;   top: 2%;  transform: translateZ(-90px) rotate(-7deg); }
+  .xp.p1 { right: 0;  top: 26%; transform: translateZ(-45px) rotate(5deg); }
+  .xp.p2 { left: 12%; bottom: 0; width: 70%; transform: rotate(-2deg); }
 }
 
 /* ============================================================

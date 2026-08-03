@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/adminAuth";
 
 export const runtime = "nodejs";
 
-const ALLOWED_FIELDS = new Set(["featuredWall", "featuredHero", "hidden"]);
+const ALLOWED_FIELDS = new Set(["featuredWall", "featuredHero", "featuredX", "hidden"]);
 
 export async function POST(req) {
   const admin = await requireAdmin(req);

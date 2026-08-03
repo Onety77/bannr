@@ -12,6 +12,8 @@ export const dynamic = "force-dynamic";
 
 const HERO_LIMIT = 8;
 const WALL_LIMIT = 12;
+// Three, because the X teaser arranges exactly three cards.
+const X_LIMIT = 3;
 
 const shape = (d) => {
   const { src, ticker, template, ts } = d.data();
@@ -62,14 +64,15 @@ export async function GET() {
 
   if (db) {
     try {
-      const [hero, wall] = await Promise.all([
+      const [hero, wall, x] = await Promise.all([
         queryFeatured(db, "featuredHero", HERO_LIMIT),
         queryFeatured(db, "featuredWall", WALL_LIMIT),
+        queryFeatured(db, "featuredX", X_LIMIT),
       ]);
       // no-store at every layer. An admin un-features a banner and
       // reloads the site expecting it gone; any cache between here and
       // that reload makes the flags look broken.
-      return NextResponse.json({ hero, wall, curated: true }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ hero, wall, x, curated: true }, { headers: { "Cache-Control": "no-store" } });
     } catch (e) {
       console.error("[spotlight] Firestore query failed:", e.message);
       // fall through to the unmoderated fallback below
@@ -77,7 +80,7 @@ export async function GET() {
   }
 
   const items = (globalThis.__bannrSpotlight || []).slice(0, 8);
-  return NextResponse.json({ hero: items, wall: items, curated: false }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ hero: items, wall: items, x: items.slice(0, 3), curated: false }, { headers: { "Cache-Control": "no-store" } });
 }
 
 // POST /api/spotlight — nominate a downloaded banner for featuring.

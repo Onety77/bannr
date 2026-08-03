@@ -10,6 +10,11 @@ import { ADMIN_EMAIL } from "@/lib/admin";
 const FLAGS = [
   ["featuredWall", "Fresh wall"],
   ["featuredHero", "Highlight"],
+  // Picks the three banners shown in the X teaser on /create. Its own
+  // flag rather than reusing the hero set, because that set is chosen
+  // to look good on a dark homepage carousel and these are judged
+  // inside a profile mockup — different job, different picks.
+  ["featuredX", "X teaser"],
   ["hidden", "Hide"],
 ];
 
@@ -235,6 +240,7 @@ export default function AdminPage() {
             ["all", "Recent", null],
             ["wall", "On the fresh wall", "wall"],
             ["hero", "In the highlight", "hero"],
+            ["x", "In the X teaser", "x"],
             ["hidden", "Hidden", "hidden"],
           ].map(([key, label, countKey]) => (
             <button
