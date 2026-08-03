@@ -21,6 +21,11 @@ export default function AdminPage() {
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("generations"); // generations | refusals
   const [refusals, setRefusals] = useState(null);
+  // all = the 60 most recent. The rest ask "what is live right now",
+  // which is a different question and the only one that can reach a
+  // banner featured long enough ago to have fallen off the list.
+  const [filter, setFilter] = useState("all");
+  const [counts, setCounts] = useState({});
 
   useEffect(() => {
     const app = getFirebase();
@@ -54,15 +59,18 @@ export default function AdminPage() {
     (async () => {
       try {
         const token = await user.getIdToken();
-        const res = await fetch("/api/admin/generations", { headers: { Authorization: `Bearer ${token}` } });
+        const res = await fetch(`/api/admin/generations?filter=${filter}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const d = await res.json();
         if (!res.ok) return setError(d.error || "Failed to load generations.");
         setItems(d.items);
+        setCounts(d.counts || {});
       } catch {
         setError("Network error loading generations.");
       }
     })();
-  }, [status, user]);
+  }, [status, user, filter]);
 
   // Loaded on first visit to the tab, then cached for the session.
   useEffect(() => {
@@ -144,7 +152,23 @@ export default function AdminPage() {
       });
       const d = await res.json();
       if (!res.ok || !d.ok) throw new Error(d.error || "Toggle failed.");
-      setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, [field]: next } : it)));
+      setItems((prev) =>
+        prev
+          .map((it) => (it.id === item.id ? { ...it, [field]: next } : it))
+          // In a filtered view, un-featuring something means it no
+          // longer belongs in the list being looked at. Leaving it
+          // sitting there greyed out invites a second click on a
+          // banner that is already gone.
+          .filter((it) => {
+            const f = { wall: "featuredWall", hero: "featuredHero", hidden: "hidden" }[filter];
+            return !f || it[f];
+          })
+      );
+      setCounts((c) => {
+        const k = { featuredWall: "wall", featuredHero: "hero", hidden: "hidden" }[field];
+        if (!k || c[k] === undefined) return c;
+        return { ...c, [k]: Math.max(0, c[k] + (next ? 1 : -1)) };
+      });
     } catch (e) {
       setError(e.message || "Toggle failed.");
     } finally {
@@ -206,6 +230,28 @@ export default function AdminPage() {
       {error && <div className="notice error">{error}</div>}
 
       {tab === "generations" && (
+        <div className="admin-filters">
+          {[
+            ["all", "Recent", null],
+            ["wall", "On the fresh wall", "wall"],
+            ["hero", "In the highlight", "hero"],
+            ["hidden", "Hidden", "hidden"],
+          ].map(([key, label, countKey]) => (
+            <button
+              key={key}
+              className={`admin-filter${filter === key ? " on" : ""}`}
+              onClick={() => { if (filter !== key) { setItems(null); setFilter(key); } }}
+            >
+              {label}
+              {countKey && counts[countKey] !== undefined && (
+                <span className="admin-badge">{counts[countKey]}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === "generations" && filter === "all" && (
         <div className="admin-upload">
           <input
             ref={upRef}
@@ -235,7 +281,17 @@ export default function AdminPage() {
           <div className="admin-gate"><span className="spinner" /></div>
         ) : items.length === 0 ? (
           <div className="empty-canvas page-gap">
-            <div><div className="dims">No generations yet</div></div>
+            <div>
+              <div className="dims">
+                {filter === "all" ? "No generations yet"
+                  : filter === "wall" ? "Nothing on the fresh wall"
+                  : filter === "hero" ? "Nothing in the highlight"
+                  : "Nothing hidden"}
+              </div>
+              {filter !== "all" && (
+                <div className="sub">Feature a banner from Recent and it appears here.</div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="admin-grid">

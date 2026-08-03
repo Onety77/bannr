@@ -1817,6 +1817,22 @@ body::after {
 [data-theme="dark"] .admin-tile { background: var(--card-soft); }
 .admin-tile.is-hidden { opacity: 0.45; }
 /* ---------- admin: tabs, refusal log ---------- */
+.admin-filters {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.admin-filter {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: var(--pill);
+  font-size: 13px; color: var(--muted);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  transition: background 0.15s, color 0.15s;
+}
+.admin-filter:hover { color: var(--text); }
+.admin-filter.on {
+  color: var(--on-accent); background: var(--accent);
+}
+.admin-filter.on .admin-badge { background: rgba(255,255,255,0.25); color: inherit; }
+
 .admin-upload {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 12px 14px; margin-bottom: 14px;
