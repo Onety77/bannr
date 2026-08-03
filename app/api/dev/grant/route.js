@@ -29,7 +29,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { refundCredits, getUser, publicUser } from "@/lib/users";
-import { ADMIN_EMAIL } from "@/lib/admin";
+import { canMintTestCredits } from "@/lib/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,13 +60,13 @@ export async function POST(req) {
   } catch {}
 
   // The account's own email, read from the record rather than taken
-  // from the request — a caller cannot claim to be the admin.
+  // from the request — a caller cannot claim to be on the list.
   //
   // 404 rather than 403, for the same reason as above: someone
   // probing should not learn that the route exists and they are
   // merely the wrong person.
   const me = await getUser(session.accountId);
-  if (!me || me.email !== ADMIN_EMAIL) {
+  if (!canMintTestCredits(me?.email)) {
     console.warn(`[dev/grant] refused: ${me?.email || session.accountId}`);
     return new NextResponse("Not found", { status: 404 });
   }
