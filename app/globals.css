@@ -2072,3 +2072,143 @@ body::after {
 .ident-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ident-what b { font-size: 13.5px; }
 .ident-what .mono { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+
+/* ============================================================
+   SURFACE TABS — token banners vs headers for X.
+   Two genuinely different design problems, so two places to be.
+   ============================================================ */
+.surface-tabs {
+  display: flex; gap: 6px; margin: 4px 0 2px;
+  padding: 5px; border-radius: var(--pill);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  width: fit-content; max-width: 100%;
+}
+.surface-tabs button {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 18px; border-radius: var(--pill);
+  font-size: 14px; font-weight: 550; color: var(--muted);
+  white-space: nowrap;
+  transition: color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.surface-tabs button:hover { color: var(--text); }
+.surface-tabs button.on {
+  color: var(--text);
+  background: var(--bg);
+  box-shadow: var(--shadow-sm);
+}
+.tab-x { font-size: 15px; line-height: 1; }
+.tab-soon {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 7px; border-radius: var(--pill);
+  color: var(--on-accent); background: var(--accent);
+}
+
+/* ============================================================
+   HEADERS FOR X — the teaser.
+   ============================================================ */
+.xcs { padding: 30px 0 90px; }
+
+.xcs-head { max-width: 620px; }
+.xcs-badge {
+  display: inline-block; margin-bottom: 16px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 6px 13px; border-radius: var(--pill);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.xcs-head h2 {
+  font-size: clamp(32px, 5.5vw, 52px); line-height: 1.04;
+  letter-spacing: -0.03em; margin-bottom: 14px;
+}
+.xcs-x { font-family: var(--body); }
+.xcs-head p { color: var(--muted); font-size: 17px; max-width: 46ch; }
+
+.xcs-stage { margin: 40px 0 52px; display: grid; place-items: center; }
+
+/* ---- the profile mockup ---- */
+.xp {
+  width: min(100%, 560px);
+  border-radius: 16px; overflow: hidden;
+  background: var(--bg-soft);
+  box-shadow: 0 0 0 1px var(--hairline), var(--shadow-lg);
+}
+.xp-header { position: relative; aspect-ratio: 3 / 1; background: var(--card-soft); }
+.xp-header img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.xp-empty { width: 100%; height: 100%; background: linear-gradient(120deg, var(--card-soft), var(--bg-soft)); }
+
+/* The two things that ruin a header, drawn where they land. */
+.xp-crop {
+  position: absolute; top: 0; bottom: 0; width: 13%;
+  background: repeating-linear-gradient(
+    45deg, rgba(0,0,0,0.42) 0 6px, rgba(0,0,0,0.22) 6px 12px
+  );
+  backdrop-filter: saturate(0.4);
+  -webkit-backdrop-filter: saturate(0.4);
+}
+.xp-crop.left { left: 0; border-right: 1px dashed rgba(255,255,255,0.5); }
+.xp-crop.right { right: 0; border-left: 1px dashed rgba(255,255,255,0.5); }
+.xp-cropnote {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: #fff; background: rgba(0,0,0,0.55);
+  padding: 4px 10px; border-radius: var(--pill);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+
+.xp-body { position: relative; padding: 0 18px 20px; }
+.xp-avatar {
+  position: absolute; left: 18px; top: -34px;
+  width: 78px; height: 78px; border-radius: 50%;
+  background: var(--card-soft);
+  box-shadow: 0 0 0 4px var(--bg-soft);
+}
+.xp-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 12px; }
+.xp-dot { width: 30px; height: 30px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--hairline-2); }
+.xp-follow { width: 84px; height: 30px; border-radius: var(--pill); background: var(--text); opacity: 0.85; }
+.xp-lines { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.xp-line { display: block; height: 11px; border-radius: 3px; background: var(--hairline-2); }
+.xp-line.dim { opacity: 0.55; height: 9px; }
+.xp-line.w30 { width: 30%; } .xp-line.w45 { width: 45%; }
+.xp-line.w60 { width: 60%; } .xp-line.w80 { width: 80%; }
+
+/* ---- why it is a different problem ---- */
+.xcs-why {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px;
+  padding-top: 44px; border-top: 1px solid var(--hairline);
+}
+.xcs-n {
+  display: block; margin-bottom: 12px;
+  font-family: var(--mono, monospace); font-size: 12px;
+  letter-spacing: 0.1em; color: var(--accent);
+}
+.xcs-point h3 { font-size: 17px; letter-spacing: -0.01em; margin-bottom: 8px; }
+.xcs-point p { color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+
+/* ---- a strip of real work ---- */
+.xcs-strip {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin-top: 48px;
+}
+.xcs-card {
+  margin: 0; border-radius: 12px; overflow: hidden;
+  background: var(--bg-soft);
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+.xcs-card img { width: 100%; aspect-ratio: 3/1; object-fit: cover; display: block; }
+.xcs-card figcaption {
+  padding: 9px 13px; font-size: 12px; color: var(--muted);
+}
+
+.xcs-foot {
+  margin-top: 44px; padding-top: 22px;
+  border-top: 1px solid var(--hairline);
+  color: var(--faint); font-size: 14px; max-width: 60ch;
+}
+
+@media (max-width: 860px) {
+  .xcs-why { grid-template-columns: 1fr; gap: 28px; }
+  .xcs-strip { grid-template-columns: 1fr; }
+  .surface-tabs button { padding: 9px 14px; font-size: 13px; }
+}

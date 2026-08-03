@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/useAuth";
 import ConnectButton, { ConnectNote, WalletSignIn } from "@/components/ConnectButton";
 import Lightbox from "@/components/Lightbox";
 import StageAura from "@/components/StageAura";
+import XComingSoon from "@/components/XComingSoon";
 import AdvancedPanel from "@/components/AdvancedPanel";
 import { countTouched } from "@/lib/advanced";
 
@@ -141,6 +142,10 @@ function CreateInner() {
   // re-read after every successful import so the list is never stale.
   const [caRecent, setCaRecent] = useState([]);
   const [caOpen, setCaOpen] = useState(false);
+  // Which surface is being designed for. Kept in the draft with
+  // everything else, so switching to X and back does not land you on
+  // a different tab than the one you left.
+  const [surface, setSurface] = useState(() => saved?.surface ?? "dex");
   // Same again: the files survive, the object URLs are remade.
   const [refImages, setRefImages] = useState(() =>
     (saved?.refImages ?? []).map((r) => ({ file: r.file, url: URL.createObjectURL(r.file) }))
@@ -156,6 +161,7 @@ function CreateInner() {
   useEffect(() => {
     saveDraft({
       form: { ...formRef.current },
+      surface,
       runMeta,
       styleIds, variants, advanced, expanded,
       logoFile,
@@ -654,10 +660,39 @@ function CreateInner() {
     <main className="wrap">
       <div className="page-head">
         <h1>Create</h1>
-        <p>One run costs {GENERATION_COST} credits and creates {variants} options.</p>
+        <p>
+          {surface === "dex"
+            ? `One run costs ${GENERATION_COST} credits and creates ${variants} options.`
+            : "Profile headers for X, built around where the platform actually crops them."}
+        </p>
       </div>
 
-      <div className="create-grid">
+      {/* Two surfaces, two different design problems. The tabs exist
+          now rather than at launch so the second one is discoverable
+          while it is still being built. */}
+      <div className="surface-tabs" role="tablist" aria-label="What are you designing?">
+        <button
+          role="tab"
+          aria-selected={surface === "dex"}
+          className={surface === "dex" ? "on" : ""}
+          onClick={() => setSurface("dex")}
+        >
+          Token banners
+        </button>
+        <button
+          role="tab"
+          aria-selected={surface === "x"}
+          className={surface === "x" ? "on" : ""}
+          onClick={() => setSurface("x")}
+        >
+          Banners for <span className="tab-x">𝕏</span>
+          <span className="tab-soon">Soon</span>
+        </button>
+      </div>
+
+      {surface === "x" && <XComingSoon />}
+
+      <div className="create-grid" hidden={surface !== "dex"}>
         {/* ------------ LEFT: the brief ------------ */}
         <div>
           <div className="panel">
