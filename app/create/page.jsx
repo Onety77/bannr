@@ -513,11 +513,86 @@ function CreateInner() {
     }
   }
 
+  // How many versions of an edited banner are kept, the original
+  // included. Every frame is a full-resolution data URL — a few MB —
+  // held per variant, so this is a memory ceiling as much as a product
+  // decision. An unbounded stack on a phone is a crashed tab, and a
+  // crashed tab loses the original too, which is the exact outcome
+  // this whole feature exists to prevent.
+  const EDIT_HISTORY = 4;
+
+  // Push the version being replaced onto the stack.
+  //
+  // When the cap is reached the OLDEST EDIT goes (index 1) and never
+  // index 0. Every other frame can be reached again by repeating the
+  // instruction that produced it. The original cannot be reached again
+  // by any means: generation is not deterministic, so re-running the
+  // same brief returns a different banner, not that one. It is the one
+  // frame in the stack that is genuinely irreplaceable, so it is the
+  // one frame that is never dropped.
+  function pushPast(v, frame) {
+    const past = [...(v.past || []), frame];
+    if (past.length > EDIT_HISTORY) past.splice(1, past.length - EDIT_HISTORY);
+    return past;
+  }
+
+  // Put a kept version back on screen. Shared by undo and revert
+  // because everything except WHICH frame to restore is identical —
+  // including dropping the X conversion, which was re-framed from art
+  // that is no longer what the user is looking at.
+  function restoreFrame(idx, frame, past, edits) {
+    setResults((r) => ({
+      ...r,
+      variants: r.variants.map((v, i) =>
+        i === idx ? { ...v, dataUrl: frame.dataUrl, bg: frame.bg, past, edits } : v
+      ),
+    }));
+    setConverted((c) => {
+      const next = { ...c };
+      delete next[idx];
+      return next;
+    });
+    setLightbox((lb) =>
+      lb && lb.index === idx
+        ? { ...lb, src: frame.dataUrl, edits, pastCount: past.length }
+        : lb
+    );
+  }
+
+  // One step back.
+  function undoEdit() {
+    const idx = lightbox?.index;
+    const v = idx == null ? null : results?.variants?.[idx];
+    if (!v?.past?.length) return;
+    const past = [...v.past];
+    const frame = past.pop();
+    // An empty stack means we have arrived at index 0, which is the
+    // original by construction — so the count is 0 outright rather
+    // than decremented. Those differ once the cap has dropped frames:
+    // six edits deep with four frames kept, decrementing would leave
+    // the original labelled "edited 2×".
+    restoreFrame(idx, frame, past, past.length ? Math.max(0, (v.edits || 0) - 1) : 0);
+  }
+
+  // All the way back, however many edits deep.
+  function revertToOriginal() {
+    const idx = lightbox?.index;
+    const v = idx == null ? null : results?.variants?.[idx];
+    if (!v?.past?.length) return;
+    restoreFrame(idx, v.past[0], [], 0);
+  }
+
   // Apply a revision to whichever banner the lightbox is showing. The
   // edited result replaces the variant in place so Download and the X
   // Community conversion both operate on what the user is actually
   // looking at — and so a second edit refines the first rather than
   // silently reverting to the original generation.
+  //
+  // Replacing in place used to be permanent, which made every edit a
+  // one-way door: the banner you liked was gone, and no amount of
+  // money brought it back, because re-running the brief produces a
+  // DIFFERENT banner rather than that one again. The version being
+  // replaced is now kept — see pushPast.
   async function applyEdit(instruction, refFiles = []) {
     const idx = lightbox?.index;
     if (idx == null) return { error: "Nothing to edit." };
@@ -548,7 +623,15 @@ function CreateInner() {
       setResults((r) => ({
         ...r,
         variants: r.variants.map((v, i) =>
-          i === idx ? { ...v, dataUrl: data.dataUrl, bg: data.bg, edits: (v.edits || 0) + 1 } : v
+          i === idx
+            ? {
+                ...v,
+                dataUrl: data.dataUrl,
+                bg: data.bg,
+                edits: (v.edits || 0) + 1,
+                past: pushPast(v, { dataUrl: v.dataUrl, bg: v.bg }),
+              }
+            : v
         ),
       }));
       // Drop any stale X Community conversion — it was made from the
@@ -558,7 +641,14 @@ function CreateInner() {
         delete next[idx];
         return next;
       });
-      setLightbox((lb) => ({ ...lb, src: data.dataUrl, edits: (lb.edits || 0) + 1 }));
+      // pastCount is clamped the same way the stack is, so the Undo
+      // button never offers a step that pushPast has already dropped.
+      setLightbox((lb) => ({
+        ...lb,
+        src: data.dataUrl,
+        edits: (lb.edits || 0) + 1,
+        pastCount: Math.min((lb.pastCount || 0) + 1, EDIT_HISTORY),
+      }));
       return { ok: true };
     } catch (e) {
       return {
@@ -1202,6 +1292,7 @@ function CreateInner() {
                           w: v.w,
                           h: v.h,
                           edits: v.edits || 0,
+                          pastCount: (v.past || []).length,
                           label: `Option ${i + 1} · ${v.templateName}`,
                           dl: () => download(v.dataUrl, i),
                         })
@@ -1263,11 +1354,28 @@ function CreateInner() {
       {/* onEdit is passed only for generated banners — an X Community
           conversion is derived art, so editing it would be overwritten
           the moment it's re-converted from its source. */}
+      {/* onDownload is resolved from live state for generated banners
+          rather than from the closure captured when the viewer opened.
+          That closure held the dataUrl as it was AT THE MOMENT OF THE
+          CLICK, so downloading from the viewer after an edit handed
+          over the pre-edit image — while history, which already read
+          from state, saved the edited one. Two different banners from
+          one button. An X conversion has no index and keeps its own
+          dl, which is correct: it is never edited in place. */}
       <Lightbox
         item={lightbox}
         onClose={() => setLightbox(null)}
-        onDownload={lightbox?.dl}
+        onDownload={
+          lightbox?.index != null
+            ? () => {
+                const cur = results?.variants?.[lightbox.index];
+                if (cur) download(cur.dataUrl, lightbox.index);
+              }
+            : lightbox?.dl
+        }
         onEdit={lightbox?.editable ? applyEdit : null}
+        onUndo={lightbox?.editable ? undoEdit : null}
+        onRevert={lightbox?.editable ? revertToOriginal : null}
         editInfo={{
           free: auth.user?.freeEditsLeft ?? 0,
           cost: EDIT_COST,

@@ -1428,6 +1428,17 @@ h1, h2, h3 {
 .lb-chip:disabled { opacity: 0.45; }
 
 .lb-edit-note { margin-top: 10px; font-size: 12px; color: var(--lb-dim); }
+/* A link, not a button. Undo is the common way back and already has
+   real button weight in the bar; giving this equal weight would read
+   as a suggestion to throw the edits away. */
+.lb-undo-all {
+  font-size: 12px;
+  color: var(--lb-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.lb-undo-all:hover:not(:disabled) { opacity: 0.7; }
+.lb-undo-all:disabled { opacity: 0.45; }
 .lb-err {
   margin-bottom: 10px; padding: 9px 12px;
   border-radius: 10px; font-size: 13px;

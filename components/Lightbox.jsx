@@ -11,6 +11,14 @@
 // decided it's the keeper — the exact moment they notice the one
 // thing they'd change. Edits apply in place and stack, so a second
 // pass refines the first rather than starting over.
+//
+// And they are reversible, which matters more here than in most
+// editors: a banner cannot be regenerated. Re-running the same brief
+// returns a different one, so an edit someone dislikes used to cost
+// them the banner permanently. Two ways back, deliberately weighted
+// differently — Undo sits in the bar because one step is what people
+// actually reach for, and "back to the original" is a quiet link
+// inside the editor because it throws away work.
 // ============================================================
 "use client";
 import { useEffect, useRef, useState } from "react";
@@ -23,7 +31,7 @@ const SUGGESTIONS = [
   "move the logo to the left",
 ];
 
-export default function Lightbox({ item, onClose, onDownload, onEdit, editInfo }) {
+export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, onRevert, editInfo }) {
   const [actual, setActual] = useState(false);
   const [inContext, setInContext] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -135,6 +143,19 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, editInfo }
             {editing ? "Close editor" : "Edit this banner"}
           </button>
         )}
+        {/* In the bar rather than in the editor, because the moment
+            someone wants this is the moment the new version lands —
+            and they may well have closed the editor to look at it. */}
+        {onUndo && item.pastCount > 0 && (
+          <button
+            className="btn small"
+            onClick={onUndo}
+            disabled={busy}
+            title="Go back to the version before your last change"
+          >
+            Undo edit
+          </button>
+        )}
         <button
           className={`btn small ${inContext ? "primary" : ""}`}
           onClick={() => { setInContext((v) => !v); setActual(false); }}
@@ -230,6 +251,15 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, editInfo }
                 ? `Free edits used up for today — this one costs ${editInfo?.cost ?? 1} credit.`
                 : "Out of free edits and credits — top up to keep editing."}
             {" "}Changes apply to the banner above and stack, so you can keep refining.
+            {/* Only past one step, where it stops duplicating Undo. */}
+            {onRevert && item.pastCount > 1 ? (
+              <>
+                {" "}
+                <button type="button" className="lb-undo-all" onClick={onRevert} disabled={busy}>
+                  Back to the original
+                </button>
+              </>
+            ) : null}
           </div>
         </form>
       ) : (
