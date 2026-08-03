@@ -118,6 +118,13 @@ html { scroll-behavior: smooth; }
    what turns out to be causing it. */
 html, body { overflow-x: clip; }
 
+/* HIDDEN MEANS HIDDEN. The hidden attribute sets display:none at
+   user-agent specificity, which any class with its own display beats
+   without a fight — so <div class="create-grid" hidden> stayed a grid
+   and the whole brief kept rendering on a tab that was supposed to be
+   empty. This is a standard reset for exactly that trap. */
+[hidden] { display: none !important; }
+
 /* Belt and braces for the layout wrapper, since a grid or flex child
    holding something long and unbreakable is the usual culprit and this
    is where it would show up. */

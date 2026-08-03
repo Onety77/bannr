@@ -660,11 +660,12 @@ function CreateInner() {
     <main className="wrap">
       <div className="page-head">
         <h1>Create</h1>
-        <p>
-          {surface === "dex"
-            ? `One run costs ${GENERATION_COST} credits and creates ${variants} options.`
-            : "Profile headers for X, built around where the platform actually crops them."}
-        </p>
+        {/* The X tab carries its own headline and one line of
+            promise, so a second subtitle above it is just noise. The
+            h1 stays either way — it names the page. */}
+        {surface === "dex" && (
+          <p>One run costs {GENERATION_COST} credits and creates {variants} options.</p>
+        )}
       </div>
 
       {/* Two surfaces, two different design problems. The tabs exist
