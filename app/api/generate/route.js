@@ -4,10 +4,15 @@
 // Variants generate IN PARALLEL.
 // Every real-engine variant renders art, typography and logo
 // identity as ONE native AI image — no server-side text/logo
-// compositing, and one API call: the full doctrine (lib/templates.js)
-// plus the logo/refs go straight into the image call, no separate
-// reasoning pass first. Compositing only exists for zero-config
-// demo mode, which has no AI in the loop at all.
+// compositing. Compositing only exists for zero-config demo mode.
+//
+// Styles flagged `concepts` get an ART-DIRECTOR PASS first: one cheap
+// text call that writes a distinct concept per variant, which the
+// image call then executes. This file used to state "no separate
+// reasoning pass" as a principle. That principle was wrong, and the
+// proof was months of identical mark-left/name-right output from an
+// image model being asked to ideate — which is not a thing image
+// models do.
 //
 // NOTHING IS CROPPED. gpt-image-2 renders natively at 1536x512 —
 // exactly 3:1 — so getting to 1500x500 is a plain 2.3% downscale.
@@ -26,13 +31,14 @@ import {
 } from "@/lib/templates";
 import { demoBackgroundSVG } from "@/lib/engine/backgrounds";
 import { composeBanner } from "@/lib/engine/compose";
-import { aiEnabled, generateBackground, diagnoseContent } from "@/lib/openai";
+import { aiEnabled, generateBackground, generateConcepts, diagnoseContent } from "@/lib/openai";
 import { publicError, isPolicyError } from "@/lib/errors";
 import { recordRefusal } from "@/lib/refusals";
 import { requireUser } from "@/lib/auth";
 import { spendCredits, refundCredits, getUser, publicUser, getSettings, GENERATION_COST } from "@/lib/users";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { styleReferences } from "@/lib/references";
+import { buildDirection } from "@/lib/advanced";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -284,6 +290,36 @@ export async function POST(req) {
       };
     });
 
+    // -------- the art-director pass --------
+    // One text call per concept-enabled style, BEFORE the image jobs:
+    // it writes one concrete concept per variant of that style, and
+    // requires them to be compositionally unlike each other. This is
+    // where option diversity actually comes from — the image model
+    // executes, it does not ideate. Failure yields an empty list and
+    // the jobs run exactly as they always did.
+    const conceptByJob = {};
+    if (!demoMode) {
+      const wanting = {};
+      jobs.forEach((job) => {
+        if (job.template?.concepts) (wanting[job.template.id] ||= []).push(job.i);
+      });
+      await Promise.all(
+        Object.entries(wanting).map(async ([styleId, indices]) => {
+          const tpl = getTemplate(styleId);
+          const settings = advanced[styleId] || {};
+          const list = await generateConcepts({
+            brief,
+            styleBrief: tpl.mood,
+            count: indices.length,
+            constraints: buildDirection(styleId, settings),
+          });
+          indices.forEach((jobIndex, k) => {
+            if (list[k]) conceptByJob[jobIndex] = list[k];
+          });
+        })
+      );
+    }
+
     // -------- generate all variants in parallel --------
     // allSettled, not all: one variant failing must not discard the
     // variants that succeeded. There's no cross-engine fallback to
@@ -314,7 +350,13 @@ export async function POST(req) {
           // there's no second rung to climb — and non-policy errors
           // never retry, because a billing failure won't be fixed by
           // a nicer prompt.
-          const basePrompt = buildPrompt(job.template, brief, job.seasoning, { auto: job.isAuto, settings: job.settings });
+          // A variant with a written concept doesn't get seasoning on
+          // top — "take this in a different direction" pointed at a
+          // specific plan is noise at best and contradiction at worst.
+          const concept = conceptByJob[job.i] || "";
+          const basePrompt = buildPrompt(job.template, brief, concept ? "" : job.seasoning, {
+            auto: job.isAuto, settings: job.settings, concept,
+          });
           const extras = [];
           if (assist) extras.push(REASSURANCE);            // user already hit the wall
           if (assist === "nudge") extras.push(ASSIST_NUDGE);
