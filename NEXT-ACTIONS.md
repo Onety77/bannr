@@ -189,6 +189,21 @@ Remaining:
 
 ---
 
+## LATER — ANIMATED BANNERS
+
+Feasibility written up in **GIF-BANNERS.md**. Short version: our
+existing pipeline does the hard half (the still is already
+art-directed and already a true 3:1), but one animated banner costs
+7-70x a whole static run, GIF is the wrong container at this size, no
+video model generates 3:1 natively, and it needs async job
+infrastructure the app has so far avoided.
+
+Blocked on one unanswered question: does DEX Screener accept animated
+headers at all, and in what format. An hour to test, and everything
+else is moot until it is answered.
+
+---
+
 ## PHASE 3 — PAYMENTS
 
 - ~~**H1** — Server-side debiting~~ — **DONE.** Both routes now charge the
