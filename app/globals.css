@@ -822,9 +822,18 @@ h1, h2, h3 {
 .page-head p { color: var(--muted); margin-top: 10px; font-size: 16px; }
 
 .create-grid {
-  display: grid; grid-template-columns: 400px 1fr; gap: 22px;
+  /* minmax(0, …), not bare 1fr. A bare 1fr means minmax(auto, 1fr):
+     the track refuses to shrink below its content's minimum width, so
+     one unbreakable string — a 44-character contract address echoed
+     into a message, say — silently widens the track past the viewport
+     and shoves the whole page sideways. Every other page was fine
+     because only this one has the grid. */
+  display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 22px;
   padding: 26px 0 100px; align-items: start;
 }
+.create-grid > * { min-width: 0; }
+/* The messages that echo external strings wrap instead of pushing. */
+.ca-msg { overflow-wrap: anywhere; }
 
 .panel {
   background: var(--bg-soft);
@@ -1881,7 +1890,7 @@ body::after {
   .feature-list { grid-template-columns: repeat(2, 1fr); gap: 44px 36px; }
 }
 @media (max-width: 900px) {
-  .create-grid { grid-template-columns: 1fr; }
+  .create-grid { grid-template-columns: minmax(0, 1fr); }
   .packs { grid-template-columns: 1fr; }
   .history-grid { grid-template-columns: 1fr; }
   .steps3 { grid-template-columns: 1fr; gap: 36px; }
@@ -1963,6 +1972,27 @@ body::after {
 
 /* clear button inside the contract field */
 .ca-field { position: relative; flex: 1; min-width: 0; display: flex; }
+
+/* Recent tokens, under the CA field on focus. Three at most — the
+   point is "the token I was just working on", not an archive. */
+.ca-recents {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
+  display: flex; flex-direction: column;
+  background: var(--card);
+  border-radius: var(--r);
+  box-shadow: 0 0 0 1px var(--hairline), var(--shadow-lg);
+  overflow: hidden;
+}
+.ca-recents button {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 11px 14px; text-align: left;
+  font-size: 13.5px; color: var(--text);
+  transition: background 0.15s;
+}
+.ca-recents button + button { border-top: 1px solid var(--hairline); }
+.ca-recents button:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.ca-recents b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ca-recents .mono { font-family: var(--mono, monospace); font-size: 11.5px; color: var(--muted); flex: none; }
 .ca-field input { flex: 1; min-width: 0; padding-right: 34px; }
 .ca-clear {
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);

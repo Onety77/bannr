@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 // would ship every prompt in the product to the browser.
 import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles } from "@/lib/styles";
 import { loadDraft, saveDraft, setInFlight, getInFlight } from "@/lib/draft";
-import { saveToHistory, setUser, GENERATION_COST, EDIT_COST } from "@/lib/credits";
+import { saveToHistory, setUser, getRecentCAs, saveRecentCA, GENERATION_COST, EDIT_COST } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
 import ConnectButton, { ConnectNote, WalletSignIn } from "@/components/ConnectButton";
@@ -136,6 +136,11 @@ function CreateInner() {
   const [ca, setCa] = useState(() => saved?.ca ?? "");
   const [caBusy, setCaBusy] = useState(false);
   const [caMsg, setCaMsg] = useState(null);
+  // Recent successful lookups, shown under the field on focus. Read
+  // lazily (localStorage has no business running during SSR) and
+  // re-read after every successful import so the list is never stale.
+  const [caRecent, setCaRecent] = useState([]);
+  const [caOpen, setCaOpen] = useState(false);
   // Same again: the files survive, the object URLs are remade.
   const [refImages, setRefImages] = useState(() =>
     (saved?.refImages ?? []).map((r) => ({ file: r.file, url: URL.createObjectURL(r.file) }))
@@ -321,6 +326,8 @@ function CreateInner() {
       // because silently inheriting the last token's tagline, About or
       // reference art would quietly poison the next banner's brief.
       resetBrief();
+      saveRecentCA(addr, d.name || d.symbol || addr.slice(0, 8));
+      setCaRecent(getRecentCAs());
       if (d.name) setField("name", d.name.slice(0, 60));
       if (d.symbol) setField("ticker", (d.symbol.startsWith("$") ? d.symbol : "$" + d.symbol).slice(0, 16));
       if (d.description) setField("vibe", d.description.slice(0, 400));
@@ -642,7 +649,15 @@ function CreateInner() {
                   placeholder="Paste the contract address — Solana, Ethereum, Base, BNB…"
                   value={ca}
                   onChange={(e) => setCa(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && importCA()}
+                  onFocus={() => { setCaRecent(getRecentCAs()); setCaOpen(true); }}
+                  // Blur closes it — but blur fires BEFORE a click can
+                  // land, so the options below use onPointerDown, which
+                  // fires before blur does.
+                  onBlur={() => setCaOpen(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") importCA();
+                    if (e.key === "Escape") setCaOpen(false);
+                  }}
                   // Pasting an address IS the intent — there is no
                   // other reason to put one here — so it fetches
                   // immediately rather than waiting for a second tap.
@@ -658,6 +673,30 @@ function CreateInner() {
                   autoCapitalize="off"
                   autoCorrect="off"
                 />
+                {caOpen && !caBusy && caRecent.length > 0 && (
+                  <div className="ca-recents" role="listbox" aria-label="Recent tokens">
+                    {caRecent.map((r) => (
+                      <button
+                        type="button"
+                        key={r.address}
+                        role="option"
+                        // pointerdown, not click: it fires before the
+                        // input's blur, so the list is still mounted
+                        // when the choice lands.
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          setCaOpen(false);
+                          setCa(r.address);
+                          setCaMsg(null);
+                          importCA(r.address);
+                        }}
+                      >
+                        <b>{r.label}</b>
+                        <span className="mono">{r.address.slice(0, 4)}…{r.address.slice(-4)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {ca && !caBusy && (
                   <button
                     type="button"
