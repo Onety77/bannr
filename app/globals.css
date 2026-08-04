@@ -2795,3 +2795,34 @@ textarea::placeholder {
   .fcard-actions { gap: 4px; }
   .fcard-reuse { font-size: 12.5px; }
 }
+
+/* ============================================================
+   THE GENERATE BAR, WITH THE KEYBOARD UP
+
+   It sticks 74px above the bottom so it clears the tab bar — which
+   is right until the tab bar hides itself for the keyboard, at which
+   point the button is holding a gap for something that is not there
+   and hangs over the form it belongs under.
+
+   --kb is the measured keyboard height (components/TabBar.jsx), so
+   the bar sits ON it: no tab-bar clearance, and a small breath so it
+   is not welded to the keys.
+   ============================================================ */
+@media (max-width: 760px) {
+  .kb-measured.kb-open .run-bar {
+    bottom: calc(var(--kb, 0px) + 8px);
+  }
+
+  /* Without visualViewport there is no way to know where the keyboard
+     ends, and a bar pinned to a guess is worse than no bar — so it
+     leaves instead, and comes back when the keyboard does. */
+  .kb-open:not(.kb-measured) .run-bar {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+/* Not transitioned. The bar must track the keyboard exactly; easing
+   it means it lags behind every scroll, which is the thing being
+   fixed. Opacity is safe to ease because it is not a position. */
+.run-bar { transition: opacity 0.15s; }
