@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { setUser } from "@/lib/credits";
 import { PACKS } from "@/lib/packs";
+import TokenBar from "@/components/TokenBar";
 import { useAuth } from "@/lib/useAuth";
 import { useWallet, short } from "@/lib/wallet";
 
@@ -125,6 +126,11 @@ export default function CreditsPage() {
             : "Pick a pack and your wallet opens for approval. Any wallet works, and you can use a different one every time."}
         </p>
       </div>
+
+      {/* Above the packs on purpose: for anyone holding enough, this
+          IS the pricing, and finding it under the packs would mean
+          finding it after deciding to pay. */}
+      <TokenBar />
 
       {msg && <div className="notice money page-gap-top">{msg}</div>}
       {err && <div className="notice error page-gap-top">{err}</div>}

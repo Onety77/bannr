@@ -27,6 +27,17 @@ rules_version = '2';
 //   nonces/        single-use sign-in challenges.
 //   settings/      saved per-account preferences.
 //   refusals/      content-filter diagnostics.
+//   config/        the token gate — which token, how much you must
+//                  hold, how many free runs that buys, and the daily
+//                  ceiling on what the whole promotion can cost. A
+//                  client that could write here could grant itself
+//                  unlimited free generations without touching credits
+//                  at all, which is the same bug wearing a new hat.
+//   counters/      free runs used today, against that ceiling. Writable
+//                  means the ceiling is decorative.
+//   holders/       per-wallet balance snapshots and the maturity clock
+//                  that stops one bag of tokens being passed between
+//                  wallets to farm an allowance per account.
 //
 // IF YOU EVER ADD CLIENT-SIDE FIRESTORE: do not loosen this file to
 // make it work. Add a server route instead. The Admin SDK path is

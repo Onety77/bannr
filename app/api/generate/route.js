@@ -35,7 +35,13 @@ import { aiEnabled, generateBackground, generateConcepts, diagnoseContent } from
 import { publicError, isPolicyError } from "@/lib/errors";
 import { recordRefusal } from "@/lib/refusals";
 import { requireUser } from "@/lib/auth";
-import { spendCredits, refundCredits, getUser, publicUser, getSettings, GENERATION_COST } from "@/lib/users";
+import {
+  refundGeneration, consumeGeneration,
+  gateStateOf, setGateVerdict,
+  getUser, publicUser, getSettings, GENERATION_COST,
+} from "@/lib/users";
+import { getGate, evaluate } from "@/lib/tokenGate";
+import { linkedWallets } from "@/lib/identities";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { styleReferences } from "@/lib/references";
 import { buildDirection } from "@/lib/advanced";
@@ -216,18 +222,68 @@ export async function POST(req) {
     // Firestore transaction so two parallel runs can't both spend the
     // last credits. Everything below is wrapped by the catch, which
     // refunds on any failure.
+    //
+    // Two ways to pay now, tried in this order: the free daily bucket
+    // a $BANNR holder gets, then credits. The order is not a
+    // preference, it is a correctness requirement — taking credits
+    // from someone who had a free run available is a straightforward
+    // overcharge, and they would have no way to notice.
     if (!demoMode) {
-      const remaining = await spendCredits(session.accountId, GENERATION_COST);
-      if (remaining === null) {
+      const gate = await getGate();
+      let allowance = 0;
+
+      if (gate.enabled) {
+        const u = await getUser(session.accountId);
+        const st = gateStateOf(u, gate);
+        if (st.needsCheck) {
+          // The balance read is the ONLY place a wallet is consulted,
+          // and it reads every wallet LINKED to this account. Linked,
+          // not merely connected in the browser: the link is signature
+          // -verified and exclusive, which is what stops one bag of
+          // tokens claiming an allowance on fifty Google accounts.
+          //
+          // Never fatal. An RPC that is down, slow or lying resolves to
+          // "not qualified", which falls through to credits — the site
+          // keeps working and nobody is given free runs on the strength
+          // of a failed lookup.
+          // linkedWallets, NOT u.wallets. The two look
+          // interchangeable and are not. u.wallets means "payments
+          // from here are mine", and /api/pay/claim appends a sender
+          // to it with no signature and no exclusivity check — so
+          // paying one wallet into two accounts lands the same
+          // address in both. Summing balances over that list would
+          // let a single bag of tokens earn an allowance on every
+          // account it had ever paid for. linkedWallets reads the
+          // identities collection instead, where the link is
+          // signature-verified and cannot be re-pointed.
+          const proven = await linkedWallets(session.accountId).catch(() => []);
+          const verdict = await evaluate(session.accountId, proven, gate)
+            .catch(() => ({ qualified: false, reason: "unknown" }));
+          allowance = verdict.qualified ? gate.dailyRuns : 0;
+          await setGateVerdict(session.accountId, allowance, verdict).catch(() => {});
+        } else {
+          allowance = st.allowance;
+        }
+      }
+
+      const paid = await consumeGeneration(session.accountId, {
+        allowance,
+        globalCap: gate.dailyGlobalRuns,
+      });
+      if (!paid?.ok) {
         return NextResponse.json(
           {
-            error: `Not enough credits — a run costs ${GENERATION_COST}. Top up on the credits page.`,
+            error: paid?.capped
+              ? "Today's free holder runs are all used up across the site. Credits still work, or try again tomorrow."
+              : `Not enough credits — a run costs ${GENERATION_COST}. Top up on the credits page.`,
             code: "insufficient_credits",
           },
           { status: 402 }
         );
       }
-      charged = { accountId: session.accountId, amount: GENERATION_COST };
+      // paidWith decides how a failure is undone. Refunding credits for
+      // a run that was free would mint them out of nothing.
+      charged = { accountId: session.accountId, amount: GENERATION_COST, paidWith: paid.paidWith };
     }
 
     // Each variant carries its own style now. Normal ("auto") sends no
@@ -468,7 +524,10 @@ export async function POST(req) {
     // even if the user never sees the response.
     if (charged) {
       try {
-        await refundCredits(charged.accountId, charged.amount);
+        // Gives back whichever side actually paid — a free run returns
+        // to today's holder bucket and to the global counter, not to
+        // the credit balance.
+        await refundGeneration(charged.accountId, charged.paidWith);
       } catch (e) {
         // A failed refund is a real loss to a real person — make it
         // loud in the log rather than swallowing it.

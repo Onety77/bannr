@@ -2268,3 +2268,148 @@ body::after {
 }
 .result.ghost .bar .mode { color: var(--muted); }
 .result.ghost .bar .mode b { color: var(--text-2); }
+
+
+/* ============================================================
+   ADMIN — TOKEN GATE
+   Fields are wide and the explanations sit under them rather than in
+   a tooltip: every number on this panel spends money, and the one
+   that matters most (the ceiling) is the one nobody would think to
+   ask about.
+   ============================================================ */
+.admin-token { margin-top: 18px; }
+
+.tk-usage {
+  display: flex; align-items: center; gap: 26px; flex-wrap: wrap;
+  padding: 16px 18px; margin-bottom: 18px;
+  border: 1px solid var(--hairline); border-radius: 14px;
+  background: var(--card);
+}
+.tk-usage > div { display: flex; flex-direction: column; gap: 2px; }
+.tk-usage b { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.tk-usage span { font-size: 12px; color: var(--muted); }
+.tk-usage .btn { margin-left: auto; }
+
+.tk-grid {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+.tk-card {
+  border: 1px solid var(--hairline); border-radius: 14px;
+  background: var(--card); padding: 18px;
+}
+.tk-card h3 {
+  font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted);
+  margin: 0 0 14px;
+}
+
+.tk-f { display: block; margin-bottom: 16px; }
+.tk-f > span { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.tk-f input {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--hairline); border-radius: 9px;
+  background: var(--bg); color: inherit; font-size: 14px;
+}
+.tk-f input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.tk-f em, .tk-note, .tk-calc em {
+  display: block; margin-top: 7px;
+  font-size: 12px; line-height: 1.5; font-style: normal; color: var(--muted);
+}
+.tk-row { display: flex; gap: 10px; }
+.tk-row > * { flex: 1; margin-bottom: 0; }
+
+.tk-calc {
+  margin: -6px 0 16px;
+  padding: 12px; border-radius: 10px;
+  background: var(--bg); border: 1px dashed var(--hairline);
+}
+.tk-calc > span { font-size: 12px; font-weight: 600; }
+.tk-calc .tk-row { margin-top: 8px; align-items: stretch; }
+.tk-usd {
+  flex: 0 0 90px; padding: 8px 10px;
+  border: 1px solid var(--hairline); border-radius: 8px;
+  background: var(--card); color: inherit; font-size: 14px;
+}
+.tk-calc .btn { flex: 1; white-space: nowrap; }
+
+.tk-check { display: flex; gap: 11px; align-items: flex-start; cursor: pointer; }
+.tk-check input { margin-top: 3px; flex: none; width: 16px; height: 16px; }
+.tk-check b { display: block; font-size: 14px; }
+.tk-check em {
+  display: block; margin-top: 4px;
+  font-size: 12px; line-height: 1.5; font-style: normal; color: var(--muted);
+}
+
+/* The arming switch is separated from the fields it arms, so turning
+   the gate on is never something that happens while reaching for a
+   number. */
+.tk-arm {
+  display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap;
+  margin-top: 18px; padding: 18px;
+  border: 1px solid var(--hairline); border-radius: 14px;
+  background: var(--card);
+}
+.tk-arm .tk-check { flex: 1; min-width: 260px; }
+.tk-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.tk-saved { font-size: 12px; color: var(--muted); }
+
+
+/* ============================================================
+   $BANNR — CONTRACT ADDRESS
+   The whole row is the copy target. A tap anywhere on it works,
+   because a 24px icon at the end of a 44-character string is a
+   coin-flip on a phone and this is the one thing people came for.
+   ============================================================ */
+.tbar { margin: 22px 0 0; }
+.credits .tbar, .tbar.compact { margin: 18px 0 0; }
+
+.tbar-ca {
+  display: inline-flex; align-items: center; gap: 10px;
+  max-width: 100%;
+  padding: 9px 9px 9px 14px;
+  border: 1px solid var(--hairline-2); border-radius: var(--pill);
+  background: var(--card);
+  font-family: var(--mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.tbar-ca:hover { border-color: var(--accent); }
+.tbar-ca:active { transform: scale(0.99); }
+
+.tbar-tick { font-weight: 700; color: var(--accent); letter-spacing: 0.02em; }
+.tbar-mint {
+  color: var(--text-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  /* Selectable, so desktop can still highlight it by hand rather
+     than being forced through the button. */
+  user-select: text;
+}
+.tbar-mint.short { display: none; }
+
+.tbar-copy {
+  flex: none;
+  padding: 5px 12px; border-radius: var(--pill);
+  background: var(--bg-soft); color: var(--muted);
+  font-family: var(--body); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  transition: background 0.15s, color 0.15s;
+}
+.tbar-ca:hover .tbar-copy { background: var(--accent); color: var(--on-accent); }
+.tbar-copy.done, .tbar-ca:hover .tbar-copy.done { background: var(--ok); color: #fff; }
+
+.tbar-perk {
+  margin: 10px 0 0;
+  font-size: 13px; line-height: 1.5; color: var(--muted);
+}
+.tbar-perk b { color: var(--text); font-weight: 600; }
+
+/* Below this the full address stops fitting beside the ticker and the
+   copy pill, and truncating it in the middle keeps both ends visible —
+   which is how an address is actually checked. */
+@media (max-width: 560px) {
+  .tbar-mint.full { display: none; }
+  .tbar-mint.short { display: inline; }
+  .tbar-ca { font-size: 12px; }
+}

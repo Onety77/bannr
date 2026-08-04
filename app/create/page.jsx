@@ -380,7 +380,12 @@ function CreateInner() {
     if (!name.trim()) return setError("Coin name is required — it's the one thing every banner needs.");
     if (!logoFile) return setError("A logo or pfp is required — the banner is built around it.");
     if (!auth.user) return setError("Sign in to generate banners.");
-    if (auth.user.credits < GENERATION_COST)
+    // Free holder runs count as affordable. Without this the client
+    // would refuse a holder with 0 credits and 20 free runs waiting —
+    // the server would have allowed it, and the button would simply
+    // never fire. The server is still the authority; this only stops
+    // an obviously-doomed request leaving the browser.
+    if ((auth.user.holderRunsLeft || 0) <= 0 && auth.user.credits < GENERATION_COST)
       return setError(`Not enough credits (need ${GENERATION_COST}). Top up on the credits page.`);
 
     setBusy(true);
@@ -716,6 +721,12 @@ function CreateInner() {
     } catch {}
   }
 
+  // Free runs available right now, from the last balance check the
+  // server did. Zero when the gate is off, when nothing is linked, or
+  // when today's allowance is spent — every one of which correctly
+  // means "this run costs credits".
+  const freeRuns = auth.user?.holderRunsLeft || 0;
+
   const nameFor = (id) =>
     id === AUTO_ID ? AUTO_NAME : TEMPLATES.find((t) => t.id === id)?.name || id;
 
@@ -754,7 +765,11 @@ function CreateInner() {
             promise, so a second subtitle above it is just noise. The
             h1 stays either way — it names the page. */}
         {surface === "dex" && (
-          <p>One run costs {GENERATION_COST} credits and creates {variants} options.</p>
+          <p>
+            {freeRuns > 0
+              ? <><b>{freeRuns} free {freeRuns === 1 ? "run" : "runs"} left today</b> as a holder — each one creates {variants} options.</>
+              : <>One run costs {GENERATION_COST} credits and creates {variants} options.</>}
+          </p>
         )}
       </div>
 
@@ -1204,7 +1219,9 @@ function CreateInner() {
               <button className="btn primary block" disabled={busy} onClick={() => setInFlight(generate())}>
                 {busy
                   ? (<><span className="spinner" /> Creating {variants} options…</>)
-                  : (<>Generate — {GENERATION_COST} credits</>)}
+                  : freeRuns > 0
+                    ? (<>Generate — free ({freeRuns} left today)</>)
+                    : (<>Generate — {GENERATION_COST} credits</>)}
               </button>
             )}
           </div>

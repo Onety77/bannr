@@ -7,6 +7,7 @@ import Spotlight from "@/components/Spotlight";
 import Socials from "@/components/Socials";
 import Highlights from "@/components/Highlights";
 import BannerField from "@/components/BannerField";
+import TokenBar from "@/components/TokenBar";
 // Metadata only. This page is a server component, but it renders
 // client components that pull the same module into their bundle.
 import { STYLES as TEMPLATES } from "@/lib/styles";
@@ -108,6 +109,9 @@ export default function Landing() {
             <Link href="/credits" className="link-cta">See pricing</Link>
           </div>
           <p className="hero-note reveal d2">12 free credits to start. No wallet required.</p>
+          {/* Renders nothing until the token is announced, so the hero
+              is unchanged until the day it isn't. */}
+          <div className="reveal d2"><TokenBar /></div>
         </div>
 
         <div className="visual-stage reveal d3">
