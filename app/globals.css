@@ -2644,3 +2644,12 @@ textarea::placeholder {
 @media (prefers-reduced-motion: reduce) {
   .gen-fill, .lb-bar i { transition: none; }
 }
+
+/* The collapsed row: question on the left, way in on the right. The
+   optional tag rides with the question and must not push the two
+   apart, so it never wraps and shrinks before the label does. */
+.want-reveal > span:first-child {
+  display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.want-reveal .tag-opt { font-weight: 500; white-space: nowrap; }
+.field-accent label .panel-collapse { flex: none; }

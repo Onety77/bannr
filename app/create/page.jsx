@@ -1212,9 +1212,13 @@ function CreateInner() {
                 </button>
               ) : (
                 <>
+              {/* The "optional, but worth it" tag lives on the
+                  COLLAPSED row only. Open, it is answered: you are
+                  looking at the field, so being told it is optional
+                  says nothing, and on a narrow screen it wrapped to two
+                  lines and shoved Hide out of alignment. */}
               <label>
                 What do you want?
-                <span className="tag-opt">optional, but worth it</span>
                 <button className="panel-collapse" onClick={() => setWantOpen(false)}>Hide</button>
               </label>
               <textarea

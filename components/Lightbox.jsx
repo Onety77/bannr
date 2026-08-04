@@ -43,17 +43,23 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
   const [actual, setActual] = useState(false);
   // True only while a press is held on the banner.
   const [comparing, setComparing] = useState(false);
-  // An edit is a single image and lands sooner than a full run.
-  // It gets a bar across the banner itself rather than on a button,
-  // because during an edit the artwork is what you are looking at
-  // and the button is not on screen.
-  const editProgress = useProgress(busy, 28_000);
   const [inContext, setInContext] = useState(false);
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [refs, setRefs] = useState([]); // [{ file, url }]
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  // An edit is a single image and lands sooner than a full run. It
+  // gets a bar across the banner itself rather than on a button,
+  // because during an edit the artwork is what you are looking at and
+  // the button is not on screen.
+  //
+  // MUST STAY BELOW `busy`. It was written above it, which reads a
+  // const before its declaration — a temporal dead zone. The build
+  // was clean and /create threw on load in production, while every
+  // other page kept working, because this is the only component they
+  // do not render. scripts/check-tdz.cjs exists because of this.
+  const editProgress = useProgress(busy, 28_000);
   const inputRef = useRef(null);
   const refsRef = useRef(null);
 
