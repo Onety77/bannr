@@ -102,6 +102,13 @@
 
 html { scroll-behavior: smooth; }
 
+/* How tall the mobile tab bar is. Declared here so it is already
+   correct on the first paint, then overwritten with the bar's MEASURED
+   height by components/TabBar.jsx — an inline style, which beats this.
+   Zero by default because on a wide screen the bar does not exist. */
+:root { --tabbar-h: 0px; }
+@media (max-width: 760px) { :root { --tabbar-h: 64px; } }
+
 /* NOTHING SCROLLS SIDEWAYS. The page could be dragged left and right
    on a phone, which left the right margin stranded off-screen and the
    whole layout looking crooked.
@@ -296,18 +303,19 @@ h1, h2, h3 {
 .set-styles { display: flex; flex-direction: column; gap: 8px; }
 .set-style .adv-toggle { width: 100%; }
 
-/* Sticky so a long page never hides the only way to keep your edits. */
-/* Sticky so a long page never hides the only way to keep your edits.
+/* NOT sticky, deliberately.
 
-   The offset is the tab bar's MEASURED height, not a guess. It had a
-   58px one, and once the scroll container also started reserving
-   room for the bar the two stacked and put this in the middle of the
-   form. One number, published by the thing it describes. */
+   It used to follow you down the page so a long form never hid the
+   only way to keep your edits. Fair intention, and it spent the whole
+   time hovering over whatever you were reading — it never once looked
+   like anything but a mistake.
+
+   It sits at the end of the form now. Scroll to the bottom and it is
+   there, which is where a Save button belongs and the last place you
+   look anyway. No offset to compute, nothing to clear, and nothing
+   left to get wrong on a screen size nobody tested. */
 .set-save {
-  position: sticky;
-  bottom: var(--tabbar-h, 0px);
-  padding: 14px 0;
-  background: linear-gradient(180deg, transparent, var(--bg) 38%);
+  padding: 20px 0 8px;
 }
 .set-save .btn { width: 100%; }
 
@@ -1979,7 +1987,7 @@ body::after {
 @media (max-width: 760px) {
   /* The bar's clearance belongs to whatever scrolls, and the number
      comes from the bar itself — see useMeasuredHeight in TabBar. */
-  .app-scroll { padding-bottom: var(--tabbar-h, 64px); }
+  .app-scroll { padding-bottom: var(--tabbar-h); }
   .nav-links { display: none; }
 
   /* The top bar cannot hold logo + credits + wallet + theme at 375px —
@@ -2021,7 +2029,7 @@ body::after {
   .run-bar {
     position: sticky;
     /* Same measured number, plus a breath. */
-    bottom: calc(var(--tabbar-h, 74px) + 10px);
+    bottom: calc(var(--tabbar-h) + 10px);
     z-index: 30;
   }
   .run-bar .btn { box-shadow: 0 10px 34px -8px color-mix(in srgb, var(--accent) 70%, transparent); }
