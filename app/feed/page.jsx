@@ -93,7 +93,24 @@ export default function FeedPage() {
       {error && <div className="notice error">{error}</div>}
 
       {posts === null ? (
-        <div className="admin-gate"><span className="spinner" /></div>
+        /* The shape of the thing, not a spinner. A feed that arrives as
+           its own outline feels faster than one that arrives as a dot,
+           because the layout stops moving the moment the data lands. */
+        <div className="feed">
+          {[0, 1, 2].map((i) => (
+            <div className="fskel" key={i}>
+              <div className="fskel-top">
+                <span className="fskel-dot" />
+                <span className="fskel-lines">
+                  <span className="fskel-line w40" />
+                  <span className="fskel-line w22" />
+                </span>
+              </div>
+              <div className="fskel-art" />
+              <div className="fskel-foot" />
+            </div>
+          ))}
+        </div>
       ) : posts.length === 0 ? (
         <div className="empty-canvas page-gap">
           <div>

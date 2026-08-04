@@ -1,28 +1,29 @@
 // ============================================================
 // ONE POST.
 //
-// Built as a social post rather than a picture with a caption, in this
-// order: who made it, what it is for, the work, what you can do with
-// it. A feed of bare banners reads as a gallery — impressive once and
-// boring by the third scroll — because there is nobody in it. The
-// avatar and handle at the top are what turn a wall of images into a
-// place where people are.
+// Order: who made it, what coin it is for, the work, what you can do
+// with it. A wall of bare banners reads as a gallery — impressive once
+// and boring by the third scroll — because there is nobody in it. The
+// avatar and handle are what make it a place rather than an archive.
 //
-// THE CONTRACT ADDRESS SITS ABOVE THE ARTWORK and links out to
-// DexScreener. It is optional, because plenty of banners are made
-// before a token exists, and when it is there it is the difference
-// between admiring a banner and being able to go and look at the coin.
+// THE ARTWORK IS THE POINT and everything else defers to it. The card
+// carries almost no chrome of its own: the banner runs edge to edge,
+// and the two rows around it are quiet enough that scrolling reads as
+// a run of images rather than a run of boxes.
 //
-// "Make one like this" is the loop this whole feature exists for, and
-// Share is how the loop reaches people who have never been here — a
-// link to one post, readable signed out, likeable only signed in.
+// DOUBLE-TAP THE BANNER TO LIKE IT. That is the gesture every feed has
+// trained people to expect, and it is the difference between a page
+// you look at and one you touch. The button is still there for anyone
+// who does not know the gesture — which is the deal with gestures:
+// they are a shortcut, never the only way.
 //
-// Report sits alone in the header. It has to be reachable and must
-// never be the thing your thumb finds while going for Like.
+// Share is how the loop reaches people who have never been here, and
+// Report sits alone in the header where a thumb going for Like will
+// never find it.
 // ============================================================
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 
 function ago(ts) {
@@ -38,9 +39,26 @@ function ago(ts) {
 
 const shortCa = (ca) => (ca.length > 14 ? `${ca.slice(0, 5)}…${ca.slice(-5)}` : ca);
 
+const Heart = ({ filled }) => (
+  <svg viewBox="0 0 20 20" aria-hidden="true">
+    <path
+      d="M10 16.5S3 12.3 3 7.9A3.6 3.6 0 0 1 10 6a3.6 3.6 0 0 1 7 1.9c0 4.4-7 8.6-7 8.6z"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 export default function FeedCard({ post, signedIn, onLike, onReport }) {
   const [reported, setReported] = useState(false);
   const [shared, setShared] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [burst, setBurst] = useState(0);
+  const [pop, setPop] = useState(0);
+  const lastTap = useRef(0);
+  const imgRef = useRef(null);
 
   useEffect(() => {
     if (!shared) return;
@@ -48,19 +66,40 @@ export default function FeedCard({ post, signedIn, onLike, onReport }) {
     return () => clearTimeout(id);
   }, [shared]);
 
+  // A cached image can be complete before React ever attaches onLoad,
+  // which would leave it faded out forever.
+  useEffect(() => {
+    if (imgRef.current?.complete) setLoaded(true);
+  }, []);
+
   const label = post.ticker || post.name || "";
+
+  function like() {
+    setPop((n) => n + 1);
+    onLike(post);
+  }
+
+  // Double-tap. Deliberately only ever LIKES, never unlikes: a stray
+  // second tap taking a like away is the one outcome nobody wants, and
+  // unliking is what the button is for.
+  function onImageTap() {
+    const now = Date.now();
+    const isDouble = now - lastTap.current < 300;
+    lastTap.current = now;
+    if (!isDouble) return;
+    setBurst((n) => n + 1);
+    if (!post.liked) like();
+  }
 
   async function share() {
     const url = `${window.location.origin}/feed/${post.id}`;
     const title = label ? `${label} banner on bannr` : "A banner on bannr";
-    // The native sheet where it exists — on a phone that is AirDrop,
-    // Telegram, X, everything — and the clipboard everywhere else.
     if (navigator.share) {
       try {
         await navigator.share({ title, url });
         return;
       } catch {
-        // Cancelled, or refused. Fall through to copying rather than
+        // Cancelled or refused — fall through to copying rather than
         // leaving the tap having done nothing.
       }
     }
@@ -101,7 +140,6 @@ export default function FeedCard({ post, signedIn, onLike, onReport }) {
         )}
       </header>
 
-      {/* Above the artwork, because it says what you are looking at. */}
       {(label || post.ca) && (
         <div className="fcard-coin">
           {label && <span className="fcard-tick">{label}</span>}
@@ -122,27 +160,35 @@ export default function FeedCard({ post, signedIn, onLike, onReport }) {
         </div>
       )}
 
-      <div className="fcard-shot">
-        <img src={post.src} alt={label ? `Banner for ${label}` : "A banner"} loading="lazy" />
+      <div className="fcard-shot" onPointerUp={onImageTap}>
+        <img
+          ref={imgRef}
+          className={loaded ? "in" : ""}
+          src={post.src}
+          alt={label ? `Banner for ${label}` : "A banner"}
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+          draggable={false}
+        />
+        {/* Keyed on a counter so the animation restarts on every tap
+            rather than only playing the first time. */}
+        {burst > 0 && (
+          <span className="fcard-burst" key={burst} aria-hidden="true">
+            <Heart filled />
+          </span>
+        )}
       </div>
 
       <div className="fcard-actions">
         <button
           className={`fcard-like${post.liked ? " on" : ""}`}
-          onClick={() => onLike(post)}
+          key={`like-${pop}`}
+          onClick={like}
           aria-pressed={post.liked}
           aria-label={post.liked ? "Unlike" : "Like"}
           title={signedIn ? "" : "Sign in to like"}
         >
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path
-              d="M10 16.5S3 12.3 3 7.9A3.6 3.6 0 0 1 10 6a3.6 3.6 0 0 1 7 1.9c0 4.4-7 8.6-7 8.6z"
-              fill={post.liked ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Heart filled={post.liked} />
           {post.likes > 0 && <span>{post.likes}</span>}
         </button>
 

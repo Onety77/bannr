@@ -85,56 +85,22 @@ const TABS = [
 // scroll, which is a ~6% change, while a keyboard is nearer 40%.
 // focusin/focusout is the fallback where the API is missing — cruder,
 // because it fires for a hardware keyboard too, but harmless.
-// It also publishes --kb: how tall the keyboard is, in the coordinate
-// space a bottom-anchored element actually lives in.
-//
-// That number is what lets the Generate bar sit ON the keyboard rather
-// than floating somewhere above it. It was pinned 74px up to clear the
-// tab bar, and once the tab bar started hiding itself that gap became
-// a hole — the button hanging in the middle of the page over the form
-// it belongs under.
-//
-//   --kb = innerHeight - visualViewport.height - visualViewport.offsetTop
-//
-// innerHeight is the LAYOUT viewport, which iOS leaves alone; the
-// visual viewport is what the keyboard shrinks. The difference is the
-// keyboard, and offsetTop subtracts however far the page has been
-// scrolled inside it — without that the bar drifts as you scroll to
-// the next field, which is the exact complaint.
-//
-// Recomputed on visualViewport SCROLL as well as resize, because that
-// offset changes continuously while you move around a focused form.
 function useKeyboardOpen() {
   useEffect(() => {
     const root = document.documentElement;
     const set = (on) => root.classList.toggle("kb-open", on);
-    const inset = (px) => root.style.setProperty("--kb", `${Math.round(px)}px`);
 
     const vv = window.visualViewport;
     if (vv) {
-      root.classList.add("kb-measured");
-      const sync = () => {
-        const gap = window.innerHeight - vv.height - vv.offsetTop;
-        // Clamped. A mid-transition frame can report nonsense, and a
-        // wild value here throws the button off the screen entirely.
-        inset(Math.min(Math.max(gap, 0), window.innerHeight * 0.7));
-        set(vv.height < window.innerHeight * 0.75);
-      };
-      vv.addEventListener("resize", sync);
-      vv.addEventListener("scroll", sync);
-      sync();
+      const onResize = () => set(vv.height < window.innerHeight * 0.75);
+      vv.addEventListener("resize", onResize);
+      onResize();
       return () => {
-        vv.removeEventListener("resize", sync);
-        vv.removeEventListener("scroll", sync);
-        root.classList.remove("kb-measured");
+        vv.removeEventListener("resize", onResize);
         set(false);
-        inset(0);
       };
     }
 
-    // No visualViewport means no way to know where the keyboard ends,
-    // and a bar pinned to a guess is worse than no bar. kb-measured
-    // stays off, and the CSS hides it instead — see globals.css.
     const isField = (el) => el && /^(INPUT|TEXTAREA)$/.test(el.tagName);
     const on = (e) => { if (isField(e.target)) set(true); };
     const off = (e) => { if (isField(e.target)) set(false); };
