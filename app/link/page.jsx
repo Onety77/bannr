@@ -26,6 +26,8 @@ function LinkInner() {
   // claiming | linking | done | already | error
   const [stage, setStage] = useState("claiming");
   const [msg, setMsg] = useState("");
+  // Credits that came across from a wallet-only account we just merged.
+  const [merged, setMerged] = useState(0);
   const ran = useRef(false);
 
   useEffect(() => {
@@ -62,11 +64,15 @@ function LinkInner() {
       // 2. Link the wallet this browser has.
       setStage("linking");
       try {
-        const ok = await auth.linkWallet();
-        if (ok) { setStage("done"); return; }
-        // linkWallet already surfaces the reason through auth.error.
+        // The reason comes back from the call. Reading auth.error right
+        // after awaiting it reads the PREVIOUS render, which is why this
+        // used to say "that wallet couldn't be linked" no matter what
+        // actually went wrong — including the one case we had written
+        // proper copy for.
+        const res = await auth.linkWallet();
+        if (res?.ok) { setMerged(res.merged || 0); setStage("done"); return; }
         setStage("error");
-        setMsg(auth.error || "That wallet couldn't be linked.");
+        setMsg(res?.error || "That wallet couldn't be linked.");
       } catch {
         setStage("error");
         setMsg("That wallet couldn't be linked.");
@@ -93,6 +99,15 @@ function LinkInner() {
           <p className="linkp-note">
             It belongs to the same account you were already signed in to, so your
             credits and everything you have made are all in one place.
+            {merged > 0 && (
+              <>
+                {" "}
+                <b>
+                  That wallet had its own account with {merged} credit
+                  {merged === 1 ? "" : "s"} on it — those came across too.
+                </b>
+              </>
+            )}
           </p>
           <div className="linkp-actions">
             <Link className="btn primary" href="/create">Make a banner</Link>

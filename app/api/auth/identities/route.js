@@ -18,7 +18,7 @@
 import { NextResponse } from "next/server";
 import { requireUser, verifySignIn } from "@/lib/auth";
 import { linkIdentity, unlinkIdentity, identitiesFor } from "@/lib/identities";
-import { getUser, publicUser, addPayingWallet, setEmail, setPhoto } from "@/lib/users";
+import { getUser, publicUser, addPayingWallet, setEmail, setPhoto, claimWalletIdentity } from "@/lib/users";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
@@ -86,10 +86,33 @@ export async function POST(req) {
     }
     const res = await linkIdentity("wallet", wallet, session.accountId);
     if (!res.ok) {
-      return NextResponse.json(
-        { error: "That wallet is already linked to a different bannr account." },
-        { status: 409 }
-      );
+      // Almost always the same story: this person signed in with
+      // this wallet before they had a Google login, so their own
+      // wallet is sitting on an account made of nothing but that
+      // wallet. They have just proved they hold the key, so it is
+      // theirs to move — see claimWalletIdentity for the one
+      // condition, and for why an account with another way in is
+      // still refused.
+      const claim = await claimWalletIdentity(wallet, session.accountId);
+      if (!claim.ok) {
+        return NextResponse.json(
+          {
+            error:
+              claim.reason === "owned"
+                ? "That wallet already signs in to another bannr account that has its own email. Sign in with that one, or remove the wallet from it first."
+                : "That wallet couldn't be linked. Try again in a moment.",
+            code: claim.reason || "conflict",
+          },
+          { status: 409 }
+        );
+      }
+      await addPayingWallet(session.accountId, wallet);
+      return respond(session.accountId, {
+        linked: "wallet",
+        // Said out loud, because credits appearing from nowhere is
+        // as unsettling as credits vanishing.
+        merged: claim.moved || 0,
+      });
     }
     // Proving you hold it also says payments from it are yours.
     await addPayingWallet(session.accountId, wallet);

@@ -199,7 +199,7 @@ export default function SettingsPage() {
                     <button
                       className="btn small"
                       disabled={auth.busy}
-                      onClick={async () => { if (await auth.linkWallet()) loadIdentities(); }}
+                      onClick={async () => { if ((await auth.linkWallet())?.ok) loadIdentities(); }}
                     >
                       Connect a wallet
                     </button>
@@ -258,7 +258,7 @@ export default function SettingsPage() {
             )}
             {auth.walletAvailable && (
               <button className="btn small" disabled={auth.busy}
-                onClick={async () => { if (await auth.linkWallet()) loadIdentities(); }}>
+                onClick={async () => { if ((await auth.linkWallet())?.ok) loadIdentities(); }}>
                 Add a wallet
               </button>
             )}
