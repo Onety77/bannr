@@ -2530,3 +2530,75 @@ body::after {
   background: var(--bg); color: inherit; font-family: var(--mono); font-size: 13px;
 }
 .admin-warn { color: var(--danger); font-size: 12px; font-weight: 600; }
+
+/* ============================================================
+   THE FRONT DOOR
+   One field, sized like the button it replaced. Wide enough that a
+   44-character address does not scroll while being typed, which is
+   the only way to tell you pasted the right thing.
+   ============================================================ */
+.hstart { max-width: 520px; margin: 26px auto 0; }
+.hstart-field {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 6px 6px 18px;
+  border: 1px solid var(--hairline-2); border-radius: var(--pill);
+  background: var(--card);
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.16s, box-shadow 0.16s;
+}
+.hstart-field:focus-within { border-color: var(--accent); box-shadow: var(--shadow-lg); }
+.hstart-field.bad { border-color: var(--danger); }
+.hstart-field input {
+  flex: 1; min-width: 0;
+  border: 0; background: none; color: inherit;
+  font-family: var(--mono); font-size: 14px;
+  padding: 12px 0;
+}
+.hstart-field input:focus { outline: none; }
+.hstart-field button {
+  flex: none; width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent); color: var(--on-accent);
+  transition: background 0.15s, transform 0.1s;
+}
+.hstart-field button svg { width: 20px; height: 20px; }
+.hstart-field button:hover:not(:disabled) { background: var(--accent-hover); }
+.hstart-field button:active { transform: scale(0.94); }
+.hstart-alt { margin: 12px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
+.hstart-alt a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+.hstart-alt a:hover { color: var(--accent); }
+.hstart-err { color: var(--danger); }
+
+@media (max-width: 560px) {
+  .hstart-field { padding-left: 14px; }
+  .hstart-field input { font-size: 13px; }
+}
+
+/* ---- the collapsed style picker ---- */
+/* A row, not a card. It has to read as a line of text you may
+   ignore, because ignoring it is the intended default. */
+.style-reveal {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; width: 100%; text-align: left;
+  font-size: 13px; color: var(--muted); line-height: 1.5;
+}
+.style-reveal-now b { color: var(--text); font-weight: 600; }
+.style-reveal-cta {
+  flex: none; font-weight: 600; color: var(--accent);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.style-reveal:hover .style-reveal-cta { color: var(--accent-hover); }
+@media (max-width: 560px) {
+  .style-reveal { flex-direction: column; align-items: flex-start; gap: 8px; }
+}
+
+/* ---- placeholders ---- */
+/* Hints, not content. They were reading as filled-in values, which
+   makes an empty form look busier than it is and makes it harder to
+   see at a glance which fields you have actually answered. Opacity
+   is set explicitly because Firefox applies its own by default. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--faint);
+  opacity: 0.45;
+}

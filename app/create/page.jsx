@@ -89,6 +89,11 @@ function CreateInner() {
   // ?style= means a specific brief was asked for, usually History's
   // "re-run this", and silently overriding that with whatever was last
   // typed would be worse than forgetting.
+  // Arriving with ?ca= means the address was pasted somewhere else
+  // — the homepage, a shared link — and the expectation is a brief
+  // that is already filled in. Imported by the effect below.
+  const caParam = (params.get("ca") || "").trim();
+
   const fromUrl = params.toString().length > 0;
   const saved = fromUrl ? null : loadDraft();
 
@@ -180,6 +185,16 @@ function CreateInner() {
       results, converted, demoMode, ca,
     });
   });
+
+  // The paste that happened on another page. importCA is a function
+  // declaration and so is hoisted — this runs after mount either
+  // way. Once, because caParam does not change without a navigation.
+  useEffect(() => {
+    if (!caParam) return;
+    setCa(caParam);
+    importCA(caParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caParam]);
 
   // RE-ATTACH to a generation that was already running when this page
   // was last left. The request was never cancelled — it is the same
@@ -853,6 +868,26 @@ function CreateInner() {
   // Toggling a style off is blocked when it's the last one — a run
   // with no style has no meaning, and silently falling back to Normal
   // would be a surprising reinterpretation of a deselect.
+  // THE STYLE PICKER IS CLOSED BY DEFAULT.
+  //
+  // Default was built to be the one you can trust blind — it reads
+  // the project and chooses the register itself — and a grid of
+  // seven cards in front of that is a decision nobody asked to
+  // make. Someone who wants control is one line away; someone who
+  // wants a banner is not asked to have an opinion first.
+  //
+  // It opens itself whenever the selection is NOT just Default,
+  // which covers arriving from the feed's "make one like this",
+  // a history re-run, and saved defaults from settings. A chosen
+  // style that is invisible looks like a bug.
+  const isDefaultOnly = styleIds.length === 1 && styleIds[0] === AUTO_ID;
+  const [stylesOpen, setStylesOpen] = useState(!isDefaultOnly);
+  useEffect(() => {
+    // Only ever opens. Deselecting back to Default should not close
+    // a panel someone deliberately opened.
+    if (!isDefaultOnly) setStylesOpen(true);
+  }, [isDefaultOnly]);
+
   function toggleStyle(id) {
     setStyleIds((prev) => {
       if (!prev.includes(id)) return [...prev, id];
@@ -1142,6 +1177,15 @@ function CreateInner() {
           </div>
 
           <div className="panel">
+            {!stylesOpen ? (
+              <button className="style-reveal" onClick={() => setStylesOpen(true)}>
+                <span className="style-reveal-now">
+                  <b>{AUTO_NAME}</b> — the direction is chosen for you, from your project.
+                </span>
+                <span className="style-reveal-cta">Pick a style instead</span>
+              </button>
+            ) : (
+              <>
             <div className="panel-head">
               <h3>Style</h3>
               <span className="hint">Pick as many as you like</span>
@@ -1252,6 +1296,8 @@ function CreateInner() {
                 );
               })}
             </div>
+              </>
+            )}
           </div>
 
           <div className="panel">

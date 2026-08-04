@@ -8,6 +8,7 @@ import Socials from "@/components/Socials";
 import Highlights from "@/components/Highlights";
 import BannerField from "@/components/BannerField";
 import TokenBar from "@/components/TokenBar";
+import HeroStart from "@/components/HeroStart";
 // Metadata only. This page is a server component, but it renders
 // client components that pull the same module into their bundle.
 import { STYLES as TEMPLATES } from "@/lib/styles";
@@ -104,10 +105,13 @@ export default function Landing() {
           <p className="lede reveal d1">
             Professional banners, art-directed around your project&apos;s identity.
           </p>
-          <div className="cta-row reveal d2">
-            <Link href="/create" className="btn primary large">Create your banner</Link>
-            <Link href="/credits" className="link-cta">See pricing</Link>
-          </div>
+          {/* An input, not a button. A button asks someone to go
+              somewhere and begin work; this asks them to paste one
+              thing already in their clipboard, and it is the same
+              request. The pricing and from-scratch links moved
+              inside it as text, so nothing competes with the one
+              obvious move. */}
+          <HeroStart />
           <p className="hero-note reveal d2">12 free credits to start. No wallet required.</p>
           {/* Renders nothing until the token is announced, so the hero
               is unchanged until the day it isn't. */}
