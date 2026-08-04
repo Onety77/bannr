@@ -3,6 +3,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 
 const TABS = [
   // FEED SITS WHERE HOME USED TO.
@@ -65,8 +66,57 @@ const TABS = [
   },
 ];
 
+// THE BAR GETS OUT OF THE WAY WHILE THE KEYBOARD IS UP.
+//
+// A `position: fixed` element is pinned to the LAYOUT viewport, and
+// iOS does not shrink that when the software keyboard opens — it
+// shrinks the VISUAL viewport instead. So the bar ends up floating in
+// the middle of the screen, and scrolling drags it along before the
+// page moves at all. Together with the 64px this bar reserves at the
+// foot of the body, that is most of a phone screen spent on furniture
+// at the exact moment someone is trying to read the field they are
+// typing into.
+//
+// Nothing here needs to be reachable mid-sentence, so it leaves.
+//
+// visualViewport is the accurate signal and is on every modern mobile
+// browser: it reports the height the keyboard actually left behind.
+// The 0.75 threshold clears the browser's own chrome collapsing on
+// scroll, which is a ~6% change, while a keyboard is nearer 40%.
+// focusin/focusout is the fallback where the API is missing — cruder,
+// because it fires for a hardware keyboard too, but harmless.
+function useKeyboardOpen() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const set = (on) => root.classList.toggle("kb-open", on);
+
+    const vv = window.visualViewport;
+    if (vv) {
+      const onResize = () => set(vv.height < window.innerHeight * 0.75);
+      vv.addEventListener("resize", onResize);
+      onResize();
+      return () => {
+        vv.removeEventListener("resize", onResize);
+        set(false);
+      };
+    }
+
+    const isField = (el) => el && /^(INPUT|TEXTAREA)$/.test(el.tagName);
+    const on = (e) => { if (isField(e.target)) set(true); };
+    const off = (e) => { if (isField(e.target)) set(false); };
+    document.addEventListener("focusin", on);
+    document.addEventListener("focusout", off);
+    return () => {
+      document.removeEventListener("focusin", on);
+      document.removeEventListener("focusout", off);
+      set(false);
+    };
+  }, []);
+}
+
 export default function TabBar() {
   const path = usePathname();
+  useKeyboardOpen();
   return (
     <nav className="tabbar" aria-label="Primary">
       {TABS.map((t) => {

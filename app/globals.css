@@ -1796,6 +1796,7 @@ body::after {
 .tabbar {
   display: none;
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+  transition: transform 0.18s ease-out;
   background: var(--nav-bg);
   backdrop-filter: saturate(1.8) blur(20px);
   -webkit-backdrop-filter: saturate(1.8) blur(20px);
@@ -2654,3 +2655,22 @@ textarea::placeholder {
 }
 .want-reveal .tag-opt { font-weight: 500; white-space: nowrap; }
 .field-accent label .panel-collapse { flex: none; }
+
+/* ============================================================
+   WHILE THE KEYBOARD IS UP
+
+   iOS pins position:fixed to the LAYOUT viewport, which does not
+   shrink for the software keyboard — so the bar hangs in the middle
+   of the screen and drags along as you scroll before the page moves.
+   The 64px the body reserves for it is dead space at the same time.
+   Both go; see useKeyboardOpen in components/TabBar.jsx.
+   ============================================================ */
+@media (max-width: 760px) {
+  .kb-open .tabbar {
+    transform: translateY(100%);
+    pointer-events: none;
+  }
+  /* The reserved space goes with it, or the page still ends in a
+     band of nothing exactly where the field being typed into is. */
+  .kb-open body { padding-bottom: 0; }
+}
