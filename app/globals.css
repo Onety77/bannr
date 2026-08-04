@@ -2803,6 +2803,7 @@ textarea::placeholder {
    IMAGES rather than a run of boxes.
    ============================================================ */
 .fcard {
+  position: relative;
   border-radius: var(--r-lg);
   background: var(--card);
   overflow: hidden;
@@ -2810,6 +2811,33 @@ textarea::placeholder {
      banner still reaches the true edge of the card. */
   box-shadow: 0 0 0 1px var(--hairline), 0 18px 44px -30px rgba(0,0,0,0.55);
 }
+
+/* THE MARK, RUNNING OFF THE CORNER.
+   The header band had dead space to the right of the handle, and a
+   watermark is the one thing that can fill it without adding another
+   thing to read. Oversized and cropped by the card edge on purpose —
+   a whole logo sitting politely inside the box reads as a badge, a
+   fragment of one reads as the paper it is printed on.
+   Behind everything and unclickable, so it never competes with Report,
+   which lands in the same corner on other people's posts. */
+.fcard::before {
+  content: "";
+  position: absolute;
+  top: -22px; right: -20px;
+  width: 104px; height: 104px;
+  background: url("/logo-mark.png") center / contain no-repeat;
+  opacity: 0.055;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Slightly stronger on dark, where the same opacity disappears.
+   data-theme alone is enough: the boot script in layout.jsx always
+   sets it, from storage or the system preference, before first paint.
+   A prefers-color-scheme query here would be a second source of truth
+   that disagrees the moment someone uses the theme toggle. */
+[data-theme="dark"] .fcard::before { opacity: 0.075; }
+/* Everything sits above it. */
+.fcard-top, .fcard-coin, .fcard-shot, .fcard-actions { position: relative; z-index: 1; }
 
 /* ---- the artwork ---- */
 .fcard-shot {
@@ -2856,7 +2884,10 @@ textarea::placeholder {
   font-family: var(--mono);
   font-size: 14.5px; font-weight: 700;
   letter-spacing: -0.01em;
-  color: var(--text);
+  /* Brand purple, not body text. It is the one word on the card that
+     names the subject, and in the accent it reads as a label rather
+     than as a sentence that happens to start with a dollar sign. */
+  color: var(--accent);
 }
 
 /* ---- actions ---- */
