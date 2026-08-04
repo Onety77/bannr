@@ -22,6 +22,24 @@ const EMPTY = { defaults: {}, avoid: "", styles: [], variants: 3 };
 export default function SettingsPage() {
   const auth = useAuth();
   const wallet = useWallet();
+  const [handingOff, setHandingOff] = useState(false);
+
+  // A wallet's in-app browser has NONE of this browser's cookies, so
+  // handing off to it plainly arrives signed out — and connecting a
+  // wallet there makes a second account instead of linking to this
+  // one. The token carries the session across. See lib/handoff.js.
+  async function walletHandoff() {
+    setHandingOff(true);
+    try {
+      const r = await fetch("/api/auth/handoff", { method: "POST" });
+      const d = await r.json();
+      if (!r.ok || !d.token) { setHandingOff(false); return; }
+      const target = `${window.location.origin}/link?t=${encodeURIComponent(d.token)}`;
+      window.location.href = phantomBrowseUrl(target);
+    } catch {
+      setHandingOff(false);
+    }
+  }
   const [settings, setSettings] = useState(EMPTY);
   const [payments, setPayments] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -170,7 +188,13 @@ export default function SettingsPage() {
                       wallet's own browser rather than a connect
                       attempt that dead-ends. */}
                   {auth.needsHandoff ? (
-                    <a className="btn small" href={phantomBrowseUrl()}>Connect a wallet</a>
+                    <button
+                      className="btn small"
+                      disabled={handingOff}
+                      onClick={walletHandoff}
+                    >
+                      {handingOff ? "Opening…" : "Connect a wallet"}
+                    </button>
                   ) : auth.walletAvailable ? (
                     <button
                       className="btn small"

@@ -2026,13 +2026,12 @@ body::after {
   .page-head { padding-top: 36px; }
   .btn.large { padding: 13px 26px; font-size: 16px; }
   .result .bar .mode { min-width: 100%; }
-  .run-bar {
-    position: sticky;
-    /* Same measured number, plus a breath. */
-    bottom: calc(var(--tabbar-h) + 10px);
-    z-index: 30;
-  }
-  .run-bar .btn { box-shadow: 0 10px 34px -8px color-mix(in srgb, var(--accent) 70%, transparent); }
+  /* NOT sticky, same as Save. It hovered over the form so Generate
+     was always in reach, and the cost was that it covered whatever you
+     were filling in — a button floating over the field it is waiting
+     on. It sits at the end of the brief now; you reach it when you are
+     done, which is when you want it. */
+  .run-bar { padding-top: 4px; }
   .footer { padding-bottom: 24px; }
 }
 
@@ -3205,3 +3204,13 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 }
 
 .wal-note { font-style: normal; font-size: 12px; color: var(--faint); }
+
+
+/* ---- the wallet handoff landing page ---- */
+/* Runs inside a wallet app, where nothing else on screen explains
+   itself, so it stays plain and says which step it is on. */
+.linkp { padding: 60px 0 40px; max-width: 460px; }
+.linkp h1 { font-size: 26px; letter-spacing: -0.02em; margin-bottom: 12px; }
+.linkp-step { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+.linkp-note { color: var(--muted); font-size: 14px; line-height: 1.6; }
+.linkp-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }

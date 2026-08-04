@@ -25,6 +25,10 @@ rules_version = '2';
 //   payments/      purchase records keyed by transaction signature.
 //   generations/   every banner made, including ones not featured.
 //   nonces/        single-use sign-in challenges.
+//   handoffs/      single-use tokens that carry a session into a
+//                  wallet's in-app browser. Readable, these ARE
+//                  sessions: whoever holds one is signed in as that
+//                  account until it is spent.
 //   settings/      saved per-account preferences.
 //   refusals/      content-filter diagnostics.
 //   config/        the token gate — which token, how much you must
