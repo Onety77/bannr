@@ -95,6 +95,9 @@ function CreateInner() {
   // that is already filled in. Imported by the effect below.
   const caParam = (params.get("ca") || "").trim();
 
+  // Arriving from "make one like this" on a feed post.
+  const fromParam = (params.get("from") || "").trim();
+
   const fromUrl = params.toString().length > 0;
   const saved = fromUrl ? null : loadDraft();
 
@@ -140,6 +143,11 @@ function CreateInner() {
   const [shortfall, setShortfall] = useState(null);
   // Index of the option currently being rerolled, or null.
   const [rerollBusy, setRerollBusy] = useState(null);
+  // The post that sent us here, if any. Shown so the promise on the
+  // button is visibly kept — a silent redirect into a blank form is
+  // indistinguishable from the link having done nothing, which for a
+  // Default post is exactly what it used to do.
+  const [inspiredBy, setInspiredBy] = useState(null);
   const [results, setResults] = useState(() => (saved?.results?.variants ? saved.results : null));
   // The brief and styles of the run that PRODUCED those results —
   // captured at generation time, because by the time someone hits
@@ -186,6 +194,43 @@ function CreateInner() {
       results, converted, demoMode, ca,
     });
   });
+
+  // MAKE ONE LIKE THIS.
+  //
+  // The style is carried by ?style=, but for a Default post that
+  // transfers nothing at all, so the banner itself is attached as a
+  // reference image — the mechanism that actually makes one piece of
+  // art resemble another. It goes in as a MOOD reference, which the
+  // prompt already instructs the model to re-illustrate rather than
+  // collage in, so the result is influenced rather than copied.
+  //
+  // Removable like any other reference, and the strip says whose
+  // work it is.
+  useEffect(() => {
+    if (!fromParam) return;
+    let live = true;
+    (async () => {
+      try {
+        const r = await fetch(`/api/feed/${encodeURIComponent(fromParam)}`);
+        const d = await r.json();
+        const post = d?.post;
+        if (!live || !post?.src) return;
+        setInspiredBy({ handle: post.handle, label: post.ticker || post.name || "", src: post.src });
+        // fetch() reads a data: URL happily, which saves a second
+        // round trip for bytes we already have.
+        const blob = await (await fetch(post.src)).blob();
+        if (!live) return;
+        const file = new File([blob], "reference.jpg", { type: blob.type || "image/jpeg" });
+        setRefImages((prev) =>
+          prev.length >= 3 ? prev : [...prev, { file, url: URL.createObjectURL(file) }]
+        );
+      } catch {
+        // A deleted or hidden post just means an ordinary blank form.
+      }
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromParam]);
 
   // The paste that happened on another page. importCA is a function
   // declaration and so is hoisted — this runs after mount either
@@ -1014,6 +1059,22 @@ function CreateInner() {
           <span className="tab-soon">Soon</span>
         </button>
       </div>
+
+      {/* Says what was carried over, because the alternative is a
+          blank form that looks like the link did nothing. */}
+      {inspiredBy && surface === "dex" && (
+        <div className="inspired">
+          <img src={inspiredBy.src} alt="" aria-hidden="true" />
+          <div className="inspired-txt">
+            <b>Making one like {inspiredBy.label || "this"}</b>
+            <span>
+              {inspiredBy.handle ? `@${inspiredBy.handle}'s banner` : "That banner"} is attached as a
+              reference below, and the style is already picked. Everything else is yours.
+            </span>
+          </div>
+          <button className="inspired-x" onClick={() => setInspiredBy(null)} aria-label="Dismiss">✕</button>
+        </div>
+      )}
 
       {surface === "x" && <XComingSoon />}
 

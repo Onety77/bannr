@@ -200,7 +200,14 @@ export default function FeedCard({ post, signedIn, onLike, onReport }) {
           {shared ? "Link copied" : "Share"}
         </button>
 
-        <Link className="fcard-reuse" href={`/create?style=${encodeURIComponent(post.styleId || "")}`}>
+        {/* `from` is what makes this mean anything. The style alone
+            is a no-op for a Default post — /create?style=auto IS the
+            page's resting state — and Default is most of the feed.
+            The banner itself goes along as a reference. */}
+        <Link
+          className="fcard-reuse"
+          href={`/create?style=${encodeURIComponent(post.styleId || "")}&from=${encodeURIComponent(post.id)}`}
+        >
           Make one like this
         </Link>
       </div>

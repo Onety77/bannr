@@ -2938,3 +2938,59 @@ textarea::placeholder {
   .fcard-burst svg, .fcard-like svg { animation: none; }
   .fskel-dot, .fskel-line, .fskel-art, .fskel-foot { animation: none; }
 }
+
+/* THE HEADER BAND, AS A CANVAS
+
+   The band above the artwork was dead space, and a logo alone did not
+   fill it. Fine graph-paper lines fading downward read as the surface
+   a thing is being designed ON, which is what this product is.
+
+   Flat rather than a vanishing-point grid: a perspective grid reads as
+   synthwave, and that fights the premium tone every one of these
+   banners is trying to hold. This is drafting paper, not an 80s sky.
+
+   Masked to nothing before it reaches the banner. It exists to give
+   the empty band texture, and would be noise anywhere else. */
+.fcard::after {
+  content: "";
+  position: absolute; top: 0; left: 0; right: 0; height: 112px;
+  background-image:
+    repeating-linear-gradient(to right, var(--hairline) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(to bottom, var(--hairline) 0 1px, transparent 1px 26px);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent 88%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent 88%);
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="dark"] .fcard::after { opacity: 0.75; }
+
+/* ---- "making one like this" ---- */
+/* Shown on arrival because the alternative is a blank form that looks
+   identical to the link having done nothing — which, for a Default
+   post, is exactly what it used to be. */
+.inspired {
+  display: flex; align-items: center; gap: 12px;
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.inspired img {
+  flex: none; width: 108px; height: 36px;
+  object-fit: cover; border-radius: 7px;
+}
+.inspired-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.inspired-txt b { font-size: 13px; }
+.inspired-txt span { font-size: 12px; line-height: 1.45; color: var(--muted); }
+.inspired-x {
+  flex: none; margin-left: auto;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--muted); font-size: 12px;
+}
+.inspired-x:hover { background: var(--bg-soft); color: var(--text); }
+@media (max-width: 560px) {
+  .inspired img { width: 76px; height: 26px; }
+  .inspired-txt span { font-size: 11.5px; }
+}
