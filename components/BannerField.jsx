@@ -17,6 +17,7 @@
 // prefers-reduced-motion (static collage, no drift).
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { scrollTop, onScroll as subscribeScroll } from "@/lib/scroller";
 
 const MAX_IMAGES = 20;
 const ROW_COUNT = 10;                   // enough to fill a tall hero top-to-bottom; extra rows clip on shorter sections
@@ -65,9 +66,9 @@ export default function BannerField() {
     }));
 
     let boost = 0;
-    let lastY = window.scrollY;
+    let lastY = scrollTop();
     const onScroll = () => {
-      const y = window.scrollY;
+      const y = scrollTop();
       boost = Math.min(MAX_BOOST, boost + Math.abs(y - lastY) * SCROLL_PUSH);
       lastY = y;
     };
@@ -96,15 +97,18 @@ export default function BannerField() {
       raf = requestAnimationFrame(tick);
     };
 
+    // Through the helper, or this listens to a document that no longer
+    // scrolls on a phone and the field stops responding entirely.
+    let offScroll = null;
     if (!reduced) {
-      window.addEventListener("scroll", onScroll, { passive: true });
+      offScroll = subscribeScroll(onScroll);
       raf = requestAnimationFrame(tick);
     }
     window.addEventListener("pointermove", onPointer, { passive: true });
 
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", onScroll);
+      if (offScroll) offScroll();
       window.removeEventListener("pointermove", onPointer);
     };
   }, [imgs]);

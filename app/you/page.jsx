@@ -163,12 +163,31 @@ export default function YouPage() {
       </div>
 
       {/* ---- where else to go ---- */}
-      <nav className="you-links">
-        <Link href="/history">My banners</Link>
-        <Link href="/credits">Buy credits</Link>
-        <Link href="/settings">Settings</Link>
-        {handle && <Link href={`/u/${handle}`}>View public profile</Link>}
-        <button onClick={auth.signOut}>Sign out</button>
+      {/* Rows, not a paragraph of coloured words. Five links wrapped
+          across two lines read as leftover text; the same five as a
+          list with a target each read as a menu, which is what they
+          are. Sign out sits apart because it is the one that ends
+          the session. */}
+      <nav className="you-menu">
+        {[
+          ["/history", "My banners", "Everything you have made"],
+          ["/credits", "Buy credits", "Top up with SOL"],
+          ["/settings", "Settings", "Sign-in, wallet, defaults"],
+          ...(handle
+            ? [[`/u/${handle}`, "Public profile", "How others see you"]]
+            : []),
+        ].map(([href, label, sub]) => (
+          <Link className="you-row" href={href} key={href}>
+            <span className="you-row-txt">
+              <b>{label}</b>
+              <em>{sub}</em>
+            </span>
+            <span className="you-row-go" aria-hidden="true">›</span>
+          </Link>
+        ))}
+        <button className="you-row you-row-out" onClick={auth.signOut}>
+          <span className="you-row-txt"><b>Sign out</b></span>
+        </button>
       </nav>
 
       {/* ---- what you posted ---- */}

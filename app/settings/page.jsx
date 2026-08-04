@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME } from "@/lib/styles";
 import { countTouched } from "@/lib/advanced";
 import { useAuth } from "@/lib/useAuth";
-import { short } from "@/lib/wallet";
+import { short, useWallet } from "@/lib/wallet";
 import AdvancedPanel from "@/components/AdvancedPanel";
 import ConnectButton, { WalletSignIn, ConnectNote } from "@/components/ConnectButton";
 
@@ -21,6 +21,7 @@ const EMPTY = { defaults: {}, avoid: "", styles: [], variants: 3 };
 
 export default function SettingsPage() {
   const auth = useAuth();
+  const wallet = useWallet();
   const [settings, setSettings] = useState(EMPTY);
   const [payments, setPayments] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -102,6 +103,13 @@ export default function SettingsPage() {
 
   const pickable = [{ id: AUTO_ID, name: AUTO_NAME }, ...TEMPLATES];
 
+  // The wallet that PROVES what this account holds. One, not a list.
+  const linkedWallet = (identities || []).find((i) => i.type === "wallet") || null;
+  // Green only when the browser's connected wallet IS that one.
+  // Linked-but-not-open is the normal state and says so, rather than
+  // showing a dot that quietly means nothing.
+  const walletLive = Boolean(linkedWallet && wallet.address === linkedWallet.id);
+
   return (
     <main className="wrap set-wrap">
       {/* Settings is reached FROM the profile now, so it needs a way
@@ -128,12 +136,42 @@ export default function SettingsPage() {
               row said "none yet — any wallet works", which is a whole
               sentence squeezed into a value slot to tell someone that
               nothing has happened yet. Nothing to say, nothing shown. */}
-          {auth.user.wallets?.length > 0 && (
-            <div>
-              <span className="set-k">Paying wallets</span>
-              <span className="set-v mono">{auth.user.wallets.map(short).join(", ")}</span>
-            </div>
-          )}
+          {/* THE WALLET, stated plainly and where someone would look
+              for it. It was only reachable under "ways to sign in",
+              which is a true description and the wrong heading —
+              nobody hunting for where to connect a wallet reads that
+              as the answer.
+
+              The LINKED one is what matters: signature-proven,
+              exclusive to this account, and the only list the token
+              gate reads. The paying-wallets array that used to sit
+              here is payment attribution, and a list of every address
+              you ever paid from answers a question nobody asked. */}
+          <div>
+            <span className="set-k">Wallet</span>
+            <span className="set-v">
+              {linkedWallet ? (
+                <span className="wal">
+                  <i className={`wal-dot${walletLive ? " on" : ""}`} />
+                  <span className="mono">{short(linkedWallet.id)}</span>
+                  <em>{walletLive ? "connected here" : "not open in this browser"}</em>
+                </span>
+              ) : (
+                <span className="wal">
+                  <span className="wal-none">None linked</span>
+                  {auth.walletAvailable && (
+                    <button
+                      className="btn small"
+                      disabled={auth.busy}
+                      onClick={async () => { if (await auth.linkWallet()) loadIdentities(); }}
+                    >
+                      Connect a wallet
+                    </button>
+                  )}
+                </span>
+              )}
+            </span>
+          </div>
           <div>
             <span className="set-k">Credits</span>
             <span className="set-v">{auth.user.credits}</span>

@@ -118,16 +118,9 @@ html { scroll-behavior: smooth; }
    what turns out to be causing it. */
 html, body { overflow-x: clip; }
 
-/* No bounce past the end of the page.
-
-   iOS rubber-banding drags FIXED elements along with it, so scrolling
-   past the footer took the tab bar up the screen and left a couple of
-   screens of black behind it — which reads as a broken page rather
-   than as an elastic one.
-
-   The cost is pull-to-refresh, which this app has no use for: every
-   list already revalidates itself on the way in. */
-html, body { overscroll-behavior-y: none; }
+/* overscroll-behavior was tried here first and did nothing on iOS —
+   see the app shell in the mobile block near the bottom of this file,
+   which fixes it by not scrolling the document at all. */
 
 /* HIDDEN MEANS HIDDEN. The hidden attribute sets display:none at
    user-agent specificity, which any class with its own display beats
@@ -1977,7 +1970,8 @@ body::after {
   .steps3 { grid-template-columns: 1fr; gap: 36px; }
 }
 @media (max-width: 760px) {
-  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  /* The bar's clearance belongs to whatever scrolls. */
+  .app-scroll { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   .nav-links { display: none; }
 
   /* The top bar cannot hold logo + credits + wallet + theme at 375px —
@@ -2697,7 +2691,7 @@ textarea::placeholder {
   }
   /* The reserved space goes with it, or the page still ends in a
      band of nothing exactly where the field being typed into is. */
-  .kb-open body { padding-bottom: 0; }
+  .kb-open .app-scroll { padding-bottom: 0; }
 }
 
 /* ============================================================
@@ -3060,14 +3054,6 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 /* ---- where else to go ---- */
 /* A row of plain links, not a stack of panels. These are exits, and an
    exit dressed as a section competes with the content beside it. */
-.you-links {
-  display: flex; flex-wrap: wrap; gap: 8px 18px;
-  padding: 4px 0 26px;
-  font-size: 13.5px; font-weight: 600;
-}
-.you-links a { color: var(--accent); }
-.you-links button { color: var(--muted); font-weight: 600; font-size: 13.5px; }
-.you-links a:hover, .you-links button:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .you-sec { margin-bottom: 12px; }
 
@@ -3105,3 +3091,98 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
   font-size: 13.5px; font-weight: 600; color: var(--muted);
 }
 .set-back:hover { color: var(--accent); }
+
+
+/* ============================================================
+   THE APP SHELL — phones only.
+
+   The document does not scroll; a container does. That is the only
+   thing that reliably stops iOS rubber-banding, because the bounce
+   belongs to the document scroller — and the bounce is what dragged
+   the fixed tab bar up off the bottom of the screen and left a screen
+   of nothing under it. overscroll-behavior was tried first and did
+   nothing.
+
+   NOT ON DESKTOP. There is no bounce there, and taking scrolling away
+   from the document costs real behaviour: find-in-page, anchor jumps,
+   the native scrollbar. lib/scroller.js reads this back at runtime
+   rather than duplicating the breakpoint in JS.
+   ============================================================ */
+.app-scroll { min-height: 0; }
+
+@media (max-width: 760px) {
+  html, body { height: 100%; overflow: hidden; }
+  .app-scroll {
+    height: 100%;
+    overflow-y: auto;
+    /* Belt and braces: nothing to chain to now, but a nested scroller
+       inside this one should not be able to bubble out either. */
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    /* The document is no longer the scroller, so smooth scrolling has
+       to move with it. */
+    scroll-behavior: smooth;
+  }
+}
+
+
+/* ============================================================
+   THE PROFILE MENU
+
+   Five coloured words wrapped across two lines read as leftover text.
+   The same five as rows — each with a target of its own, a line of
+   context and somewhere to point — read as a menu, which is what they
+   are. One card, hairlines between, and Sign out set apart because it
+   is the only one that ends the session.
+   ============================================================ */
+.you-menu {
+  display: flex; flex-direction: column;
+  border-radius: 16px; overflow: hidden;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--hairline);
+  margin-bottom: 30px;
+}
+.you-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--hairline);
+  transition: background 0.14s;
+}
+.you-row:last-child { border-bottom: 0; }
+.you-row:hover { background: var(--bg-soft); }
+.you-row:active { background: var(--card-soft); }
+.you-row-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.you-row-txt b { font-size: 14.5px; font-weight: 600; }
+.you-row-txt em {
+  font-style: normal; font-size: 12px; color: var(--muted);
+}
+.you-row-go {
+  margin-left: auto; flex: none;
+  font-size: 20px; line-height: 1; color: var(--faint);
+}
+.you-row:hover .you-row-go { color: var(--accent); }
+
+/* Set apart, and never accented — it is not a place to go. */
+.you-row-out { border-top: 1px solid var(--hairline); }
+.you-row-out .you-row-txt b { color: var(--muted); font-weight: 600; }
+.you-row-out:hover .you-row-txt b { color: var(--danger); }
+
+/* ---- the wallet row in settings ---- */
+.wal { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wal em {
+  font-style: normal; font-size: 11.5px; color: var(--muted);
+}
+.wal-none { color: var(--muted); font-size: 13px; }
+/* Grey means linked but not open here, which is the ordinary state —
+   so it reads as information rather than as a fault. Green means the
+   browser has that exact wallet connected right now. */
+.wal-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--faint);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--faint) 18%, transparent);
+}
+.wal-dot.on {
+  background: var(--ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent);
+}

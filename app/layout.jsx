@@ -58,12 +58,22 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <Fx />
-        <Nav />
-        {children}
-        <footer className="footer wrap">
-          <span>bannr © 2026</span>
-          <Socials compact />
-        </footer>
+        {/* One scroll container, and on a phone it is the ONLY thing
+            that scrolls. The document staying still is what stops iOS
+            rubber-banding — and the bounce is what was dragging the
+            fixed tab bar up off the bottom of the screen.
+
+            The tab bar sits OUTSIDE it, so it is fixed to the viewport
+            rather than to a scrolling box. On desktop the container is
+            not a scroller at all and nothing here changes. */}
+        <div id="app-scroll" className="app-scroll">
+          <Nav />
+          {children}
+          <footer className="footer wrap">
+            <span>bannr © 2026</span>
+            <Socials compact />
+          </footer>
+        </div>
         <TabBar />
       </body>
     </html>
