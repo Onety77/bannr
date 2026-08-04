@@ -3214,3 +3214,13 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 .linkp-step { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
 .linkp-note { color: var(--muted); font-size: 14px; line-height: 1.6; }
 .linkp-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+
+/* The account button carries a face now. */
+.acct-btn { display: inline-flex; align-items: center; gap: 7px; }
+
+/* On a phone the dot says it on its own — green is connected here,
+   grey is linked but not open — and the sentence beside it is the
+   difference between one line and two on a narrow row. */
+@media (max-width: 700px) {
+  .wal em { display: none; }
+}
