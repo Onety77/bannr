@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { getFirebase } from "@/lib/firebaseClient";
 import { ADMIN_EMAIL } from "@/lib/admin";
 import AdminToken from "@/components/AdminToken";
+import AdminFeed from "@/components/AdminFeed";
 
 const FLAGS = [
   ["featuredWall", "Fresh wall"],
@@ -25,7 +26,7 @@ export default function AdminPage() {
   const [items, setItems] = useState(null);
   const [busy, setBusy] = useState(null); // `${id}:${field}`
   const [error, setError] = useState(null);
-  const [tab, setTab] = useState("generations"); // generations | refusals | token
+  const [tab, setTab] = useState("generations"); // generations | refusals | token | feed
   const [refusals, setRefusals] = useState(null);
   // all = the 60 most recent. The rest ask "what is live right now",
   // which is a different question and the only one that can reach a
@@ -234,6 +235,9 @@ export default function AdminPage() {
         <button className={tab === "token" ? "on" : ""} onClick={() => setTab("token")}>
           Token
         </button>
+        <button className={tab === "feed" ? "on" : ""} onClick={() => setTab("feed")}>
+          Feed
+        </button>
       </div>
 
       {error && <div className="notice error">{error}</div>}
@@ -287,6 +291,7 @@ export default function AdminPage() {
       )}
 
       {tab === "token" && <AdminToken user={user} />}
+      {tab === "feed" && <AdminFeed user={user} />}
 
       {tab === "generations" ? (
         !items ? (

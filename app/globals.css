@@ -2438,3 +2438,95 @@ body::after {
 @media (max-width: 560px) {
   .concept { padding: 10px 12px; font-size: 12.5px; line-height: 1.55; }
 }
+
+/* ============================================================
+   THE FEED
+
+   One column, not a grid. A banner is 3:1 and its whole job is to
+   be judged at the width it will actually ship at — two per row
+   halves that and turns the page into a contact sheet.
+   ============================================================ */
+.feed {
+  display: flex; flex-direction: column; gap: 26px;
+  max-width: 720px; margin: 0 auto;
+}
+.feed-more { display: flex; justify-content: center; padding: 28px 0 8px; }
+
+.fcard {
+  border: 1px solid var(--hairline); border-radius: var(--r-lg);
+  background: var(--card); overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.fcard-shot { line-height: 0; background: var(--bg-soft); }
+.fcard-shot img { width: 100%; height: auto; display: block; }
+.fcard-body { padding: 14px 16px 12px; }
+
+.fcard-who {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; color: var(--muted);
+}
+.fcard-handle { font-weight: 600; color: var(--text); }
+.fcard-tick { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+.fcard-style {
+  font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: var(--pill);
+  background: var(--bg-soft); color: var(--muted);
+}
+.fcard-ago { margin-left: auto; font-size: 12px; }
+
+/* The idea behind the banner. Clamped rather than truncated, so the
+   rest is one tap away and never lost. */
+.fcard-concept {
+  margin: 10px 0 0; font-size: 13px; line-height: 1.6; color: var(--text-2);
+}
+.fcard-concept.clamped {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fcard-more {
+  margin-left: 6px; font-size: 12px; font-weight: 600;
+  color: var(--accent); text-decoration: underline; text-underline-offset: 2px;
+}
+
+.fcard-actions {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+}
+.fcard-like {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  transition: color 0.15s, transform 0.1s;
+}
+.fcard-like svg { width: 20px; height: 20px; }
+.fcard-like:hover { color: var(--text); }
+.fcard-like.on { color: var(--danger); }
+.fcard-like:active { transform: scale(0.92); }
+
+.fcard-reuse {
+  font-size: 13px; font-weight: 600; color: var(--accent);
+}
+.fcard-reuse:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Reachable, and never the second thing a thumb finds. */
+.fcard-report {
+  margin-left: auto; font-size: 12px; color: var(--faint);
+  opacity: 0.6; transition: opacity 0.15s, color 0.15s;
+}
+.fcard-report:hover:not(:disabled) { opacity: 1; color: var(--danger); }
+.fcard-report:disabled { opacity: 0.5; }
+
+/* ---- posting, from the results list ---- */
+.post-done { font-size: 12px; font-weight: 600; color: var(--ok); }
+.post-msg { font-size: 12px; color: var(--danger); }
+.post-confirm { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+.post-handle { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.post-handle-lead { font-size: 12px; color: var(--muted); }
+.post-handle-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.post-at { font-family: var(--mono); color: var(--muted); }
+.post-handle-row input {
+  flex: 1 1 120px; min-width: 110px; padding: 7px 10px;
+  border: 1px solid var(--hairline-2); border-radius: 8px;
+  background: var(--bg); color: inherit; font-family: var(--mono); font-size: 13px;
+}
+.admin-warn { color: var(--danger); font-size: 12px; font-weight: 600; }

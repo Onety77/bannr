@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/useAuth";
 import ConnectButton, { ConnectNote, WalletSignIn } from "@/components/ConnectButton";
 import Lightbox from "@/components/Lightbox";
 import StageAura from "@/components/StageAura";
+import PostButton from "@/components/PostButton";
 import XComingSoon from "@/components/XComingSoon";
 import AdvancedPanel from "@/components/AdvancedPanel";
 import { countTouched } from "@/lib/advanced";
@@ -1480,6 +1481,14 @@ function CreateInner() {
                     <button className="btn small primary" onClick={() => download(v.dataUrl, i)}>
                       Download PNG
                     </button>
+                    {/* Publishing is its own act, never a side effect
+                        of downloading — see components/PostButton. */}
+                    <PostButton
+                      variant={v}
+                      brief={runMeta?.brief}
+                      signedIn={Boolean(auth.user)}
+                      onSignInNeeded={() => setError("Sign in to post to the feed.")}
+                    />
                   </div>
                   {converted[i] && (
                     <div className="xconv">

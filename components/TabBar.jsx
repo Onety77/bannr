@@ -5,11 +5,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
+  // FEED SITS WHERE HOME USED TO.
+  //
+  // Home is a sales page. Once someone is signed in they have no
+  // reason to return to it, and the feed is the thing worth coming
+  // back for — putting it behind a fifth tab, or behind a swipe,
+  // would be hiding the only screen with a reason to be reopened.
+  //
+  // Home is NOT unreachable: the wordmark in the top bar links to it
+  // from every page, which is where people look for it anyway.
   {
-    href: "/", label: "Home",
+    href: "/feed", label: "Feed",
     icon: (
       <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M3.5 9.5 11 3l7.5 6.5V18a1.5 1.5 0 0 1-1.5 1.5h-3.5V14h-5v5.5H5A1.5 1.5 0 0 1 3.5 18V9.5z" />
+        <rect x="3" y="4" width="16" height="7" rx="2" />
+        <path d="M3 14.5h11M3 18h7" />
       </svg>
     ),
   },
@@ -32,10 +42,18 @@ const TABS = [
     ),
   },
   // FOUR TABS, MAXIMUM. A fifth wraps to a second line on a 375px
-  // screen and breaks the bar. Credits used to sit here; it moved
-  // inside "You", which already shows the balance and a Buy button —
-  // and the credits pill in the top bar still links straight to it,
-  // so buying is never more than one tap away.
+  // screen and breaks the bar.
+  //
+  // Not made scrollable, which was considered: a tab bar works on
+  // fixed spatial memory — your thumb learns that Create is second
+  // from the left and stops reading. Scrolling destroys that, hides
+  // whichever tab most needs discovering, and fights the OS gestures
+  // that live along the bottom edge of a phone.
+  //
+  // Credits used to sit here; it moved inside "You", which already
+  // shows the balance and a Buy button — and the credits pill in the
+  // top bar still links straight to it, so buying is never more than
+  // one tap away.
   {
     href: "/settings", label: "You",
     icon: (

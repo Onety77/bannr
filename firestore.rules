@@ -38,6 +38,17 @@ rules_version = '2';
 //   holders/       per-wallet balance snapshots and the maturity clock
 //                  that stops one bag of tokens being passed between
 //                  wallets to farm an allowance per account.
+//   posts/         the public feed. Writable means anyone can post as
+//                  anyone, unhide what a moderator hid, or set their
+//                  own like count.
+//   handles/       the name-to-account map. This one is account
+//                  takeover wearing a friendly hat: whoever can write
+//                  here can take any handle, including one already
+//                  posting under our own name.
+//   likes/         one row per person per post, and the only thing
+//                  stopping a like count being whatever someone wants.
+//   reports/       moderation reports. Readable, this tells a bad
+//                  actor exactly who reported them.
 //
 // IF YOU EVER ADD CLIENT-SIDE FIRESTORE: do not loosen this file to
 // make it work. Add a server route instead. The Admin SDK path is
