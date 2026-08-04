@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "check": "node scripts/check-tdz.cjs && node scripts/check-css.cjs",
+    "prebuild": "npm run check"
   },
   "dependencies": {
     "@solana/web3.js": "1.95.4",

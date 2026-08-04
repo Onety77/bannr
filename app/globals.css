@@ -125,11 +125,6 @@ html, body { overflow-x: clip; }
    empty. This is a standard reset for exactly that trap. */
 [hidden] { display: none !important; }
 
-/* Belt and braces for the layout wrapper, since a grid or flex child
-   holding something long and unbreakable is the usual culprit and this
-   is where it would show up. */
-.wrap { max-width: 100%; }
-
 body {
   background: var(--bg);
   color: var(--text);
@@ -156,6 +151,11 @@ h1, h2, h3 {
 ::selection { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
 
+/* One rule, not two. A second .wrap setting max-width: 100% sat
+   earlier in this file and never applied — equal specificity, and
+   this one comes later. Overflow protection for long unbreakable
+   content lives on the children (.create-grid > * { min-width: 0 }),
+   which is where it actually works. */
 .wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px; }
 
 /* ---------- entrance ---------- */
@@ -2586,7 +2586,6 @@ textarea::placeholder {
 /* HOLD TO COMPARE — the label doubles as the affordance. An
    invisible gesture is one nobody finds, so it announces itself
    quietly and then reports what you are looking at while held. */
-.lb-shot { position: relative; }
 .lb-compare {
   position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
   padding: 5px 12px; border-radius: var(--pill);
@@ -2627,13 +2626,15 @@ textarea::placeholder {
    permanent empty track would read as a disabled control. */
 .gen-btn.is-running .gen-fill { opacity: 1; }
 
-/* The edit bar sits at the foot of the banner it is changing. */
-.lb-bar {
+/* The edit bar sits at the foot of the banner it is changing.
+   NOT .lb-bar — that is the lightbox top bar, and naming this the
+   same thing collapsed every button in it to a 3px strip. */
+.lb-progress {
   position: absolute; left: 0; right: 0; bottom: 0;
   height: 3px; overflow: hidden;
   background: rgba(255, 255, 255, 0.18);
 }
-.lb-bar i {
+.lb-progress i {
   display: block; height: 100%;
   transform-origin: left center;
   transform: scaleX(var(--p, 0));
@@ -2642,7 +2643,7 @@ textarea::placeholder {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gen-fill, .lb-bar i { transition: none; }
+  .gen-fill, .lb-progress i { transition: none; }
 }
 
 /* The collapsed row: question on the left, way in on the right. The

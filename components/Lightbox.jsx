@@ -244,7 +244,7 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
             <div className="lb-working" style={{ "--p": editProgress }}>
               <span className="spinner" />
               <span>Applying your change…</span>
-              <span className="lb-bar" aria-hidden="true"><i /></span>
+              <span className="lb-progress" aria-hidden="true"><i /></span>
             </div>
           )}
         </div>
