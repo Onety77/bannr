@@ -118,6 +118,17 @@ html { scroll-behavior: smooth; }
    what turns out to be causing it. */
 html, body { overflow-x: clip; }
 
+/* No bounce past the end of the page.
+
+   iOS rubber-banding drags FIXED elements along with it, so scrolling
+   past the footer took the tab bar up the screen and left a couple of
+   screens of black behind it — which reads as a broken page rather
+   than as an elastic one.
+
+   The cost is pull-to-refresh, which this app has no use for: every
+   list already revalidates itself on the way in. */
+html, body { overscroll-behavior-y: none; }
+
 /* HIDDEN MEANS HIDDEN. The hidden attribute sets display:none at
    user-agent specificity, which any class with its own display beats
    without a fight — so <div class="create-grid" hidden> stayed a grid
@@ -2999,3 +3010,98 @@ textarea::placeholder {
   .inspired img { width: 76px; height: 26px; }
   .inspired-txt span { font-size: 11.5px; }
 }
+
+/* ============================================================
+   YOU — the profile hub, and the public version of it.
+
+   Four unrelated things used to share this screen. They are grouped
+   now by the question each answers: who you are, what you have, where
+   else to go, what you posted — in that order, because that is the
+   order someone opening their own profile cares about them.
+   ============================================================ */
+.you-wrap { padding-bottom: 40px; }
+
+.you-head {
+  display: flex; align-items: center; gap: 16px;
+  padding: 34px 0 20px;
+}
+.you-who { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.you-who h1 { font-size: 26px; letter-spacing: -0.02em; }
+.you-sub { font-size: 13px; color: var(--muted); }
+.you-edit {
+  align-self: flex-start;
+  font-size: 12.5px; font-weight: 600; color: var(--accent);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.you-msg { font-size: 12px; color: var(--danger); }
+.you-handle-edit { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.you-handle-edit > span { font-family: var(--mono); color: var(--muted); }
+.you-handle-edit input {
+  flex: 1 1 130px; min-width: 110px; padding: 7px 10px;
+  border: 1px solid var(--hairline-2); border-radius: 9px;
+  background: var(--bg); color: inherit;
+  font-family: var(--mono); font-size: 14px;
+}
+
+/* ---- the numbers ---- */
+.you-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px; margin-bottom: 18px;
+}
+.you-stat {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 14px; border-radius: 14px;
+  background: var(--card); box-shadow: 0 0 0 1px var(--hairline);
+}
+.you-stat b { font-size: 21px; font-weight: 700; line-height: 1.1; }
+.you-stat span { font-size: 11.5px; color: var(--muted); }
+a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
+
+/* ---- where else to go ---- */
+/* A row of plain links, not a stack of panels. These are exits, and an
+   exit dressed as a section competes with the content beside it. */
+.you-links {
+  display: flex; flex-wrap: wrap; gap: 8px 18px;
+  padding: 4px 0 26px;
+  font-size: 13.5px; font-weight: 600;
+}
+.you-links a { color: var(--accent); }
+.you-links button { color: var(--muted); font-weight: 600; font-size: 13.5px; }
+.you-links a:hover, .you-links button:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.you-sec { margin-bottom: 12px; }
+
+/* ---- your posts ---- */
+/* Denser than the feed: this is an inventory of your own work, not a
+   place to linger over someone else's. */
+.you-grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.you-post {
+  border-radius: 14px; overflow: hidden;
+  background: var(--card); box-shadow: 0 0 0 1px var(--hairline);
+}
+.you-post img { width: 100%; aspect-ratio: 3 / 1; object-fit: cover; display: block; }
+.you-post.is-hidden img { opacity: 0.4; filter: grayscale(0.7); }
+.you-post-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 9px 11px;
+  font-size: 12.5px;
+}
+.you-post-tick { font-family: var(--mono); font-weight: 700; color: var(--accent); }
+.you-post-likes { color: var(--muted); }
+.you-post-flag { flex: 1 1 100%; color: var(--danger); font-size: 11.5px; font-weight: 600; }
+.you-post-x {
+  margin-left: auto; width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--faint); font-size: 11px;
+}
+.you-post-x:hover { background: var(--bg-soft); color: var(--danger); }
+
+/* ---- settings is a destination now, so it needs a door back ---- */
+.set-back {
+  display: inline-block; margin: 26px 0 4px;
+  font-size: 13.5px; font-weight: 600; color: var(--muted);
+}
+.set-back:hover { color: var(--accent); }

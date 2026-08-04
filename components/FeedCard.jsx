@@ -123,7 +123,11 @@ export default function FeedCard({ post, signedIn, onLike, onReport }) {
       <header className="fcard-top">
         <Avatar handle={post.handle} photo={post.photo} />
         <div className="fcard-id">
-          <span className="fcard-handle">{post.handle ? `@${post.handle}` : "someone"}</span>
+          {post.handle ? (
+            <Link className="fcard-handle" href={`/u/${post.handle}`}>@{post.handle}</Link>
+          ) : (
+            <span className="fcard-handle">someone</span>
+          )}
           <span className="fcard-sub">
             {post.styleName ? `${post.styleName} · ` : ""}{ago(post.ts)}
           </span>

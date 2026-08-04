@@ -104,6 +104,10 @@ export default function SettingsPage() {
 
   return (
     <main className="wrap set-wrap">
+      {/* Settings is reached FROM the profile now, so it needs a way
+          back. Without it this is a dead end on a phone, where there
+          is no browser chrome to lean on. */}
+      <Link href="/you" className="set-back">← You</Link>
       <div className="page-head">
         <h1>Settings</h1>
         <p>Saved to your account, so they follow you to any device.</p>

@@ -56,7 +56,7 @@ const TABS = [
   // top bar still links straight to it, so buying is never more than
   // one tap away.
   {
-    href: "/settings", label: "You",
+    href: "/you", label: "You",
     icon: (
       <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <circle cx="11" cy="8" r="3.4" />
@@ -120,10 +120,14 @@ export default function TabBar() {
   return (
     <nav className="tabbar" aria-label="Primary">
       {TABS.map((t) => {
-        // /credits has no tab of its own now, so "You" owns it —
-        // otherwise the bar shows nothing selected on that page and
-        // you appear to have navigated outside the app.
-        const active = path === t.href || (t.href === "/settings" && path === "/credits");
+        // Credits, Settings and a public profile have no tab of
+        // their own, so "You" owns them — otherwise the bar shows
+        // nothing selected on those pages and you appear to have
+        // navigated out of the app.
+        const owned =
+          t.href === "/you" &&
+          (path === "/credits" || path === "/settings" || path.startsWith("/u/"));
+        const active = path === t.href || owned;
         return (
           <Link key={t.href} href={t.href} className={active ? "active" : ""}>
             {t.icon}
