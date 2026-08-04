@@ -11,11 +11,12 @@
 // waits on the network to acknowledge a tap feels broken on a phone.
 // ============================================================
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import FeedCard from "@/components/FeedCard";
 import { useAuth } from "@/lib/useAuth";
-import { readFeed, writeFeed, rememberScroll, mergeFresh, STALE_MS } from "@/lib/feedCache";
+import { readFeed, writeFeed, mergeFresh, STALE_MS } from "@/lib/feedCache";
+import { useRestoreScroll } from "@/lib/useRestoreScroll";
 
 export default function FeedPage() {
   const auth = useAuth();
@@ -28,7 +29,6 @@ export default function FeedPage() {
   const [done, setDone] = useState(cached?.done ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const restored = useRef(false);
 
   const load = useCallback(async (before = 0) => {
     setBusy(true);
@@ -72,29 +72,13 @@ export default function FeedPage() {
   useEffect(() => {
     const c = readFeed();
     if (!c?.posts?.length) { load(0); return; }
-    // Put them back where they were, after the browser has laid the
-    // restored posts out. .fcard-shot reserves 3:1 before its image
-    // decodes, so the page height is already right at this point —
-    // without that the scroll would land somewhere arbitrary.
-    if (!restored.current) {
-      restored.current = true;
-      const y = c.scrollY || 0;
-      if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
-    }
     if (Date.now() - (c.at || 0) > STALE_MS) revalidate();
   }, [load, revalidate]);
 
-  // Where they were, saved continuously rather than on unmount —
-  // a cleanup that runs after the page has already been torn down
-  // reads 0 on some browsers.
-  useEffect(() => {
-    const onScroll = () => rememberScroll(window.scrollY);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      onScroll();
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, []);
+  // Saving and restoring the position is identical on every cached
+  // list, so both pages call the same hook rather than keeping two
+  // copies that drift into disagreeing.
+  useRestoreScroll("feed", Boolean(posts?.length));
 
   async function like(post) {
     if (!auth.user) { setError("Sign in to like banners."); return; }

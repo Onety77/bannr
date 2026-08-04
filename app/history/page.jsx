@@ -9,6 +9,8 @@
 import Link from "next/link";
 import PostButton from "@/components/PostButton";
 import { useAuth } from "@/lib/useAuth";
+import { readHistory, writeHistory, patchHistory, STALE_MS } from "@/lib/historyCache";
+import { useRestoreScroll } from "@/lib/useRestoreScroll";
 import { useEffect, useState } from "react";
 import { loadHistory, deleteFromHistory } from "@/lib/credits";
 
@@ -27,7 +29,11 @@ function rerunHref(it) {
 }
 
 export default function HistoryPage() {
-  const [items, setItems] = useState(null); // null = still loading
+  // Read synchronously in the initialiser, so coming back from
+  // another tab paints the list you left instead of a spinner that
+  // is replaced a frame later.
+  const cached = typeof window === "undefined" ? null : readHistory();
+  const [items, setItems] = useState(cached?.items ?? null); // null = still loading
   const [confirming, setConfirming] = useState(null);
   // Only so the post button knows whether to ask for sign-in first.
   // The page itself already requires a session to have any history.
@@ -35,9 +41,21 @@ export default function HistoryPage() {
 
   useEffect(() => {
     let live = true;
-    loadHistory().then((list) => { if (live) setItems(list); });
+    const c = readHistory();
+    // Warm and recent: leave it alone. loadHistory is not a plain
+    // read — it also pushes anything stranded in localStorage up to
+    // the server — so calling it on every tab switch is a burst of
+    // writes to answer a question already answered.
+    if (c?.items && Date.now() - c.at < STALE_MS) return () => { live = false; };
+    loadHistory().then((list) => {
+      if (!live) return;
+      setItems(list);
+      writeHistory(list);
+    });
     return () => { live = false; };
   }, []);
+
+  useRestoreScroll("history", Boolean(items?.length));
 
   return (
     <main className="wrap">
@@ -100,7 +118,12 @@ export default function HistoryPage() {
                       <button
                         className="btn small danger"
                         onClick={async () => {
-                          setItems((l) => l.filter((h) => h.id !== it.id));
+                          setItems((l) => {
+                            const next = l.filter((h) => h.id !== it.id);
+                            // Or the cache repaints it on the way back.
+                            patchHistory(next);
+                            return next;
+                          });
                           setConfirming(null);
                           await deleteFromHistory(it.id);
                         }}
