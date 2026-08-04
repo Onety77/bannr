@@ -29,6 +29,7 @@
 // ============================================================
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useProgress } from "@/lib/useProgress";
 import DexPreview from "@/components/DexPreview";
 
 const SUGGESTIONS = [
@@ -42,6 +43,11 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
   const [actual, setActual] = useState(false);
   // True only while a press is held on the banner.
   const [comparing, setComparing] = useState(false);
+  // An edit is a single image and lands sooner than a full run.
+  // It gets a bar across the banner itself rather than on a button,
+  // because during an edit the artwork is what you are looking at
+  // and the button is not on screen.
+  const editProgress = useProgress(busy, 28_000);
   const [inContext, setInContext] = useState(false);
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
@@ -229,9 +235,10 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
             </span>
           )}
           {busy && (
-            <div className="lb-working">
+            <div className="lb-working" style={{ "--p": editProgress }}>
               <span className="spinner" />
               <span>Applying your change…</span>
+              <span className="lb-bar" aria-hidden="true"><i /></span>
             </div>
           )}
         </div>

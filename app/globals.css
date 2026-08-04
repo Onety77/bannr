@@ -2601,3 +2601,46 @@ textarea::placeholder {
 /* Nothing on this image should feel selectable while it is being
    pressed and held. */
 .lb-shot img { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+
+/* ============================================================
+   WAITING, WITH A DIRECTION
+
+   A spinner says "working" and nothing else, so a 45-second wait
+   feels like it might never end. These fill left to right and
+   visibly slow down as they go — see lib/useProgress.js for why
+   they never reach the end on their own.
+
+   scaleX rather than width: it runs on the compositor, so a bar
+   ticking every 250ms never competes with the page for layout.
+   ============================================================ */
+.gen-btn { position: relative; overflow: hidden; }
+.gen-label { position: relative; z-index: 1; }
+.gen-fill {
+  position: absolute; inset: 0;
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  background: rgba(255, 255, 255, 0.24);
+  opacity: 0;
+  transition: transform 0.3s linear, opacity 0.2s;
+}
+/* Only while running. At rest the button is a plain button — a
+   permanent empty track would read as a disabled control. */
+.gen-btn.is-running .gen-fill { opacity: 1; }
+
+/* The edit bar sits at the foot of the banner it is changing. */
+.lb-bar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 3px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.18);
+}
+.lb-bar i {
+  display: block; height: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  background: var(--accent);
+  transition: transform 0.3s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gen-fill, .lb-bar i { transition: none; }
+}

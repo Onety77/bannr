@@ -9,6 +9,7 @@ import { loadDraft, saveDraft, setInFlight, getInFlight } from "@/lib/draft";
 import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_COST, EDIT_COST, REROLL_COST } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
+import { useProgress } from "@/lib/useProgress";
 import ConnectButton, { ConnectNote, WalletSignIn } from "@/components/ConnectButton";
 import Lightbox from "@/components/Lightbox";
 import StageAura from "@/components/StageAura";
@@ -905,6 +906,13 @@ function CreateInner() {
   // means "this run costs credits".
   const freeRuns = auth.user?.holderRunsLeft || 0;
 
+  // A run is about 45s. The button fills as it goes, which answers
+  // the one thing a spinner cannot: how far in am I. It fills the
+  // BUTTON rather than the option skeletons on purpose — a run does
+  // not always return every option, so a bar per skeleton would
+  // sometimes fill for a banner that never arrives.
+  const runProgress = useProgress(busy, 45_000);
+
   const nameFor = (id) =>
     id === AUTO_ID ? AUTO_NAME : TEMPLATES.find((t) => t.id === id)?.name || id;
 
@@ -1462,12 +1470,21 @@ function CreateInner() {
               /* NOT onClick={generate}: that would pass the click event
                  into the assist parameter, and a truthy event would
                  silently restyle every user's logo. */
-              <button className="btn primary block" disabled={busy} onClick={() => setInFlight(generate())}>
+              <button
+                className={`btn primary block gen-btn${busy ? " is-running" : ""}`}
+                disabled={busy}
+                aria-busy={busy}
+                style={{ "--p": runProgress }}
+                onClick={() => setInFlight(generate())}
+              >
+                <span className="gen-fill" aria-hidden="true" />
+                <span className="gen-label">
                 {busy
                   ? (<><span className="spinner" /> Creating {variants} options…</>)
                   : freeRuns > 0
                     ? (<>Generate — free ({freeRuns} left today)</>)
                     : (<>Generate — {GENERATION_COST} credits</>)}
+                </span>
               </button>
             )}
           </div>
