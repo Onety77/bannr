@@ -2413,3 +2413,28 @@ body::after {
   .tbar-mint.short { display: inline; }
   .tbar-ca { font-size: 12px; }
 }
+
+
+/* ============================================================
+   THE CONCEPT — the thinking behind one option.
+
+   A gallery placard, not body copy: set behind a rule, quiet and
+   small, so it reads as provenance rather than as something you
+   have to finish before you are allowed to judge the picture. The
+   art is still the thing on show; this explains it.
+   ============================================================ */
+.concept {
+  margin: 0;
+  padding: 12px 16px 12px 14px;
+  border-left: 2px solid var(--accent);
+  background: var(--card-soft);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+/* Tighter on a phone, where it sits directly under a full-width
+   banner and competes with it for attention. */
+@media (max-width: 560px) {
+  .concept { padding: 10px 12px; font-size: 12.5px; line-height: 1.55; }
+}

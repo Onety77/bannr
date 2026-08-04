@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 // would ship every prompt in the product to the browser.
 import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles } from "@/lib/styles";
 import { loadDraft, saveDraft, setInFlight, getInFlight } from "@/lib/draft";
-import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_COST, EDIT_COST } from "@/lib/credits";
+import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_COST, EDIT_COST, REROLL_COST } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
 import ConnectButton, { ConnectNote, WalletSignIn } from "@/components/ConnectButton";
@@ -131,6 +131,8 @@ function CreateInner() {
   // but it has to be SAID. Without it the run just looks like it
   // produced less, with no way to tell a fault from the product.
   const [shortfall, setShortfall] = useState(null);
+  // Index of the option currently being rerolled, or null.
+  const [rerollBusy, setRerollBusy] = useState(null);
   const [results, setResults] = useState(() => (saved?.results?.variants ? saved.results : null));
   // The brief and styles of the run that PRODUCED those results —
   // captured at generation time, because by the time someone hits
@@ -556,7 +558,20 @@ function CreateInner() {
     setResults((r) => ({
       ...r,
       variants: r.variants.map((v, i) =>
-        i === idx ? { ...v, dataUrl: frame.dataUrl, bg: frame.bg, past, edits } : v
+        i === idx
+          ? {
+              ...v,
+              dataUrl: frame.dataUrl,
+              bg: frame.bg,
+              // Restored only when the frame carried one, so undoing
+              // an EDIT leaves the concept alone while undoing a
+              // REROLL brings back the thinking that went with the
+              // picture being restored.
+              ...(frame.concept !== undefined ? { concept: frame.concept } : {}),
+              past,
+              edits,
+            }
+          : v
       ),
     }));
     setConverted((c) => {
@@ -583,7 +598,15 @@ function CreateInner() {
     // than decremented. Those differ once the cap has dropped frames:
     // six edits deep with four frames kept, decrementing would leave
     // the original labelled "edited 2×".
-    restoreFrame(idx, frame, past, past.length ? Math.max(0, (v.edits || 0) - 1) : 0);
+    // A frame records the edit count it was taken at. Without that,
+    // undoing past a REROLL would report the restored banner's edit
+    // count as the rerolled one's — which is 0, because a reroll is
+    // a fresh image. Older frames have no count and fall back to the
+    // arithmetic that was correct when edits were the only way here.
+    const edits = frame.edits != null
+      ? frame.edits
+      : past.length ? Math.max(0, (v.edits || 0) - 1) : 0;
+    restoreFrame(idx, frame, past, edits);
   }
 
   // All the way back, however many edits deep.
@@ -641,7 +664,7 @@ function CreateInner() {
                 dataUrl: data.dataUrl,
                 bg: data.bg,
                 edits: (v.edits || 0) + 1,
-                past: pushPast(v, { dataUrl: v.dataUrl, bg: v.bg }),
+                past: pushPast(v, { dataUrl: v.dataUrl, bg: v.bg, edits: v.edits || 0 }),
               }
             : v
         ),
@@ -668,6 +691,95 @@ function CreateInner() {
           ? "That edit took too long, so we stopped waiting — you weren't charged. Try again."
           : "Network error — you weren't charged. Try again.",
       };
+    }
+  }
+
+  // ANOTHER OPTION IN THE SAME DIRECTION.
+  //
+  // The missing verb. Liking one option and wanting a different take
+  // on it used to mean regenerating the whole run for 3 credits AND
+  // losing the one you liked, because generation is not
+  // deterministic and the old set never comes back.
+  //
+  // Priced like an edit because that is what it is — a refinement of
+  // work already paid for. The replaced option goes onto the same
+  // undo stack an edit uses, so a reroll you regret is one click
+  // back rather than gone.
+  async function reroll(i) {
+    const v = results?.variants?.[i];
+    if (!v || rerollBusy !== null || busy) return;
+    if (!auth.user) return setError("Sign in to generate banners.");
+    if (auth.user.credits < REROLL_COST)
+      return setError(`Not enough credits (need ${REROLL_COST}). Top up on the credits page.`);
+    // The run is held in memory, not the logo file that made it — a
+    // restored draft can have the banners without the upload.
+    if (!logoFile)
+      return setError("The original image is no longer loaded — upload it again to make another option.");
+
+    setRerollBusy(i);
+    setError(null);
+    try {
+      const fd = new FormData();
+      Object.entries(formRef.current).forEach(([k, val]) => fd.set(k, val));
+      // One style — this option's own — and exactly one image.
+      fd.set("styles", v.templateId);
+      fd.set("variants", "1");
+      fd.set("reroll", "1");
+      // What NOT to make. Without this the director writes a polite
+      // variation of the concept the user just rejected.
+      if (v.concept) fd.set("avoidConcept", v.concept);
+      const adv = advanced[v.templateId];
+      if (adv && Object.keys(adv).length)
+        fd.set("advanced", JSON.stringify({ [v.templateId]: adv }));
+      fd.set("logo", logoFile);
+      refImages.forEach((r) => fd.append("refs", r.file));
+
+      const res = await fetchWithTimeout("/api/generate", { method: "POST", body: fd }, TIMEOUTS.generate);
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        if (data.code === "signin_required") {
+          await auth.refresh();
+          setError("Your session expired. Sign in again — nothing was charged.");
+          return;
+        }
+        if (data.user) setUser(data.user); else auth.refresh();
+        setError(data.error || "That didn't work — you weren't charged.");
+        return;
+      }
+      const next = data.variants?.[0];
+      if (!next) { setError("Nothing came back — you weren't charged."); return; }
+      if (data.user) setUser(data.user);
+
+      setResults((r) => ({
+        ...r,
+        variants: r.variants.map((old, k) =>
+          k === i
+            ? {
+                ...old,
+                dataUrl: next.dataUrl,
+                bg: next.bg,
+                concept: next.concept || "",
+                w: next.w, h: next.h,
+                // A fresh image carries none of the old one's edits.
+                edits: 0,
+                past: pushPast(old, {
+                  dataUrl: old.dataUrl, bg: old.bg,
+                  concept: old.concept, edits: old.edits || 0,
+                }),
+              }
+            : old
+        ),
+      }));
+      // The X conversion was re-framed from art that no longer exists.
+      setConverted((c) => { const n = { ...c }; delete n[i]; return n; });
+    } catch (e) {
+      setError(
+        timedOut(e)
+          ? "That took too long, so we stopped waiting — you weren't charged. Try again."
+          : "Network error — you weren't charged. Try again."
+      );
+    } finally {
+      setRerollBusy(null);
     }
   }
 
@@ -1333,10 +1445,30 @@ function CreateInner() {
                     />
                     <StageAura done />
                   </div>
+                  {/* The reasoning behind this option, written before
+                      the image existed. Between the art and the
+                      controls so it reads as a placard belonging to
+                      the piece rather than a caption on the buttons.
+
+                      Absent for styles with no director and in demo
+                      mode. That is normal and not worth explaining. */}
+                  {v.concept ? (
+                    <p className="concept">{v.concept}</p>
+                  ) : null}
                   <div className="bar">
                     <span className="mode">
                       OPTION {i + 1} · <b>{v.templateName}</b>
                     </span>
+                    <button
+                      className="btn small"
+                      disabled={rerollBusy !== null || busy}
+                      onClick={() => reroll(i)}
+                      title="Another take on this one, same style — the director is told not to repeat this concept"
+                    >
+                      {rerollBusy === i
+                        ? <span className="spinner" />
+                        : <>Another · {REROLL_COST} credit</>}
+                    </button>
                     <button
                       className="btn small"
                       disabled={convBusy === i}

@@ -37,8 +37,8 @@ import { recordRefusal } from "@/lib/refusals";
 import { requireUser } from "@/lib/auth";
 import {
   refundGeneration, consumeGeneration, refundCredits, partialRefundCredits,
-  gateStateOf, setGateVerdict,
-  getUser, publicUser, getSettings, GENERATION_COST,
+  spendCredits, gateStateOf, setGateVerdict,
+  getUser, publicUser, getSettings, GENERATION_COST, REROLL_COST,
 } from "@/lib/users";
 import { getGate, evaluate } from "@/lib/tokenGate";
 import { linkedWallets } from "@/lib/identities";
@@ -121,13 +121,27 @@ export async function POST(req) {
     if (styleIds.length === 0) styleIds.push(AUTO_ID);
     templateId = styleIds.join(",");
 
-    const variantCount = Math.min(
+    // A REROLL replaces ONE option the user already has, in the same
+    // style. Read before the clamp below, which floors a run at two
+    // options — a floor that is right for a run (a single option is
+    // not a choice) and wrong here, and which would otherwise have
+    // quietly turned every 1-credit reroll into two images.
+    const isReroll = String(form.get("reroll") || "") === "1";
+    const avoidConcept = isReroll ? String(form.get("avoidConcept") || "").slice(0, 900) : "";
+
+    const variantCount = isReroll ? 1 : Math.min(
       Math.max(parseInt(form.get("variants") || "4", 10) || 4, 2),
       // Never fewer options than styles — every chosen style must
       // appear at least once, which is the whole promise of the
       // multi-select. The UI enforces this too; this is the backstop.
       Math.max(4, styleIds.length)
     );
+    if (isReroll && styleIds.length !== 1) {
+      return NextResponse.json(
+        { error: "A reroll replaces one option, so it needs exactly one style." },
+        { status: 400 }
+      );
+    }
     const perVariantStyle = distributeStyles(styleIds, Math.max(variantCount, styleIds.length));
 
     // Per-style advanced overrides, keyed by style id. Malformed JSON
@@ -213,6 +227,7 @@ export async function POST(req) {
     const assist = String(form.get("assist") || "");
     const reimagine = assist === "reimagine";
 
+
     // -------- engine --------
     // gpt-image-2 or nothing. No key = demo mode.
     const demoMode = !aiEnabled();
@@ -228,7 +243,23 @@ export async function POST(req) {
     // preference, it is a correctness requirement — taking credits
     // from someone who had a free run available is a straightforward
     // overcharge, and they would have no way to notice.
-    if (!demoMode) {
+    if (!demoMode && isReroll) {
+      // Straight to credits, deliberately bypassing consumeGeneration
+      // rather than passing it a flag. The holder bucket cannot fund
+      // this, and making that structural means it cannot be switched
+      // on by mistake later.
+      const remaining = await spendCredits(session.accountId, REROLL_COST);
+      if (remaining === null) {
+        return NextResponse.json(
+          {
+            error: `Not enough credits — another option costs ${REROLL_COST}. Top up on the credits page.`,
+            code: "insufficient_credits",
+          },
+          { status: 402 }
+        );
+      }
+      charged = { accountId: session.accountId, amount: REROLL_COST, paidWith: "credits" };
+    } else if (!demoMode) {
       const gate = await getGate();
       let allowance = 0;
 
@@ -346,13 +377,21 @@ export async function POST(req) {
           const settings = advanced[styleId] || {};
           const list = await generateConcepts({
             brief,
+            // On a reroll the director is told what is already on
+            // screen so it goes somewhere else, rather than writing a
+            // polite variation of the thing being replaced.
             // Default has no house style to work inside — that is the
             // whole point of it — so it gets the brief and nothing else.
             styleBrief: isDefault
               ? "No house style. You are choosing the direction yourself, from the project alone."
               : tpl.mood,
             count: indices.length,
-            constraints: buildDirection(styleId, settings),
+            constraints: [
+              buildDirection(styleId, settings),
+              avoidConcept
+                ? `ALREADY MADE FOR THIS PROJECT — the client has this concept in front of them and asked for something else. Do not repeat it, and do not produce a near neighbour of it:\n\n${avoidConcept}`
+                : "",
+            ].filter(Boolean).join("\n\n"),
             // `concepts` is either true (the design director) or the
             // name of the one this style wants.
             director: isDefault ? "default" : (typeof tpl.concepts === "string" ? tpl.concepts : "design"),
@@ -473,6 +512,18 @@ export async function POST(req) {
           h: height,
           templateId: job.display.id,
           templateName: job.display.name,
+          // THE CONCEPT TRAVELS WITH THE BANNER NOW.
+          //
+          // The art director already wrote this and the image call
+          // already executed it; until now it was discarded the
+          // moment the prompt was assembled. Sending it costs
+          // nothing that has not already been spent, and it is the
+          // only evidence a user has that something THOUGHT about
+          // their project rather than pattern-matched it.
+          //
+          // Empty for styles with no director and for demo mode, so
+          // the UI has to treat absence as normal, not as an error.
+          concept: conceptByJob[job.i] || "",
           _finalPng: finalPng,
         };
       })
@@ -499,7 +550,10 @@ export async function POST(req) {
     const attempted = jobs.length;
     const missing = attempted - results.length;
     let refunded = 0;
-    if (charged && missing > 0) {
+    // Never on a reroll: it asks for exactly one option, so it either
+    // arrives or the throw above sends it to the catch. Guarded
+    // anyway because partialRefundCredits reasons in run prices.
+    if (charged && missing > 0 && !isReroll) {
       // A free holder run is denominated in RUNS, not credits, so
       // there is no fraction of one to hand back. It stays spent
       // when the run produced anything at all, and is returned in
@@ -565,7 +619,7 @@ export async function POST(req) {
         // Gives back whichever side actually paid — a free run returns
         // to today's holder bucket and to the global counter, not to
         // the credit balance.
-        await refundGeneration(charged.accountId, charged.paidWith);
+        await refundGeneration(charged.accountId, charged.paidWith, charged.amount);
       } catch (e) {
         // A failed refund is a real loss to a real person — make it
         // loud in the log rather than swallowing it.
