@@ -16,7 +16,16 @@
 import { useState } from "react";
 import { shrink } from "@/lib/credits";
 
-export default function PostButton({ variant, brief, signedIn, onSignInNeeded }) {
+// `prepared` says the image is already at feed size, so it is posted
+// as-is. Re-shrinking a 900px image to 900px only re-encodes it, and
+// for anything saved before the archive was widened it would UPSCALE
+// — a bigger file carrying no more detail.
+//
+// `sig` lets a caller supply the signature computed from the ORIGINAL
+// full-resolution banner. Without it, posting the same banner from
+// /create and from My banners produces two different signatures and
+// the duplicate check never fires.
+export default function PostButton({ variant, brief, signedIn, onSignInNeeded, prepared = false, sig = "" }) {
   // idle | confirm | handle | busy | done | error
   const [stage, setStage] = useState("idle");
   const [handle, setHandle] = useState("");
@@ -62,7 +71,7 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded })
       // 900px wide: enough for a feed card at 2x, a fraction of the
       // bytes of the original, and comfortably inside a Firestore
       // document.
-      const src = await shrink(variant.dataUrl, 900, 300);
+      const src = prepared ? variant.dataUrl : await shrink(variant.dataUrl, 900, 300);
       if (!src) { setMsg("Couldn't prepare that image."); setStage("error"); return; }
 
       const r = await fetch("/api/feed", {
@@ -75,7 +84,7 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded })
           styleId: variant.templateId || "",
           styleName: variant.templateName || "",
           concept: variant.concept || "",
-          sig: `${variant.dataUrl.length}.${variant.dataUrl.slice(1000, 1040)}`,
+          sig: sig || `${variant.dataUrl.length}.${variant.dataUrl.slice(1000, 1040)}`,
         }),
       });
       const d = await r.json();

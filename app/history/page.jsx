@@ -7,6 +7,8 @@
 // style, thumbnail; the full-resolution archive is still G5b.
 "use client";
 import Link from "next/link";
+import PostButton from "@/components/PostButton";
+import { useAuth } from "@/lib/useAuth";
 import { useEffect, useState } from "react";
 import { loadHistory, deleteFromHistory } from "@/lib/credits";
 
@@ -27,6 +29,9 @@ function rerunHref(it) {
 export default function HistoryPage() {
   const [items, setItems] = useState(null); // null = still loading
   const [confirming, setConfirming] = useState(null);
+  // Only so the post button knows whether to ask for sign-in first.
+  // The page itself already requires a session to have any history.
+  const auth = useAuth();
 
   useEffect(() => {
     let live = true;
@@ -69,6 +74,25 @@ export default function HistoryPage() {
                 </span>
                 <div className="history-actions">
                   <Link href={rerunHref(it)} className="btn small">Re-run brief</Link>
+                  {/* Posting an OLD banner is the same deliberate act
+                      as posting a new one, so it is the same button.
+                      `prepared` because what is stored here is already
+                      the feed size, and `sig` because it was computed
+                      from the full-resolution original — using the
+                      stored one is what stops the same banner being
+                      posted twice, once from each page. */}
+                  <PostButton
+                    variant={{
+                      dataUrl: it.thumb,
+                      templateId: (it.templateId || "").split(",")[0],
+                      templateName: it.templateName,
+                      concept: it.concept,
+                    }}
+                    brief={it.brief}
+                    prepared
+                    sig={it.sig || ""}
+                    signedIn={Boolean(auth.user)}
+                  />
                   {/* Two-step: these can't be recovered, and a stray tap
                       on a phone shouldn't destroy a saved run. */}
                   {confirming === it.id ? (

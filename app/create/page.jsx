@@ -826,6 +826,9 @@ function CreateInner() {
             brief: runMeta?.brief || null,
             templateId: runMeta?.styles || "",
             templateName: v.templateName || "",
+            // Travels with the banner so posting from My banners
+            // later is identical to posting from here.
+            concept: v.concept || "",
             // Image-derived, so re-downloading (or downloading the X
             // version after the PNG) never duplicates the card, while
             // an edit — different bytes — saves as its own.

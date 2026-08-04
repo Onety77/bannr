@@ -14,7 +14,7 @@
 // query once did.
 //
 // What is stored is the CARD, not the banner: the brief, the style,
-// and a ~20KB thumbnail — comfortably inside Firestore's 1MiB
+// and a ~75KB image — comfortably inside Firestore's 1MiB
 // document limit. The full-resolution archive (Storage) remains G5b.
 //
 // Firestore rules stay deny-all: every read and write here goes
@@ -28,7 +28,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_ITEMS = 24;
-const MAX_THUMB = 150_000;   // base64 chars — a 450x150 jpeg is ~20-30k
+const MAX_THUMB = 200_000;   // base64 chars — a 900x300 jpeg is ~75-110k
 const str = (v, n) => String(v ?? "").slice(0, n);
 
 // Dev fallback, same pattern as lib/users.js.
@@ -48,6 +48,9 @@ function cleanEntry(body) {
     },
     templateId: str(body.templateId, 120),
     templateName: str(body.templateName, 80),
+    // Kept so a banner posted to the feed from here still carries
+    // the thinking behind it, exactly as it would from /create.
+    concept: str(body.concept, 900),
     sig: str(body.sig, 80),
     thumb,
     ts: Date.now(),
