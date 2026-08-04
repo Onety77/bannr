@@ -36,7 +36,7 @@ import { publicError, isPolicyError } from "@/lib/errors";
 import { recordRefusal } from "@/lib/refusals";
 import { requireUser } from "@/lib/auth";
 import {
-  refundGeneration, consumeGeneration,
+  refundGeneration, consumeGeneration, refundCredits, partialRefundCredits,
   gateStateOf, setGateVerdict,
   getUser, publicUser, getSettings, GENERATION_COST,
 } from "@/lib/users";
@@ -485,9 +485,42 @@ export async function POST(req) {
       throw settled.find((s) => s.status === "rejected")?.reason || new Error("Generation failed.");
     }
 
-    // Partial success still costs a full run: the successful options
-    // are the product, and every variant that ran cost real money
-    // whether it came back or not. Only a total failure refunds.
+    // PARTIAL RUNS ARE REFUNDED FOR WHAT DID NOT ARRIVE.
+    //
+    // This used to charge full price for a partial run, on the
+    // grounds that every variant cost money whether it came back or
+    // not. That is false for the most likely failure: a request
+    // refused for rate limiting never renders an image and is never
+    // billed, so the user was paying for options that cost nothing.
+    //
+    // Must run BEFORE the balance below is read, or the number sent
+    // to the client is the pre-refund one and their balance appears
+    // to be wrong until the next page load.
+    const attempted = jobs.length;
+    const missing = attempted - results.length;
+    let refunded = 0;
+    if (charged && missing > 0) {
+      // A free holder run is denominated in RUNS, not credits, so
+      // there is no fraction of one to hand back. It stays spent
+      // when the run produced anything at all, and is returned in
+      // full by the catch above when it produced nothing. That is a
+      // limitation of the unit rather than a policy — worth knowing
+      // before someone reports it as an inconsistency.
+      if (charged.paidWith !== "holder") {
+        refunded = partialRefundCredits(missing, attempted);
+        if (refunded > 0) {
+          try {
+            await refundCredits(charged.accountId, refunded);
+          } catch (e) {
+            // Loud, never silent: this is money owed to a real
+            // person and the response is about to tell them it was
+            // returned.
+            console.error("[generate] PARTIAL REFUND FAILED", charged, refunded, e);
+            refunded = 0;
+          }
+        }
+      }
+    }
     charged = null;
 
     results.sort((a, b) => a.i - b.i);
@@ -506,6 +539,11 @@ export async function POST(req) {
     return NextResponse.json({
       ok: true,
       user: publicUser(after),
+      // Silence here would be nearly as bad as the overcharge was:
+      // fewer banners than asked for, and no way to tell whether
+      // that was the product or a fault. Absent when nothing was
+      // lost, so the happy path is untouched.
+      shortfall: missing > 0 ? { asked: attempted, made: results.length, refunded } : null,
       demoMode,
       engine: demoMode ? "demo" : "gpt-image-2",
       styles: styleIds,

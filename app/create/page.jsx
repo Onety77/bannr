@@ -126,6 +126,11 @@ function CreateInner() {
   const [busy, setBusy] = useState(() => Boolean(getInFlight()));
   const [error, setError] = useState(null);
   const [errorCode, setErrorCode] = useState(null); // "image_flagged" unlocks the reimagine offer
+  // Set when a run came back with fewer options than were asked for.
+  // Not an error — the banners that arrived are real and usable —
+  // but it has to be SAID. Without it the run just looks like it
+  // produced less, with no way to tell a fault from the product.
+  const [shortfall, setShortfall] = useState(null);
   const [results, setResults] = useState(() => (saved?.results?.variants ? saved.results : null));
   // The brief and styles of the run that PRODUCED those results —
   // captured at generation time, because by the time someone hits
@@ -391,6 +396,7 @@ function CreateInner() {
     setBusy(true);
     setResults(null);
     setConverted({});
+    setShortfall(null);
     // Clear the stored result at the same moment. Otherwise leaving the
     // page mid-run and coming back would show the PREVIOUS run beside a
     // spinner for the current one.
@@ -464,6 +470,7 @@ function CreateInner() {
       });
       setDemoMode(data.demoMode);
       setResults(data);
+      setShortfall(data.shortfall || null);
       if (data.user) setUser(data.user);
 
       // NOT saved to history here. A run used to auto-save one entry
@@ -1164,6 +1171,15 @@ function CreateInner() {
 
           <div className="run-bar">
             {error && <div className="notice error">{error}</div>}
+
+            {shortfall && (
+              <div className="notice">
+                {shortfall.made} of {shortfall.asked} options came back this time.
+                {shortfall.refunded > 0
+                  ? ` You've been refunded ${shortfall.refunded} credit${shortfall.refunded === 1 ? "" : "s"} for the ${shortfall.asked - shortfall.made === 1 ? "one" : "ones"} that didn't.`
+                  : " Usually a busy moment on our side — try again in a minute for the full set."}
+              </div>
+            )}
             {/* Escalation ladder, one rung per failure. Each stage
                 offers only what hasn't been tried, so the user never
                 sees a button they've already watched fail. Keeping
