@@ -15,10 +15,17 @@
 // And they are reversible, which matters more here than in most
 // editors: a banner cannot be regenerated. Re-running the same brief
 // returns a different one, so an edit someone dislikes used to cost
-// them the banner permanently. Two ways back, deliberately weighted
-// differently — Undo sits in the bar because one step is what people
-// actually reach for, and "back to the original" is a quiet link
-// inside the editor because it throws away work.
+// them the banner permanently. Three ways to move — Undo and Redo in
+// the bar, and "back to the original" as a quiet link inside the
+// editor, because that one throws away work and should not have
+// equal weight.
+//
+// HOLD THE BANNER TO COMPARE. Stepping back and forth to decide
+// between two versions means judging one from memory, which is the
+// hard way to do it and the reason people keep toggling. Pressing
+// and holding shows the previous version for as long as you hold;
+// releasing snaps back. The two land in the same place at the same
+// size, so the difference is the only thing that moves.
 // ============================================================
 "use client";
 import { useEffect, useRef, useState } from "react";
@@ -31,8 +38,10 @@ const SUGGESTIONS = [
   "move the logo to the left",
 ];
 
-export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, onRevert, editInfo }) {
+export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, onRedo, onRevert, editInfo }) {
   const [actual, setActual] = useState(false);
+  // True only while a press is held on the banner.
+  const [comparing, setComparing] = useState(false);
   const [inContext, setInContext] = useState(false);
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
@@ -66,6 +75,7 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
   useEffect(() => {
     setActual(false);
     setInContext(false);
+    setComparing(false);
     setEditing(false);
     setInstruction("");
     setRefs([]);
@@ -101,6 +111,8 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
   if (!item) return null;
 
   const ratio = item.w && item.h ? (item.w / item.h).toFixed(2) : null;
+  // Only meaningful when there is something behind this version.
+  const canCompare = Boolean(item.prevSrc) && !inContext;
   const free = editInfo?.free ?? 0;
   const canAfford = editInfo?.can ?? false;
 
@@ -153,7 +165,20 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
             disabled={busy}
             title="Go back to the version before your last change"
           >
-            Undo edit
+            Undo
+          </button>
+        )}
+        {/* Only after an undo. Shown rather than disabled, because a
+            permanently greyed button is furniture people stop
+            seeing. */}
+        {onRedo && item.futureCount > 0 && (
+          <button
+            className="btn small"
+            onClick={onRedo}
+            disabled={busy}
+            title="Forward again, to the version you undid"
+          >
+            Redo
           </button>
         )}
         <button
@@ -178,9 +203,31 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
         {/* stopPropagation so clicking the banner itself doesn't close —
             only the surrounding backdrop does. */}
         <div className="lb-shot" onClick={(e) => e.stopPropagation()}>
-          {inContext
-            ? <DexPreview src={item.src} ticker={item.ticker} />
-            : <img src={item.src} alt={item.alt} />}
+          {inContext ? (
+            <DexPreview src={item.src} ticker={item.ticker} />
+          ) : (
+            <img
+              src={comparing && item.prevSrc ? item.prevSrc : item.src}
+              alt={item.alt}
+              // Pointer events, so one handler covers mouse, touch
+              // and pen. up/leave/cancel all release: a drag off the
+              // image must not leave it stuck showing the old one.
+              onPointerDown={canCompare ? () => setComparing(true) : undefined}
+              onPointerUp={canCompare ? () => setComparing(false) : undefined}
+              onPointerLeave={canCompare ? () => setComparing(false) : undefined}
+              onPointerCancel={canCompare ? () => setComparing(false) : undefined}
+              // A long press on a phone otherwise opens the save/copy
+              // menu on top of the comparison. Download is a button
+              // three inches away, so nothing is lost.
+              onContextMenu={canCompare ? (e) => e.preventDefault() : undefined}
+              draggable={false}
+            />
+          )}
+          {canCompare && (
+            <span className={`lb-compare${comparing ? " on" : ""}`}>
+              {comparing ? "Before" : "Hold to compare"}
+            </span>
+          )}
           {busy && (
             <div className="lb-working">
               <span className="spinner" />

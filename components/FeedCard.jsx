@@ -20,6 +20,11 @@
 import Link from "next/link";
 import { useState } from "react";
 
+// The concept is still stored on every post and in history — removing
+// the display, not the data, so it can come back without a migration.
+// It was cut because only some styles have a director, so it appeared
+// on some cards and not others with no way for a reader to know why.
+
 function ago(ts) {
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
   if (s < 60) return "just now";
@@ -32,13 +37,9 @@ function ago(ts) {
 }
 
 export default function FeedCard({ post, signedIn, onLike, onReport }) {
-  const [open, setOpen] = useState(false);
   const [reported, setReported] = useState(false);
 
   const label = post.ticker || post.name || "";
-  // Long concepts are clamped rather than truncated, so the full text
-  // is always one tap away and never lost.
-  const long = (post.concept || "").length > 150;
 
   return (
     <article className="fcard">
@@ -53,17 +54,6 @@ export default function FeedCard({ post, signedIn, onLike, onReport }) {
           {post.styleName && <span className="fcard-style">{post.styleName}</span>}
           <span className="fcard-ago">{ago(post.ts)}</span>
         </div>
-
-        {post.concept && (
-          <p className={`fcard-concept${long && !open ? " clamped" : ""}`}>
-            {post.concept}
-            {long && (
-              <button className="fcard-more" onClick={() => setOpen((v) => !v)}>
-                {open ? "less" : "more"}
-              </button>
-            )}
-          </p>
-        )}
 
         <div className="fcard-actions">
           <button

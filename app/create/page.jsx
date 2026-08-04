@@ -570,7 +570,7 @@ function CreateInner() {
   // because everything except WHICH frame to restore is identical —
   // including dropping the X conversion, which was re-framed from art
   // that is no longer what the user is looking at.
-  function restoreFrame(idx, frame, past, edits) {
+  function restoreFrame(idx, frame, past, edits, future = null) {
     setResults((r) => ({
       ...r,
       variants: r.variants.map((v, i) =>
@@ -579,6 +579,7 @@ function CreateInner() {
               ...v,
               dataUrl: frame.dataUrl,
               bg: frame.bg,
+              ...(future ? { future } : {}),
               // Restored only when the frame carried one, so undoing
               // an EDIT leaves the concept alone while undoing a
               // REROLL brings back the thinking that went with the
@@ -597,7 +598,15 @@ function CreateInner() {
     });
     setLightbox((lb) =>
       lb && lb.index === idx
-        ? { ...lb, src: frame.dataUrl, edits, pastCount: past.length }
+        ? {
+            ...lb,
+            src: frame.dataUrl,
+            edits,
+            pastCount: past.length,
+            ...(future ? { futureCount: future.length } : {}),
+            // The image press-and-hold compares against.
+            prevSrc: past.length ? past[past.length - 1].dataUrl : null,
+          }
         : lb
     );
   }
@@ -622,7 +631,29 @@ function CreateInner() {
     const edits = frame.edits != null
       ? frame.edits
       : past.length ? Math.max(0, (v.edits || 0) - 1) : 0;
-    restoreFrame(idx, frame, past, edits);
+    // What we are leaving becomes the thing redo comes back to.
+    const future = [{ dataUrl: v.dataUrl, bg: v.bg, concept: v.concept, edits: v.edits || 0 }, ...(v.future || [])];
+    restoreFrame(idx, frame, past, edits, future);
+  }
+
+  // FORWARD AGAIN.
+  //
+  // Undo without redo is a trap: you look at the old version, decide
+  // you preferred the new one, and it is gone — which is exactly the
+  // permanence undo existed to remove, moved one step along.
+  //
+  // The forward stack is cleared by any NEW edit or reroll. Once you
+  // branch, the version you had gone back past is not reachable by
+  // going forward any more, and pretending otherwise would restore
+  // something that no longer follows from what is on screen.
+  function redoEdit() {
+    const idx = lightbox?.index;
+    const v = idx == null ? null : results?.variants?.[idx];
+    if (!v?.future?.length) return;
+    const future = [...v.future];
+    const frame = future.shift();
+    const past = pushPast(v, { dataUrl: v.dataUrl, bg: v.bg, concept: v.concept, edits: v.edits || 0 });
+    restoreFrame(idx, frame, past, frame.edits ?? v.edits ?? 0, future);
   }
 
   // All the way back, however many edits deep.
@@ -630,7 +661,9 @@ function CreateInner() {
     const idx = lightbox?.index;
     const v = idx == null ? null : results?.variants?.[idx];
     if (!v?.past?.length) return;
-    restoreFrame(idx, v.past[0], [], 0);
+    // Everything between here and the original becomes unreachable,
+    // forward included — that is what going all the way back means.
+    restoreFrame(idx, v.past[0], [], 0, []);
   }
 
   // Apply a revision to whichever banner the lightbox is showing. The
@@ -681,6 +714,9 @@ function CreateInner() {
                 bg: data.bg,
                 edits: (v.edits || 0) + 1,
                 past: pushPast(v, { dataUrl: v.dataUrl, bg: v.bg, edits: v.edits || 0 }),
+                // Branching. Anything that was ahead of this point
+                // no longer follows from what is on screen.
+                future: [],
               }
             : v
         ),
@@ -699,6 +735,9 @@ function CreateInner() {
         src: data.dataUrl,
         edits: (lb.edits || 0) + 1,
         pastCount: Math.min((lb.pastCount || 0) + 1, EDIT_HISTORY),
+        // Branched — there is nothing ahead any more.
+        futureCount: 0,
+        prevSrc: results?.variants?.[idx]?.dataUrl || null,
       }));
       return { ok: true };
     } catch (e) {
@@ -782,6 +821,7 @@ function CreateInner() {
                   dataUrl: old.dataUrl, bg: old.bg,
                   concept: old.concept, edits: old.edits || 0,
                 }),
+                future: [],
               }
             : old
         ),
@@ -883,6 +923,16 @@ function CreateInner() {
   // which covers arriving from the feed's "make one like this",
   // a history re-run, and saved defaults from settings. A chosen
   // style that is invisible looks like a bug.
+  // The creative direction field starts closed too, and for the same
+  // reason: it is the most useful thing someone CAN say and the
+  // thing almost nobody says. Shown as the question alone, it reads
+  // as an invitation; shown as an empty textarea with example chips
+  // under it, it reads as another box to fill before you are allowed
+  // to continue. Open from the start when something is already in it
+  // — a re-run, a restored draft — because hiding filled-in text is
+  // how instructions get silently dropped.
+  const [wantOpen, setWantOpen] = useState(() => Boolean(formRef.current.direction));
+
   const isDefaultOnly = styleIds.length === 1 && styleIds[0] === AUTO_ID;
   const [stylesOpen, setStylesOpen] = useState(!isDefaultOnly);
   useEffect(() => {
@@ -1144,9 +1194,20 @@ function CreateInner() {
                 never rendered; this is an INSTRUCTION about the banner
                 and is obeyed. The labels and hints carry that. */}
             <div className="field field-accent">
+              {!wantOpen ? (
+                <button className="want-reveal" onClick={() => setWantOpen(true)}>
+                  <span>
+                    What do you want?
+                    <span className="tag-opt">optional, but worth it</span>
+                  </span>
+                  <span className="want-reveal-cta">Tell us</span>
+                </button>
+              ) : (
+                <>
               <label>
                 What do you want?
                 <span className="tag-opt">optional, but worth it</span>
+                <button className="panel-collapse" onClick={() => setWantOpen(false)}>Hide</button>
               </label>
               <textarea
                 placeholder="Say it however you like — “make it feel expensive”, “only black and white”, “put the name really big”, “no cartoon characters”…"
@@ -1176,6 +1237,8 @@ function CreateInner() {
               <div className="hint">
                 Anything you say here outranks the style you pick. Leave it blank and we&rsquo;ll decide for you.
               </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1192,6 +1255,11 @@ function CreateInner() {
             <div className="panel-head">
               <h3>Style</h3>
               <span className="hint">Pick as many as you like</span>
+              {/* Expanding was one-way. A control that opens and
+                  cannot close reads as a mistake. */}
+              <button className="panel-collapse" onClick={() => setStylesOpen(false)}>
+                Hide
+              </button>
             </div>
             <div className="style-grid">
               <div className={`style-slot ${expanded === AUTO_ID ? "open" : ""}`}>
@@ -1488,6 +1556,10 @@ function CreateInner() {
                           h: v.h,
                           edits: v.edits || 0,
                           pastCount: (v.past || []).length,
+                          futureCount: (v.future || []).length,
+                          prevSrc: (v.past || []).length
+                            ? v.past[v.past.length - 1].dataUrl
+                            : null,
                           label: `Option ${i + 1} · ${v.templateName}`,
                           dl: () => download(v.dataUrl, i),
                         })
@@ -1495,16 +1567,6 @@ function CreateInner() {
                     />
                     <StageAura done />
                   </div>
-                  {/* The reasoning behind this option, written before
-                      the image existed. Between the art and the
-                      controls so it reads as a placard belonging to
-                      the piece rather than a caption on the buttons.
-
-                      Absent for styles with no director and in demo
-                      mode. That is normal and not worth explaining. */}
-                  {v.concept ? (
-                    <p className="concept">{v.concept}</p>
-                  ) : null}
                   <div className="bar">
                     <span className="mode">
                       OPTION {i + 1} · <b>{v.templateName}</b>
@@ -1598,6 +1660,7 @@ function CreateInner() {
         }
         onEdit={lightbox?.editable ? applyEdit : null}
         onUndo={lightbox?.editable ? undoEdit : null}
+        onRedo={lightbox?.editable ? redoEdit : null}
         onRevert={lightbox?.editable ? revertToOriginal : null}
         editInfo={{
           free: auth.user?.freeEditsLeft ?? 0,
