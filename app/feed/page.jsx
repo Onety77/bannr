@@ -11,25 +11,35 @@
 // waits on the network to acknowledge a tap feels broken on a phone.
 // ============================================================
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import FeedCard from "@/components/FeedCard";
 import { useAuth } from "@/lib/useAuth";
+import { readFeed, writeFeed, rememberScroll, mergeFresh, STALE_MS } from "@/lib/feedCache";
 
 export default function FeedPage() {
   const auth = useAuth();
-  const [posts, setPosts] = useState(null);
-  const [cursor, setCursor] = useState(0);
-  const [done, setDone] = useState(false);
+  // Read synchronously in the initialiser, so the first render is
+  // already the feed you left rather than skeletons that get
+  // replaced a frame later.
+  const cached = typeof window === "undefined" ? null : readFeed();
+  const [posts, setPosts] = useState(cached?.posts ?? null);
+  const [cursor, setCursor] = useState(cached?.cursor ?? 0);
+  const [done, setDone] = useState(cached?.done ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const restored = useRef(false);
 
   const load = useCallback(async (before = 0) => {
     setBusy(true);
     try {
       const r = await fetch(`/api/feed${before ? `?before=${before}` : ""}`, { cache: "no-store" });
       const d = await r.json();
-      setPosts((prev) => (before ? [...(prev || []), ...(d.posts || [])] : d.posts || []));
+      setPosts((prev) => {
+        const next = before ? [...(prev || []), ...(d.posts || [])] : d.posts || [];
+        writeFeed({ posts: next, cursor: d.cursor || 0, done: Boolean(d.done), at: Date.now() });
+        return next;
+      });
       setCursor(d.cursor || 0);
       setDone(Boolean(d.done));
     } catch {
@@ -40,7 +50,51 @@ export default function FeedPage() {
     }
   }, []);
 
-  useEffect(() => { load(0); }, [load]);
+  // Quietly re-read the first page and fold it in. No skeletons, no
+  // spinner, nothing moves under the reader: anything new appears
+  // above where they are, and posts they can already see keep their
+  // place while taking the server's like count.
+  const revalidate = useCallback(async () => {
+    try {
+      const r = await fetch("/api/feed", { cache: "no-store" });
+      const d = await r.json();
+      if (!d?.posts) return;
+      setPosts((prev) => {
+        const next = mergeFresh(prev, d.posts);
+        writeFeed({ posts: next, at: Date.now() });
+        return next;
+      });
+    } catch {
+      // The cached feed is still on screen and still fine.
+    }
+  }, []);
+
+  useEffect(() => {
+    const c = readFeed();
+    if (!c?.posts?.length) { load(0); return; }
+    // Put them back where they were, after the browser has laid the
+    // restored posts out. .fcard-shot reserves 3:1 before its image
+    // decodes, so the page height is already right at this point —
+    // without that the scroll would land somewhere arbitrary.
+    if (!restored.current) {
+      restored.current = true;
+      const y = c.scrollY || 0;
+      if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+    if (Date.now() - (c.at || 0) > STALE_MS) revalidate();
+  }, [load, revalidate]);
+
+  // Where they were, saved continuously rather than on unmount —
+  // a cleanup that runs after the page has already been torn down
+  // reads 0 on some browsers.
+  useEffect(() => {
+    const onScroll = () => rememberScroll(window.scrollY);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      onScroll();
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
 
   async function like(post) {
     if (!auth.user) { setError("Sign in to like banners."); return; }
@@ -61,9 +115,11 @@ export default function FeedPage() {
       if (!r.ok) throw new Error();
       // The server's count is authoritative — someone else may have
       // liked the same post while this one was in the air.
-      setPosts((list) =>
-        list.map((p) => (p.id === post.id ? { ...p, liked: d.liked, likes: d.likes } : p))
-      );
+      setPosts((list) => {
+        const next = list.map((p) => (p.id === post.id ? { ...p, liked: d.liked, likes: d.likes } : p));
+        writeFeed({ posts: next });
+        return next;
+      });
     } catch {
       setPosts((list) =>
         list.map((p) =>

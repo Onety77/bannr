@@ -2844,6 +2844,11 @@ textarea::placeholder {
   position: relative;
   line-height: 0;
   background: var(--bg-soft);
+  /* Every banner is 3:1, so the box can be the right height before the
+     image has decoded. That stops the page reflowing under a reader
+     mid-scroll, and it is what makes restoring a scroll position land
+     in the right place instead of somewhere in a half-built page. */
+  aspect-ratio: 3 / 1;
   /* The gesture target. Stops iOS offering to save the image on the
      long press that a double-tap sometimes registers as. */
   -webkit-touch-callout: none;
@@ -2852,7 +2857,7 @@ textarea::placeholder {
 /* Faded in on load, so scrolling never snaps a raw image into place
    under your eye. */
 .fcard-shot img {
-  width: 100%; height: auto; display: block;
+  width: 100%; height: 100%; display: block; object-fit: cover;
   opacity: 0; transform: scale(1.008);
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
