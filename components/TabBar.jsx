@@ -3,7 +3,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const TABS = [
   // FEED SITS WHERE HOME USED TO.
@@ -114,11 +114,47 @@ function useKeyboardOpen() {
   }, []);
 }
 
+// HOW TALL THIS BAR IS, PUBLISHED AS --tabbar-h.
+//
+// Three things need to clear it: the scroll container's bottom
+// padding, the sticky Save on settings, and the sticky Generate on
+// create. Each of those used to carry its own hardcoded guess —
+// 64px here, 58px there, 74px somewhere else — and once the scroll
+// container started reserving space too, those numbers stacked and
+// pushed Save into the middle of the page.
+//
+// Measured rather than declared, so it is right on every device
+// without anybody knowing the safe-area inset: the bar's own
+// padding-bottom is part of what gets measured. Zero on desktop,
+// where the bar is display:none and has no height at all — which is
+// exactly the offset those rules should use there.
+function useMeasuredHeight(ref) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const write = () => root.style.setProperty("--tabbar-h", `${el.offsetHeight}px`);
+    write();
+    const ro = new ResizeObserver(write);
+    ro.observe(el);
+    // The bar hides for the keyboard, and the media query flips it
+    // off entirely on a wide screen. Both change its height.
+    window.addEventListener("resize", write);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", write);
+      root.style.removeProperty("--tabbar-h");
+    };
+  }, [ref]);
+}
+
 export default function TabBar() {
   const path = usePathname();
+  const ref = useRef(null);
   useKeyboardOpen();
+  useMeasuredHeight(ref);
   return (
-    <nav className="tabbar" aria-label="Primary">
+    <nav className="tabbar" ref={ref} aria-label="Primary">
       {TABS.map((t) => {
         // Credits, Settings and a public profile have no tab of
         // their own, so "You" owns them — otherwise the bar shows

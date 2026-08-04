@@ -297,9 +297,16 @@ h1, h2, h3 {
 .set-style .adv-toggle { width: 100%; }
 
 /* Sticky so a long page never hides the only way to keep your edits. */
+/* Sticky so a long page never hides the only way to keep your edits.
+
+   The offset is the tab bar's MEASURED height, not a guess. It had a
+   58px one, and once the scroll container also started reserving
+   room for the bar the two stacked and put this in the middle of the
+   form. One number, published by the thing it describes. */
 .set-save {
-  position: sticky; bottom: 0;
-  padding: 14px 0 calc(14px + env(safe-area-inset-bottom));
+  position: sticky;
+  bottom: var(--tabbar-h, 0px);
+  padding: 14px 0;
   background: linear-gradient(180deg, transparent, var(--bg) 38%);
 }
 .set-save .btn { width: 100%; }
@@ -321,7 +328,7 @@ h1, h2, h3 {
   .set-v.mono { font-size: 13px; overflow-wrap: anywhere; }
   .set-when { margin-left: 0; width: 100%; }
   /* clears the fixed tab bar */
-  .set-save { bottom: calc(58px + env(safe-area-inset-bottom)); }
+
 }
 
 /* ---------- history actions ---------- */
@@ -1970,8 +1977,9 @@ body::after {
   .steps3 { grid-template-columns: 1fr; gap: 36px; }
 }
 @media (max-width: 760px) {
-  /* The bar's clearance belongs to whatever scrolls. */
-  .app-scroll { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  /* The bar's clearance belongs to whatever scrolls, and the number
+     comes from the bar itself — see useMeasuredHeight in TabBar. */
+  .app-scroll { padding-bottom: var(--tabbar-h, 64px); }
   .nav-links { display: none; }
 
   /* The top bar cannot hold logo + credits + wallet + theme at 375px —
@@ -2012,7 +2020,8 @@ body::after {
   .result .bar .mode { min-width: 100%; }
   .run-bar {
     position: sticky;
-    bottom: calc(74px + env(safe-area-inset-bottom));
+    /* Same measured number, plus a breath. */
+    bottom: calc(var(--tabbar-h, 74px) + 10px);
     z-index: 30;
   }
   .run-bar .btn { box-shadow: 0 10px 34px -8px color-mix(in srgb, var(--accent) 70%, transparent); }
@@ -3186,3 +3195,5 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
   background: var(--ok);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent);
 }
+
+.wal-note { font-style: normal; font-size: 12px; color: var(--faint); }

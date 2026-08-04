@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME } from "@/lib/styles";
 import { countTouched } from "@/lib/advanced";
 import { useAuth } from "@/lib/useAuth";
-import { short, useWallet } from "@/lib/wallet";
+import { short, useWallet, phantomBrowseUrl } from "@/lib/wallet";
 import AdvancedPanel from "@/components/AdvancedPanel";
 import ConnectButton, { WalletSignIn, ConnectNote } from "@/components/ConnectButton";
 
@@ -159,7 +159,19 @@ export default function SettingsPage() {
               ) : (
                 <span className="wal">
                   <span className="wal-none">None linked</span>
-                  {auth.walletAvailable && (
+                  {/* ALWAYS a way through. This was hidden behind
+                      walletAvailable, which is false in mobile Safari
+                      — no injected provider — so on the device most
+                      people are holding, the row said "None linked"
+                      and offered nothing.
+
+                      A phone browser genuinely cannot reach a wallet
+                      app, so the answer there is a handoff into the
+                      wallet's own browser rather than a connect
+                      attempt that dead-ends. */}
+                  {auth.needsHandoff ? (
+                    <a className="btn small" href={phantomBrowseUrl()}>Connect a wallet</a>
+                  ) : auth.walletAvailable ? (
                     <button
                       className="btn small"
                       disabled={auth.busy}
@@ -167,6 +179,8 @@ export default function SettingsPage() {
                     >
                       Connect a wallet
                     </button>
+                  ) : (
+                    <em className="wal-note">No wallet on this device</em>
                   )}
                 </span>
               )}
