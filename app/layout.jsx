@@ -17,7 +17,22 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
+// metadataBase is what lets a page declare an Open Graph image as a
+// plain path. Without it Next emits the path unresolved and every
+// unfurl — Telegram, X, Discord — shows a link with no picture, which
+// is most of the reason to have shareable posts at all.
+//
+// VERCEL_PROJECT_PRODUCTION_URL is the stable production host rather
+// than the per-deployment one, so a preview build does not mint links
+// pointing at a URL that stops existing.
+const SITE =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "https://bannr.vercel.app");
+
 export const metadata = {
+  metadataBase: new URL(SITE),
   title: "bannr — professional token banners in seconds",
   description:
     "Professional DEX Screener banners in seconds. Drop a logo, pick a style, get 2–4 options at exact dimensions. Pay in SOL.",

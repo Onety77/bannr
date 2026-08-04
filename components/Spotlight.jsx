@@ -31,7 +31,8 @@
 // appear here. Nothing is generated to fill it: a homepage visitor is
 // signed out and generation costs real credits.
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useScrollFocus } from "@/lib/useScrollFocus";
 
 const MAX_CARDS = 3;
 const TILT = 9; // degrees the group turns toward the cursor
@@ -51,76 +52,12 @@ export default function Spotlight() {
     })();
   }, []);
 
-  // The whole interaction, in one function.
-  //
-  // Distance from the centre of the stage to the centre of the screen,
-  // measured against the distance at which the stage would be exactly
-  // touching a viewport edge. So: 0 while it is entering or leaving, 1
-  // when it is dead centre, and symmetric — scrolling up through it
-  // looks the same as scrolling down.
-  //
-  // Smoothstepped rather than linear, because a straight ramp spends
-  // too long being almost-open at both ends and reads as sluggish.
-  const update = useCallback(() => {
-    const node = stageRef.current;
-    if (!node) return;
-    const r = node.getBoundingClientRect();
-    const vh = window.innerHeight || 1;
-    const distance = Math.abs(r.top + r.height / 2 - vh / 2);
-    const range = (vh + r.height) / 2;
-    const t = Math.max(0, Math.min(1, 1 - distance / range));
-    node.style.setProperty("--f", (t * t * (3 - 2 * t)).toFixed(4));
-  }, []);
-
-  useEffect(() => {
-    const el = stageRef.current;
-    if (!el || !items.length) return;
-
-    // Someone who has asked for less motion should not be handed a rig
-    // that breathes at them as they scroll. It stays stacked.
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
-      el.style.setProperty("--f", "0");
-      return;
-    }
-
-    let raf = 0;
-    let listening = false;
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => { raf = 0; update(); });
-    };
-    const listen = (on) => {
-      if (on === listening) return;
-      listening = on;
-      if (on) {
-        window.addEventListener("scroll", onScroll, { passive: true });
-        window.addEventListener("resize", onScroll, { passive: true });
-      } else {
-        window.removeEventListener("scroll", onScroll);
-        window.removeEventListener("resize", onScroll);
-      }
-    };
-
-    // Only measure while it is near the screen. This runs on the
-    // homepage, and a scroll listener doing geometry for a section
-    // nobody can see is pure waste.
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        listen(entry.isIntersecting);
-        if (entry.isIntersecting) update();
-        else el.style.setProperty("--f", "0");
-      },
-      { rootMargin: "120px 0px" }
-    );
-    io.observe(el);
-    update();
-
-    return () => {
-      io.disconnect();
-      listen(false);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [items.length, update]);
+  // The whole interaction is one number, --f, derived from where this
+  // stage sits relative to the middle of the screen. It used to live
+  // inline here; it moved to lib/useScrollFocus.js when the X teaser
+  // needed the same behaviour, because two copies of scroll geometry
+  // is two copies that drift.
+  useScrollFocus(stageRef, items.length > 0);
 
   // Cursor tilt. Written straight to the element, same as --f: this
   // fires on every mouse move, and a re-render per frame would cost

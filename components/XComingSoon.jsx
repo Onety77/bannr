@@ -20,10 +20,18 @@
 // real site.
 // ============================================================
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useScrollFocus } from "@/lib/useScrollFocus";
 
 export default function XComingSoon() {
   const [shots, setShots] = useState([]);
+  // Same scroll-driven --f the homepage stage runs on: closed as it
+  // enters, open at dead centre, closed again on the way out. The
+  // three profiles were static here, which made a teaser for a
+  // product that has not shipped look like a screenshot of one that
+  // has been abandoned.
+  const stage = useRef(null);
+  useScrollFocus(stage, true);
 
   useEffect(() => {
     (async () => {
@@ -51,7 +59,7 @@ export default function XComingSoon() {
         </p>
       </div>
 
-      <div className="xcs-scatter">
+      <div className="xcs-scatter" ref={stage}>
         {[0, 1, 2].map((i) => (
           <XProfile key={shots[i]?.ts ?? i} shot={shots[i]} pos={i} />
         ))}

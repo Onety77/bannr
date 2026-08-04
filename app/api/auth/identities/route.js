@@ -18,7 +18,7 @@
 import { NextResponse } from "next/server";
 import { requireUser, verifySignIn } from "@/lib/auth";
 import { linkIdentity, unlinkIdentity, identitiesFor } from "@/lib/identities";
-import { getUser, publicUser, addPayingWallet, setEmail } from "@/lib/users";
+import { getUser, publicUser, addPayingWallet, setEmail, setPhoto } from "@/lib/users";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
@@ -67,6 +67,7 @@ export async function POST(req) {
       );
     }
     if (decoded.email) await setEmail(session.accountId, decoded.email);
+    if (decoded.picture) await setPhoto(session.accountId, decoded.picture);
     return respond(session.accountId, { linked: "google" });
   }
 

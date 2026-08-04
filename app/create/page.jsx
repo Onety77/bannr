@@ -1618,6 +1618,7 @@ function CreateInner() {
                     <PostButton
                       variant={v}
                       brief={runMeta?.brief}
+                      defaultCa={ca}
                       signedIn={Boolean(auth.user)}
                       onSignInNeeded={() => setError("Sign in to post to the feed.")}
                     />

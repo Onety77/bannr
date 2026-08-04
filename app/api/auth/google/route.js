@@ -12,7 +12,7 @@
 // is stored alongside it purely so we have somewhere to send a receipt.
 import { NextResponse } from "next/server";
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
-import { getOrCreateByIdentity, publicUser, setEmail } from "@/lib/users";
+import { getOrCreateByIdentity, publicUser, setEmail, setPhoto } from "@/lib/users";
 import { identitiesFor } from "@/lib/identities";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
 
@@ -56,6 +56,10 @@ export async function POST(req) {
 
     const user = await getOrCreateByIdentity("google", uid);
     if (decoded.email) await setEmail(user.id, decoded.email);
+    // Refreshed on every sign-in rather than only at creation:
+    // Google's photo URLs rotate, and a stale one is a broken
+    // avatar on a public feed.
+    if (decoded.picture) await setPhoto(user.id, decoded.picture);
 
     const res = NextResponse.json({
       ok: true,

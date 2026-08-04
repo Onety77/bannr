@@ -25,11 +25,16 @@ import { shrink } from "@/lib/credits";
 // full-resolution banner. Without it, posting the same banner from
 // /create and from My banners produces two different signatures and
 // the duplicate check never fires.
-export default function PostButton({ variant, brief, signedIn, onSignInNeeded, prepared = false, sig = "" }) {
+export default function PostButton({ variant, brief, signedIn, onSignInNeeded, prepared = false, sig = "", defaultCa = "" }) {
   // idle | confirm | handle | busy | done | error
   const [stage, setStage] = useState("idle");
   const [handle, setHandle] = useState("");
   const [msg, setMsg] = useState("");
+  // Optional, and prefilled when the brief came from a contract
+  // address — which is most of the time now the homepage asks for
+  // one. Retyping something the page already knows is the kind of
+  // small tax that stops people bothering.
+  const [ca, setCa] = useState(defaultCa || "");
 
   async function begin() {
     if (!signedIn) { onSignInNeeded?.(); return; }
@@ -84,6 +89,7 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
           styleId: variant.templateId || "",
           styleName: variant.templateName || "",
           concept: variant.concept || "",
+          ca: ca.trim(),
           sig: sig || `${variant.dataUrl.length}.${variant.dataUrl.slice(1000, 1040)}`,
         }),
       });
@@ -132,11 +138,28 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
 
   if (stage === "confirm") {
     return (
-      <span className="post-confirm">
-        <span>Post this publicly?</span>
-        <button className="btn small primary" onClick={post}>Yes, post it</button>
-        <button className="btn small" onClick={() => setStage("idle")}>Cancel</button>
-      </span>
+      <div className="post-confirm">
+        <span className="post-confirm-q">Post this publicly?</span>
+        {/* Optional on purpose. Plenty of banners are made before
+            the token exists, and demanding an address would block
+            exactly those people from posting at all. */}
+        <label className="post-ca">
+          <input
+            value={ca}
+            onChange={(e) => setCa(e.target.value.trim())}
+            placeholder="Contract address (optional)"
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            maxLength={64}
+          />
+          <span>Adds a link to the coin on DexScreener.</span>
+        </label>
+        <div className="post-confirm-row">
+          <button className="btn small primary" onClick={post}>Yes, post it</button>
+          <button className="btn small" onClick={() => setStage("idle")}>Cancel</button>
+        </div>
+      </div>
     );
   }
 
