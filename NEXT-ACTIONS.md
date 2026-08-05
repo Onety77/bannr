@@ -33,6 +33,15 @@ Short list, and only one item has a waiting period.
       with no error anywhere.**
 - [ ] **Seed the feed.** An empty feed on launch day says nobody's
       here. Post a handful from My banners.
+      Do a few as **before-and-afters** — post from `/create` while the
+      logo is still on the page and tick "Show the logo it started
+      from". Posting from My banners can't offer it; the original
+      upload isn't kept.
+- [ ] **Check the funnel reads sensibly** at `/admin7731` (the strip
+      above the tabs) once real traffic arrives. `landed` and `started`
+      come from browsers and can be inflated by anyone; `generated` is
+      counted server-side next to the charge and can't be. If the
+      first two look absurd relative to the third, that's the reason.
 - [ ] **Firestore TTL policy on `nonces.expires`** (console setting).
       A closed wallet popup leaves one behind forever.
 - [ ] **Confirm `firestore.rules` and `storage.rules` are deployed.**

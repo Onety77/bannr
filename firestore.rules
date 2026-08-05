@@ -53,6 +53,10 @@ rules_version = '2';
 //                  stopping a like count being whatever someone wants.
 //   reports/       moderation reports. Readable, this tells a bad
 //                  actor exactly who reported them.
+//   stats/         three counters a day. The only collection here with
+//                  nothing personal in it — and still closed, because
+//                  readable traffic figures tell anyone deciding
+//                  whether this place is worth bothering with.
 //
 // IF YOU EVER ADD CLIENT-SIDE FIRESTORE: do not loosen this file to
 // make it work. Add a server route instead. The Admin SDK path is

@@ -17,6 +17,7 @@ import PostButton from "@/components/PostButton";
 import XComingSoon from "@/components/XComingSoon";
 import AdvancedPanel from "@/components/AdvancedPanel";
 import { countTouched } from "@/lib/advanced";
+import { track } from "@/lib/track";
 
 // A generation takes ~45s. Rather than hold a dead spinner for that
 // long, narrate what the model is actually doing — reading the brief,
@@ -318,6 +319,7 @@ function CreateInner() {
 
   function onFile(f) {
     if (!f) return;
+    track("started");
     setLogoFile(f);
     setLogoPreview((p) => {
       if (p) URL.revokeObjectURL(p);
@@ -325,7 +327,17 @@ function CreateInner() {
     });
   }
 
+  // Every brief field goes through here, and so does a contract
+  // address import — which repopulates the brief by calling this. So
+  // this one line covers "typed a name", "pasted a CA" and "wrote an
+  // About" without three separate hooks.
+  //
+  // Safe to put in the setter because nothing calls setField from an
+  // effect: it is only ever reached from something a person did. And
+  // track() only fires once per tab, so a name typed one character at
+  // a time is one count, not sixty.
   function setField(k, v) {
+    track("started");
     formRef.current[k] = v;
     force((x) => x + 1);
   }
@@ -1249,7 +1261,7 @@ function CreateInner() {
                 onChange={(e) => setField("vibe", e.target.value)}
                 maxLength={400}
               />
-              <div className="hint">This decides the whole treatment — the more real, the less generic.</div>
+              <div className="hint">The more real, the less generic.</div>
             </div>
 
             {/* Creative direction. Sits here, in the main brief, rather
@@ -1267,17 +1279,23 @@ function CreateInner() {
                 <button className="want-reveal" onClick={() => setWantOpen(true)}>
                   <span>
                     What do you want?
-                    <span className="tag-opt">optional, but worth it</span>
+                    <span className="tag-opt">if you already have an idea</span>
                   </span>
                   <span className="want-reveal-cta">Tell us</span>
                 </button>
               ) : (
                 <>
-              {/* The "optional, but worth it" tag lives on the
+              {/* The "if you already have an idea" tag lives on the
                   COLLAPSED row only. Open, it is answered: you are
-                  looking at the field, so being told it is optional
-                  says nothing, and on a narrow screen it wrapped to two
-                  lines and shoved Hide out of alignment. */}
+                  looking at the field, so the question has been taken,
+                  and on a narrow screen it wrapped to two lines and
+                  shoved Hide out of alignment.
+
+                  It asks rather than sells. "Optional, but worth it"
+                  implied you were leaving something on the table by
+                  skipping it, which is pressure — and untrue, because
+                  the director does fine on silence. Having no idea yet
+                  is the normal case, and the copy should say so. */}
               <label>
                 What do you want?
                 <button className="panel-collapse" onClick={() => setWantOpen(false)}>Hide</button>
@@ -1680,6 +1698,7 @@ function CreateInner() {
                       variant={v}
                       brief={runMeta?.brief}
                       defaultCa={ca}
+                      logo={logoPreview}
                       signedIn={Boolean(auth.user)}
                       onSignInNeeded={() => setError("Sign in to post to the feed.")}
                     />

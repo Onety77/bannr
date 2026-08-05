@@ -8,6 +8,7 @@ import { getFirebase } from "@/lib/firebaseClient";
 import { ADMIN_EMAIL } from "@/lib/admin";
 import AdminToken from "@/components/AdminToken";
 import AdminFeed from "@/components/AdminFeed";
+import AdminFunnel from "@/components/AdminFunnel";
 
 const FLAGS = [
   ["featuredWall", "Fresh wall"],
@@ -223,6 +224,9 @@ export default function AdminPage() {
           <button className="btn small" onClick={doSignOut}>Sign out</button>
         </div>
       </div>
+
+      {/* Above the tabs, so it is seen rather than visited. */}
+      <AdminFunnel user={user} />
 
       <div className="admin-tabs">
         <button className={tab === "generations" ? "on" : ""} onClick={() => setTab("generations")}>

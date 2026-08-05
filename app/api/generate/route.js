@@ -34,6 +34,7 @@ import { composeBanner } from "@/lib/engine/compose";
 import { aiEnabled, generateBackground, generateConcepts, diagnoseContent } from "@/lib/openai";
 import { publicError, isPolicyError } from "@/lib/errors";
 import { recordRefusal } from "@/lib/refusals";
+import { bump } from "@/lib/stats";
 import { requireUser } from "@/lib/auth";
 import {
   refundGeneration, consumeGeneration, refundCredits, partialRefundCredits,
@@ -576,6 +577,18 @@ export async function POST(req) {
       }
     }
     charged = null;
+
+    // THE ONLY NUMBER IN THE FUNNEL THAT CANNOT BE FAKED. landed and
+    // started are posted by a browser and are therefore a browser's
+    // opinion; this one is counted here, after the images exist and
+    // after the money moved, and there is no route a client can call
+    // to reach it. Everything else is measured against it, so it is
+    // the one that has to be true.
+    //
+    // Rerolls are excluded on purpose. A reroll is the same person
+    // asking again, and counting it would make the conversion rate
+    // climb every time somebody was UNhappy with what they got.
+    if (!isReroll) bump("generated").catch(() => {});
 
     results.sort((a, b) => a.i - b.i);
     // NOTHING is recorded to the featuring pool here any more. This

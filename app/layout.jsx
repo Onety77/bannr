@@ -4,6 +4,7 @@ import Nav from "@/components/Nav";
 import Socials from "@/components/Socials";
 import TabBar from "@/components/TabBar";
 import Fx from "@/components/Fx";
+import Track from "@/components/Track";
 
 const body = Inter({
   subsets: ["latin"],
@@ -58,6 +59,7 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <Fx />
+        <Track />
         {/* One scroll container, and on a phone it is the ONLY thing
             that scrolls. The document staying still is what stops iOS
             rubber-banding — and the bounce is what was dragging the
