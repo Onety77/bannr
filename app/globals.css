@@ -3339,13 +3339,12 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 
 /* ---- the wallet row in settings ---- */
 .wal { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.wal em {
-  font-style: normal; font-size: 11.5px; color: var(--muted);
-}
 .wal-none { color: var(--muted); font-size: 13px; }
-/* Grey means linked but not open here, which is the ordinary state —
-   so it reads as information rather than as a fault. Green means the
-   browser has that exact wallet connected right now. */
+/* The whole indicator now: green when this browser has that exact
+   wallet connected, grey when it does not. The sentence that used to
+   sit beside it is gone — it explained a distinction nobody asked
+   about, and read as a warning about a perfectly ordinary state.
+   The title attribute carries the meaning for anyone who wants it. */
 .wal-dot {
   width: 8px; height: 8px; border-radius: 50%; flex: none;
   background: var(--faint);
@@ -3370,13 +3369,6 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 
 /* The account button carries a face now. */
 .acct-btn { display: inline-flex; align-items: center; gap: 7px; }
-
-/* On a phone the dot says it on its own — green is connected here,
-   grey is linked but not open — and the sentence beside it is the
-   difference between one line and two on a narrow row. */
-@media (max-width: 700px) {
-  .wal em { display: none; }
-}
 
 /* ============================================================
    THE FEED ON A WIDE SCREEN

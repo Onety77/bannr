@@ -163,9 +163,16 @@ export default function SettingsPage() {
             <span className="set-v">
               {linkedWallet ? (
                 <span className="wal">
-                  <i className={`wal-dot${walletLive ? " on" : ""}`} />
+                  {/* The dot alone. The sentence beside it explained a
+                      distinction nobody had asked about and made the
+                      row read like a warning — and it was wrong more
+                      often than not, because a wallet withholds its
+                      address until asked. See useWallet. */}
+                  <i
+                    className={`wal-dot${walletLive ? " on" : ""}`}
+                    title={walletLive ? "Connected in this browser" : "Not open in this browser"}
+                  />
                   <span className="mono">{short(linkedWallet.id)}</span>
-                  <em>{walletLive ? "connected here" : "not open in this browser"}</em>
                 </span>
               ) : (
                 <span className="wal">
