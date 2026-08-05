@@ -3324,22 +3324,3 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 }
 
 .rail-cta p { font-size: 12.5px; line-height: 1.5; color: var(--muted); margin-bottom: 12px; }
-
-/* ============================================================
-   WHAT THEY HAVE NOW
-
-   Their existing DEX Screener header, shown the moment a contract
-   address is imported — before a credit is spent, which is the
-   only point at which seeing it can change a decision.
-
-   Held back deliberately: desaturated a little, no shadow, a plain
-   label. It has to read as REFERENCE, not as an option. The three
-   below it are the offer; this is the thing being answered.
-   ============================================================ */
-.result.before { opacity: 0.88; }
-.result.before .result-shot img { filter: saturate(0.82); }
-.result.before .bar .mode {
-  color: var(--faint);
-  letter-spacing: 0.06em;
-}
-.result.before .bar .hint { margin-left: auto; }

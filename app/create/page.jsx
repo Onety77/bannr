@@ -148,12 +148,6 @@ function CreateInner() {
   // indistinguishable from the link having done nothing, which for a
   // Default post is exactly what it used to do.
   const [inspiredBy, setInspiredBy] = useState(null);
-  // The banner already on their DEX Screener page, if they have one.
-  // Shown beside the empty frames the moment a contract address is
-  // imported, so the comparison is set up BEFORE any credits are
-  // spent — which is the only moment where seeing it changes a
-  // decision.
-  const [current, setCurrent] = useState(null);
   const [results, setResults] = useState(() => (saved?.results?.variants ? saved.results : null));
   // The brief and styles of the run that PRODUCED those results —
   // captured at generation time, because by the time someone hits
@@ -407,7 +401,6 @@ function CreateInner() {
       // because silently inheriting the last token's tagline, About or
       // reference art would quietly poison the next banner's brief.
       resetBrief();
-      setCurrent(d.header || null);
       saveRecentCA(addr, d.name || d.symbol || addr.slice(0, 8));
       setCaRecent(getRecentCAs());
       if (d.name) setField("name", d.name.slice(0, 60));
@@ -1572,28 +1565,6 @@ function CreateInner() {
               PREVIEW MODE — sample backgrounds are shown below. Full generation isn't live on this build yet.
             </div>
           )}
-          {/* WHAT THEY HAVE NOW.
-
-              DexScreener serves the current header at exactly the
-              size we generate, and the lookup was already hitting
-              that endpoint for the name and the logo — it was in
-              the response the whole time.
-
-              Above the frames rather than beside them, and labelled
-              as theirs, because the one thing this must never do is
-              read as something we made. */}
-          {current && (
-            <div className="result before">
-              <div className="result-shot">
-                <img src={current} alt="The banner currently on this token's page" />
-              </div>
-              <div className="bar">
-                <span className="mode">ON DEX SCREENER NOW</span>
-                <span className="hint">yours, not ours</span>
-              </div>
-            </div>
-          )}
-
           {/* The idle state now shows the SHAPE of the run rather than
               one empty rectangle: one ghost frame per option, labelled
               with the style that option will actually use. Same layout
