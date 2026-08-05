@@ -60,11 +60,13 @@ export function WalletSignIn({ auth, block = true }) {
             second wallet prompt is unavoidable on a first connection
             — one asks for the address, one proves it is yours — and
             arriving unannounced it reads as being asked twice for the
-            same thing, or worse, as something trying to take
-            something. Announced, it reads as step two.
+            same thing. Announced, it reads as step two.
 
-            Not a word about why two are needed. That is our problem. */}
-        <em className="wal-note-2">Two steps, both in your wallet. Nothing is spent.</em>
+            The count and nothing else. Not why two are needed, and
+            not that neither costs anything: safety is not on anyone's
+            mind until we put it there, and "nothing is spent" is an
+            answer to a question that only exists once you read it. */}
+        <em className="wal-note-2">Two steps, both in your wallet.</em>
       </span>
     );
   }

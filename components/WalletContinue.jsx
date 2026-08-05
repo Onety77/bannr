@@ -31,8 +31,15 @@ export default function WalletContinue({ auth }) {
       </span>
       {/* SIGN, because that is the word Phantom puts on its own
           screen. Calling it "approve" here and reading "Sign Message"
-          there makes it look like a different, unannounced request. */}
-      <p className="hint">Sign to prove it&apos;s yours. It costs nothing and moves nothing.</p>
+          there makes it look like a different, unannounced request.
+
+          AND NO REASSURANCE. This used to add "it costs nothing and
+          moves nothing", which was true and was a mistake: nobody
+          arrives at a signature worrying about the cost, so raising
+          it is what starts them wondering whether they should be. A
+          line that answers a question nobody asked teaches them to
+          ask it. */}
+      <p className="hint">Sign to prove this wallet is yours.</p>
       <div className="wcont-row">
         <button
           className="btn small primary"

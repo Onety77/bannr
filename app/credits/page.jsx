@@ -212,7 +212,10 @@ export default function CreditsPage() {
           </span>
           <p className="hint">
             {tx
-              ? `${tx.pack.credits} credits for ${tx.pack.sol} SOL. This one does move funds — it is the payment.`
+              // States the deal and stops. Contrasting it with the
+              // signing step ("this one DOES move funds") only
+              // reopened the question of whether the other one did.
+              ? `${tx.pack.credits} credits for ${tx.pack.sol} SOL.`
               : "Preparing the payment…"}
           </p>
           <div className="wcont-row">

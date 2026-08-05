@@ -218,7 +218,7 @@ export default function SettingsPage() {
                 clipped by the row below. A sentence does not belong
                 in a cell sized for a value. */}
             {auth.needsDeeplink && !linkedWallet && !auth.pendingSign && (
-              <em className="wal-note-2">Two steps, both in your wallet. Nothing is spent.</em>
+              <em className="wal-note-2">Two steps, both in your wallet.</em>
             )}
           </div>
           <div>
