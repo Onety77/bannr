@@ -15,7 +15,7 @@
 "use client";
 import { useState } from "react";
 import { shrink } from "@/lib/credits";
-import { composeBeforeAfter } from "@/lib/beforeAfter";
+import { composeBeforeAfter, BA_RATIO } from "@/lib/beforeAfter";
 import { LOOKS_LIKE_CA } from "@/lib/ca";
 
 // `prepared` says the image is already at feed size, so it is posted
@@ -28,37 +28,27 @@ import { LOOKS_LIKE_CA } from "@/lib/ca";
 // /create and from My banners produces two different signatures and
 // the duplicate check never fires.
 //
-// `logo` is the source image the banner was built from, and when it
-// is present the confirm step offers a BEFORE AND AFTER — the logo,
-// an arrow, the banner — because that post argues for the product in
-// a way a finished banner on its own cannot.
+// `logo` is the source image the banner was built from. A post pairs
+// the two — see lib/beforeAfter.js — so the feed shows what this place
+// DOES rather than only what it produces.
 //
-// It is not required. Posting from My banners, the original upload is
-// long gone, but the contract address field is right here and the
-// logo is on-chain: /api/lookup fetches it server-side and hands it
-// back as a data URL. So an address typed to add a DexScreener link
-// also buys the before-and-after, at the cost of one request.
+// NOT AN OPTION, AND NOT ANNOUNCED. It is how a post looks, the same
+// way a post has a handle on it. A checkbox would turn a house style
+// into a decision, and every decision put in front of someone is one
+// more reason to close the dialog. The banner is untouched by it, so
+// there is nothing to opt out of.
 //
-// A DATA URL IS THE WHOLE REASON THIS WORKS. Drawing a remote image
-// onto a canvas taints it and toDataURL then throws, so a logo pulled
-// straight from an IPFS gateway would compose fine and fail to
-// export. The lookup route already downloads it for us.
+// Not required either: with no upload in hand, the contract address
+// already being asked for yields the logo from the chain. /api/lookup
+// downloads it server-side and returns a DATA URL, which is the only
+// reason any of this works — a remote image taints the canvas and
+// toDataURL then throws, so a logo pulled straight from an IPFS
+// gateway would compose fine and fail to export.
 export default function PostButton({ variant, brief, signedIn, onSignInNeeded, prepared = false, sig = "", defaultCa = "", logo = "" }) {
   // idle | confirm | handle | busy | done | error
   const [stage, setStage] = useState("idle");
   const [handle, setHandle] = useState("");
   const [msg, setMsg] = useState("");
-  // The composite, once made. Held rather than recomputed so the
-  // thing posted is exactly the thing previewed — if the preview and
-  // the post are two separate renders, they are two chances to differ.
-  const [ba, setBa] = useState(null);
-  const [baOn, setBaOn] = useState(false);
-  const [baBusy, setBaBusy] = useState(false);
-  // A logo fetched from the contract address, and the address it came
-  // from. Kept together so a corrected typo cannot leave the previous
-  // token's picture attached to the post.
-  const [caLogo, setCaLogo] = useState(null);
-  const [caLogoFor, setCaLogoFor] = useState("");
   // Optional, and prefilled when the brief came from a contract
   // address — which is most of the time now the homepage asks for
   // one. Retyping something the page already knows is the kind of
@@ -98,77 +88,46 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
     }
   }
 
-  // The picture the "before" half will use. The uploaded logo when we
-  // have it; otherwise whatever the contract address currently
-  // resolves to — and only while it still matches what is typed.
-  const caClean = ca.trim();
-  const sourceLogo = logo || (caLogo && caLogoFor === caClean ? caLogo : null);
-  // Offered whenever there is a logo OR an address that could produce
-  // one. Hiding it until after a successful fetch would mean the
-  // option appears on its own while someone is typing, which reads as
-  // a glitch rather than as a feature arriving.
-  const canBa = Boolean(logo) || LOOKS_LIKE_CA.test(caClean);
-
-  // Composed on the FIRST toggle only, then cached. It is a canvas
-  // pass over two images — fast, but not free, and flipping a switch
-  // back and forth should not redo it each time.
-  async function toggleBa() {
-    if (baOn) { setBaOn(false); return; }
-    if (ba) { setBaOn(true); return; }
-    setBaBusy(true);
-    setMsg("");
-
-    let src = sourceLogo;
-    if (!src && LOOKS_LIKE_CA.test(caClean)) {
-      try {
-        const r = await fetch(`/api/lookup?ca=${encodeURIComponent(caClean)}`);
-        const d = await r.json();
-        // A token can be perfectly real and still have no picture —
-        // plenty do. Worth saying, because the alternative is a
-        // checkbox that ticks and then quietly unticks itself.
-        if (r.ok && d.ok && d.logo) { src = d.logo; setCaLogo(d.logo); setCaLogoFor(caClean); }
-      } catch {}
+  // The picture the banner grew from: the upload when we have it,
+  // otherwise whatever the address resolves to. Fetched at post time
+  // rather than while typing, so a half-typed address never fires a
+  // request and nothing happens until someone has committed.
+  async function sourceLogo(caClean) {
+    if (logo) return logo;
+    if (!LOOKS_LIKE_CA.test(caClean)) return null;
+    try {
+      const r = await fetch(`/api/lookup?ca=${encodeURIComponent(caClean)}`);
+      const d = await r.json();
+      // A token can be real and still have no picture. Then there is
+      // simply nothing to pair, and the banner posts on its own.
+      return r.ok && d.ok && d.logo ? d.logo : null;
+    } catch {
+      return null;
     }
-
-    const out = src ? await composeBeforeAfter(src, variant.dataUrl) : null;
-    setBaBusy(false);
-    if (!out) {
-      // Nothing louder than this. The banner can still be posted, and
-      // an error about an optional flourish would read as a failure
-      // of the post itself.
-      setMsg(
-        src
-          ? "Couldn't build the before-and-after — posting the banner on its own still works."
-          : "Couldn't find a logo for that address. The banner still posts fine on its own."
-      );
-      return;
-    }
-    setBa(out);
-    setBaOn(true);
-  }
-
-  // Editing the address invalidates anything built from the old one.
-  // Without this, fixing a typo leaves the previous token's logo
-  // sitting in a composite that is about to be posted publicly.
-  function editCa(next) {
-    setCa(next);
-    if (!logo && ba) { setBa(null); setBaOn(false); }
   }
 
   async function post() {
     setStage("busy");
     setMsg("");
     try {
+      const caClean = ca.trim();
+      // Silent throughout. Every failure below falls back to the
+      // plain banner, and none of them is worth a sentence in front
+      // of someone who asked to post a picture.
+      const src0 = await sourceLogo(caClean);
+      const paired = src0 ? await composeBeforeAfter(src0, variant.dataUrl) : null;
+
       // 900px wide: enough for a feed card at 2x, a fraction of the
       // bytes of the original, and comfortably inside a Firestore
       // document.
       //
-      // The composite is 3:1 like everything else, so it shrinks by
-      // the same rule — and `prepared` does not apply to it, because
-      // it was just rendered at full size regardless of where the
-      // banner came from.
-      const src = baOn && ba
-        ? await shrink(ba, 900, 300)
+      // A paired post is taller than 3:1, so it shrinks to its own
+      // ratio and carries it to the feed — see BA_RATIO. `prepared`
+      // never applies to one, because it was just rendered at full
+      // size regardless of where the banner came from.
+      const ratio = paired ? BA_RATIO : null;
+      const src = paired
+        ? await shrink(paired, 900, Math.round(900 / BA_RATIO))
         : prepared ? variant.dataUrl : await shrink(variant.dataUrl, 900, 300);
       if (!src) { setMsg("Couldn't prepare that image."); setStage("error"); return; }
 
@@ -177,6 +136,9 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           src,
+          // Lets the feed reserve the right height before the image
+          // decodes, which is what keeps scroll restoration honest.
+          ratio,
           ticker: brief?.ticker || "",
           name: brief?.name || "",
           styleId: variant.templateId || "",
@@ -237,55 +199,25 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
       <div className="post-confirm">
         <span className="post-confirm-q">Post this publicly?</span>
 
-        {/* Optional on purpose. Plenty of banners are made before
-            the token exists, and demanding an address would block
-            exactly those people from posting at all.
+        {/* Optional on purpose. Plenty of banners are made before the
+            token exists, and demanding an address would block exactly
+            those people from posting at all.
 
-            ABOVE the before-and-after now, because it is what unlocks
-            it when there is no uploaded logo to work from. A control
-            that appears once you fill in the field below it is a
-            control most people never find. */}
+            The hint says what it gets them and stops. It also lets us
+            find the logo when there is no upload in hand, and that is
+            not their problem to know about. */}
         <label className="post-ca">
           <input
             value={ca}
-            onChange={(e) => editCa(e.target.value.trim())}
+            onChange={(e) => setCa(e.target.value.trim())}
             placeholder="Contract address (optional)"
             spellCheck={false}
             autoCapitalize="off"
             autoCorrect="off"
             maxLength={64}
           />
-          <span>
-            Adds a link to the coin on DexScreener{logo ? "" : " — and lets us fetch the logo"}.
-          </span>
+          <span>Adds a link to the coin on DexScreener.</span>
         </label>
-
-        {/* BEFORE AND AFTER, off by default — the plain banner is what
-            people came to post, and quietly reframing it would be a
-            change made on their behalf to something they are about to
-            put their name on.
-
-            The preview is the actual composite, not an impression of
-            one, so there is nothing to discover after posting. */}
-        {canBa && (
-          <div className="post-ba">
-            <label className="post-ba-row">
-              <input type="checkbox" checked={baOn} onChange={toggleBa} disabled={baBusy} />
-              <span>
-                Show the logo it started from
-                <em>
-                  {logo
-                    ? "Their picture, an arrow, your banner — in one image."
-                    : "We'll pull the logo from that address — picture, arrow, banner, in one image."}
-                </em>
-              </span>
-              {baBusy && <span className="spinner" />}
-            </label>
-            {baOn && ba && (
-              <img className="post-ba-preview" src={ba} alt="Preview of the before-and-after post" />
-            )}
-          </div>
-        )}
         <div className="post-confirm-row">
           <button className="btn small primary" onClick={post}>Yes, post it</button>
           <button className="btn small" onClick={() => setStage("idle")}>Cancel</button>

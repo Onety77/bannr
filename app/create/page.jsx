@@ -1672,7 +1672,7 @@ function CreateInner() {
                       className="btn small"
                       disabled={rerollBusy !== null || busy}
                       onClick={() => reroll(i)}
-                      title="Another take on this one, same style — the director is told not to repeat this concept"
+                      title="Another take on this one, same style"
                     >
                       {rerollBusy === i
                         ? <span className="spinner" />

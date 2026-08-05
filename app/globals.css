@@ -2865,31 +2865,6 @@ textarea::placeholder {
 }
 .post-ca span { font-size: 11.5px; color: var(--muted); }
 
-/* ============================================================
-   BEFORE AND AFTER — the option to post the logo alongside.
-
-   The preview is shown at the post's real 3:1, so what is on screen
-   is what lands on the feed. Sized to the column rather than to a
-   fixed width for the same reason: it should read the way a feed
-   card will, not the way a thumbnail does.
-   ============================================================ */
-.post-ba { display: flex; flex-direction: column; gap: 9px; }
-.post-ba-row {
-  display: flex; align-items: flex-start; gap: 9px;
-  cursor: pointer;
-}
-.post-ba-row input { margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); }
-.post-ba-row > span { font-size: 12.5px; line-height: 1.35; }
-.post-ba-row em {
-  display: block; margin-top: 2px;
-  font-style: normal; font-size: 11.5px; color: var(--muted);
-}
-.post-ba-preview {
-  display: block; width: 100%; height: auto;
-  aspect-ratio: 3 / 1;
-  border-radius: 8px;
-  border: 1px solid var(--hairline-2);
-}
 
 @media (max-width: 560px) {
   .fcard-actions { gap: 4px; }

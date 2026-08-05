@@ -35,7 +35,7 @@ const FEATURES = [
   },
   {
     title: "Six tuned styles",
-    body: "Each one art-directed and refined until the output stopped looking generated.",
+    body: "Each one built and refined until it stopped looking like everything else.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M12 21a9 9 0 1 1 9-9c0 2.5-2 3.5-3.5 3.5H15a2.5 2.5 0 0 0-1.8 4.2c.4.5.3 1.3-.6 1.3H12z" />
@@ -103,7 +103,7 @@ export default function Landing() {
             First impressions<br /><span className="shimmer">perfected.</span>
           </h1>
           <p className="lede reveal d1">
-            Professional banners, art-directed around your project&apos;s identity.
+            Professional banners, built around your project&apos;s identity.
           </p>
           {/* An input, not a button. A button asks someone to go
               somewhere and begin work; this asks them to paste one

@@ -161,7 +161,17 @@ export default function FeedCard({ post, signedIn, onLike }) {
         </div>
       )}
 
-      <div className="fcard-shot" onPointerUp={onImageTap}>
+      {/* The reservation, not a preference. A post that pairs the
+          logo with the banner is taller than 3:1, and the box has to
+          know that BEFORE the image decodes or the page reflows under
+          whoever is reading and scroll restoration lands in the wrong
+          place. Older posts have no ratio and are 3:1, which is what
+          the stylesheet already says. */}
+      <div
+        className="fcard-shot"
+        onPointerUp={onImageTap}
+        style={post.ratio ? { aspectRatio: String(post.ratio) } : undefined}
+      >
         <img
           ref={imgRef}
           className={loaded ? "in" : ""}

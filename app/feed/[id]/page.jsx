@@ -30,14 +30,18 @@ export async function generateMetadata({ params }) {
     ? `${post.styleName}${by}. Make your own in seconds.`
     : `Made with bannr${by}. Make your own in seconds.`;
 
-  // A path, resolved against metadataBase in the root layout. The
-  // image is 3:1, which is what summary_large_image wants.
+  // A path, resolved against metadataBase in the root layout.
   const image = `/api/feed/${params.id}/image`;
+  // Declared, not assumed. A post pairing the logo with the banner is
+  // taller than 3:1, and an unfurl told the wrong height letterboxes
+  // or crops it — on somebody else's timeline, where we never see it.
+  const w = 900;
+  const h = Math.round(w / (post.ratio || 3));
 
   return {
     title,
     description,
-    openGraph: { title, description, images: [{ url: image, width: 900, height: 300 }], type: "article" },
+    openGraph: { title, description, images: [{ url: image, width: w, height: h }], type: "article" },
     twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }
