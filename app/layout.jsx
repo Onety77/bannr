@@ -32,11 +32,36 @@ const SITE =
     ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
     : "https://bannr.vercel.app");
 
+const DESCRIPTION =
+  "Professional DEX Screener banners in seconds. Drop a logo, pick a style, get 2–4 options at exact dimensions. Pay in SOL.";
+
 export const metadata = {
   metadataBase: new URL(SITE),
   title: "bannr — professional token banners in seconds",
-  description:
-    "Professional DEX Screener banners in seconds. Drop a logo, pick a style, get 2–4 options at exact dimensions. Pay in SOL.",
+  description: DESCRIPTION,
+  // Declared at plain paths, without Next's build hash on them.
+  // Wallets fetch app_url and look for an icon by convention — see
+  // app/manifest.js for what that costs us when they find nothing.
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
+  // Also how a scraper decides what our link looks like, which until
+  // now was a title and no picture anywhere it was pasted.
+  openGraph: {
+    type: "website",
+    siteName: "bannr",
+    title: "bannr — professional token banners in seconds",
+    description: DESCRIPTION,
+    images: [{ url: "/og.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "bannr — professional token banners in seconds",
+    description: DESCRIPTION,
+    images: ["/og.png"],
+  },
 };
 
 export const viewport = {
