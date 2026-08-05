@@ -18,6 +18,7 @@ import XComingSoon from "@/components/XComingSoon";
 import AdvancedPanel from "@/components/AdvancedPanel";
 import { countTouched } from "@/lib/advanced";
 import { track } from "@/lib/track";
+import { LOOKS_LIKE_CA } from "@/lib/ca";
 
 // A generation takes ~45s. Rather than hold a dead spinner for that
 // long, narrate what the model is actually doing — reading the brief,
@@ -59,10 +60,6 @@ async function fetchWithTimeout(url, options, ms) {
 // "network error" would be a guess.
 const timedOut = (e) => e?.name === "AbortError";
 
-// Same shapes the lookup route accepts: base58 Solana mints and 0x…
-// EVM addresses. Used only to reject an obvious mistype instantly —
-// the server still validates properly.
-const LOOKS_LIKE_CA = /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[a-fA-F0-9]{40})$/;
 
 function CreateInner() {
   const params = useSearchParams();

@@ -33,10 +33,10 @@ Short list, and only one item has a waiting period.
       with no error anywhere.**
 - [ ] **Seed the feed.** An empty feed on launch day says nobody's
       here. Post a handful from My banners.
-      Do a few as **before-and-afters** — post from `/create` while the
-      logo is still on the page and tick "Show the logo it started
-      from". Posting from My banners can't offer it; the original
-      upload isn't kept.
+      Do a few as **before-and-afters** — tick "Show the logo it
+      started from". Works from `/create` (uses the logo on the page)
+      and from My banners too, as long as you fill in the contract
+      address: the logo comes back off the chain.
 - [ ] **Check the funnel reads sensibly** at `/admin7731` (the strip
       above the tabs) once real traffic arrives. `landed` and `started`
       come from browsers and can be inflated by anyone; `generated` is

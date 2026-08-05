@@ -19,12 +19,11 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-
-// Solana base58, or an EVM address. Checked here only to catch an
-// obvious mistype before a page transition — the server validates
-// properly, and a wrong-but-plausible address fails there with a
-// better message than we could give.
-const LOOKS_LIKE_CA = /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[a-fA-F0-9]{40})$/;
+// Checked here only to catch an obvious mistype before a page
+// transition — the server validates properly, and a wrong-but-
+// plausible address fails there with a better message than we could
+// give.
+import { LOOKS_LIKE_CA } from "@/lib/ca";
 
 export default function HeroStart() {
   const router = useRouter();
