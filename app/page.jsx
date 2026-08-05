@@ -9,6 +9,8 @@ import Highlights from "@/components/Highlights";
 import BannerField from "@/components/BannerField";
 import TokenBar from "@/components/TokenBar";
 import HeroStart from "@/components/HeroStart";
+import { getGate, publicGate } from "@/lib/tokenGate";
+import { offerLine } from "@/lib/offer";
 // Metadata only. This page is a server component, but it renders
 // client components that pull the same module into their bundle.
 import { STYLES as TEMPLATES } from "@/lib/styles";
@@ -64,9 +66,13 @@ const FEATURES = [
       </svg>
     ),
   },
+  // The one card whose promise is a config an admin can change. Its
+  // words are filled in from the live gate below; everything else in
+  // this list is a fact about the product and stays put.
   {
-    title: "12 free credits",
-    body: "Try the full flow before paying anything — no wallet, no signup ritual.",
+    id: "offer",
+    title: "Free for holders",
+    body: "",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <rect x="3" y="8" width="18" height="13" rx="2.5" />
@@ -91,7 +97,13 @@ const STEPS = [
   },
 ];
 
-export default function Landing() {
+export default async function Landing() {
+  // Read here rather than in the browser: this page is a server
+  // component, so the right offer is in the HTML instead of arriving
+  // a moment later and replacing the wrong one.
+  const token = publicGate(await getGate().catch(() => ({})));
+  const offer = offerLine(token);
+
   return (
     <main>
       {/* ============ HERO ============ */}
@@ -112,7 +124,13 @@ export default function Landing() {
               inside it as text, so nothing competes with the one
               obvious move. */}
           <HeroStart />
-          <p className="hero-note reveal d2">12 free credits to start. No wallet required.</p>
+          {/* The offer, or nothing. Before the token is announced
+              and any time the gate is off there is no free tier, and a
+              hero still promising one is worse than a hero that does
+              not mention it. */}
+          <p className="hero-note reveal d2">
+            {offer || "Pay per banner in SOL. No subscription, no seats."}
+          </p>
           {/* Renders nothing until the token is announced, so the hero
               is unchanged until the day it isn't. */}
           <div className="reveal d2"><TokenBar /></div>
@@ -154,13 +172,20 @@ export default function Landing() {
           </div>
 
           <div className="feature-list">
-            {FEATURES.map((f) => (
-              <div className="feat" key={f.title}>
-                {f.icon}
-                <h3>{f.title}</h3>
-                <p>{f.body}</p>
-              </div>
-            ))}
+            {FEATURES.map((f) => {
+              // Dropped entirely when there is no offer, rather than
+              // softened into something vague. A card headed "Free for
+              // holders" with nothing under it is worse than five
+              // cards.
+              if (f.id === "offer" && !offer) return null;
+              return (
+                <div className="feat" key={f.title}>
+                  {f.icon}
+                  <h3>{f.title}</h3>
+                  <p>{f.id === "offer" ? offer : f.body}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -242,7 +267,7 @@ export default function Landing() {
           <div className="band">
             <h2>Ready when you are.</h2>
             <p>
-              Start with 12 free credits. Your first banner is three fields
+              {offer ? offer + " " : ""}Your first banner is three fields
               and thirty seconds away.
             </p>
             <Link href="/create" className="btn primary large">Create your banner</Link>

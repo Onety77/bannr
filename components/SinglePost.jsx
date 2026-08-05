@@ -46,8 +46,7 @@ export default function SinglePost({ post: initial }) {
     <>
       {msg === "signin" && (
         <div className="notice">
-          <Link href="/create">Sign in</Link> to like this one — it takes a tap, and
-          you get 12 free credits to make your own.
+          <Link href="/create">Sign in</Link> to like this one — it takes a tap.
         </div>
       )}
       <FeedCard post={post} signedIn={Boolean(auth.user)} onLike={like} />

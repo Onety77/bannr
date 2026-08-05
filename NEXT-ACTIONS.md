@@ -14,6 +14,26 @@ Ordered by **what hurts most if it goes wrong**, not by what's newest.
 
 Short list, and only one item has a waiting period.
 
+> **THE FREE TIER IS NOW THE GATE.** Signing up grants nothing —
+> `SIGNUP_CREDITS` is 0. Free generations come from holding $BANNR,
+> and the gate decides how many. Which means **the order below is not
+> optional**: until the gate is on and configured, a new account can
+> do *nothing at all* except buy credits. Every "12 free credits"
+> promise is gone from the site, and the offer copy reads the live
+> config — so if the gate is off, the homepage simply does not
+> mention a free tier rather than promising one that isn't there.
+>
+> Also: **a wallet no longer creates an account.** Google is the only
+> door, so credits survive a lost phone. Wallets that already open an
+> account still work; new ones are told to sign in with Google first
+> and then connect.
+
+- [ ] **Turn the gate on, in this order**, at `/admin7731` → Token:
+      set `mint`, `minTokens`, `dailyRuns`, the daily ceiling — *then*
+      `enabled`, and `announced` last. Announced is what publishes the
+      contract address; enabled is what starts paying out. Enabling
+      with `minTokens: 0` grants everyone the daily allowance for
+      free, which is the one misconfiguration that costs real money.
 - [ ] **Load $250 into OpenAI.** ← *do this first, it has a clock*
       Tier 4 needs $250 paid **and ~14 days since your first payment**.
       That clock probably already ran, but confirm on the limits page.

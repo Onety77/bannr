@@ -2900,6 +2900,28 @@ textarea::placeholder {
   letter-spacing: 0.03em; text-transform: uppercase;
 }
 
+/* ============================================================
+   NOTHING TO SPEND
+
+   Signed in, no credits, no holder allowance — a state that did not
+   exist while signing up handed out twelve. Placed above the brief
+   rather than raised after Generate, and pitched as two routes
+   rather than as a wall.
+
+   Deliberately NOT an error. It is the ordinary state of a new
+   account, and red would make arriving feel like a mistake.
+   ============================================================ */
+.nts {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 13px 16px; margin-bottom: 18px;
+  border-radius: var(--r-md, 12px);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.nts-lead { font-size: 13.5px; font-weight: 600; margin: 0; }
+.nts-routes { display: flex; flex-direction: column; gap: 3px; }
+.nts-route { font-size: 12.5px; color: var(--muted); }
+
 /* The promise the count keeps: said before the first tap, where it
    can still change what someone expects.
    Full width and on its own line — in the value cell it wrapped and

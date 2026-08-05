@@ -23,6 +23,8 @@
 // ============================================================
 "use client";
 import WalletContinue from "@/components/WalletContinue";
+import { useToken } from "@/lib/useToken";
+import { offerLine } from "@/lib/offer";
 
 export default function ConnectButton({ auth, size = "small", label = "Sign in", block = false }) {
   const cls = `btn ${size} primary${block ? " block" : ""}`;
@@ -84,14 +86,20 @@ export function WalletSignIn({ auth, block = true }) {
 // The explanatory line under the buttons. Separate because the nav has
 // no room for it and the create page very much wants it.
 export function ConnectNote({ auth }) {
+  const offer = offerLine(useToken());
+
   // The phone case no longer needs explaining. It used to describe a
   // detour through another browser, because the detour was strange
   // enough that people abandoned it without one. A button that opens
   // your wallet and comes back is just a button.
+  // The offer is a config an admin can change, so it is read rather
+  // than written down here. Absent — no token yet, or the gate off —
+  // this says what is true instead of what used to be.
   return (
     <p className="hint signin-note">
-      New accounts get 12 free credits. No wallet needed — you only connect one
-      to buy credits, and any wallet works.
+      {offer
+        ? `${offer} Sign in with Google, then connect the wallet holding it.`
+        : "Sign in with Google. Credits are paid in SOL, from any wallet."}
     </p>
   );
 }
