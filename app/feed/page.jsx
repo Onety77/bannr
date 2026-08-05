@@ -114,16 +114,6 @@ export default function FeedPage() {
     }
   }
 
-  function report(post) {
-    // Fire and forget, and the card says "Reported" either way. See the
-    // note in the route for why the outcome is never disclosed.
-    fetch("/api/feed/report", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: post.id }),
-    }).catch(() => {});
-  }
-
   return (
     <main className="wrap feed-page">
       <div className="page-head">
@@ -182,7 +172,6 @@ export default function FeedPage() {
                 post={p}
                 signedIn={Boolean(auth.user)}
                 onLike={like}
-                onReport={report}
               />
             ))}
           </div>

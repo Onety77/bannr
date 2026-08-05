@@ -17,9 +17,17 @@
 // who does not know the gesture — which is the deal with gestures:
 // they are a shortcut, never the only way.
 //
-// Share is how the loop reaches people who have never been here, and
-// Report sits alone in the header where a thumb going for Like will
-// never find it.
+// Share is how the loop reaches people who have never been here.
+//
+// No report button. It was on every card and it is one more thing to
+// read on a page whose job is to be looked at. Taking a post down is
+// still possible — /admin7731 has the whole feed with a Hide on each
+// one — and the reporting endpoint and its auto-hide threshold are
+// untouched on the server, so this is a display decision that can be
+// undone without a migration.
+//
+// The trade, stated: nobody but an admin can now flag a scam, so
+// bad posts are found by looking rather than by being told.
 // ============================================================
 "use client";
 import Link from "next/link";
@@ -51,8 +59,7 @@ const Heart = ({ filled }) => (
   </svg>
 );
 
-export default function FeedCard({ post, signedIn, onLike, onReport }) {
-  const [reported, setReported] = useState(false);
+export default function FeedCard({ post, signedIn, onLike }) {
   const [shared, setShared] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [burst, setBurst] = useState(0);
@@ -132,16 +139,6 @@ export default function FeedCard({ post, signedIn, onLike, onReport }) {
             {post.styleName ? `${post.styleName} · ` : ""}{ago(post.ts)}
           </span>
         </div>
-        {!post.mine && (
-          <button
-            className="fcard-report"
-            disabled={reported}
-            onClick={() => { setReported(true); onReport(post); }}
-            title="Report this post"
-          >
-            {reported ? "Reported" : "Report"}
-          </button>
-        )}
       </header>
 
       {(label || post.ca) && (

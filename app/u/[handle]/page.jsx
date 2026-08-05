@@ -76,14 +76,6 @@ export default function ProfilePage() {
     }
   }
 
-  function report(post) {
-    fetch("/api/feed/report", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: post.id }),
-    }).catch(() => {});
-  }
-
   if (missing) {
     return (
       <main className="wrap">
@@ -126,7 +118,6 @@ export default function ProfilePage() {
               post={p}
               signedIn={Boolean(auth.user)}
               onLike={like}
-              onReport={report}
             />
           ))}
         </div>

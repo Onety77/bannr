@@ -42,14 +42,6 @@ export default function SinglePost({ post: initial }) {
     }
   }
 
-  function report() {
-    fetch("/api/feed/report", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: post.id }),
-    }).catch(() => {});
-  }
-
   return (
     <>
       {msg === "signin" && (
@@ -58,7 +50,7 @@ export default function SinglePost({ post: initial }) {
           you get 12 free credits to make your own.
         </div>
       )}
-      <FeedCard post={post} signedIn={Boolean(auth.user)} onLike={like} onReport={report} />
+      <FeedCard post={post} signedIn={Boolean(auth.user)} onLike={like} />
     </>
   );
 }
