@@ -191,17 +191,13 @@ export default function SettingsPage() {
                   {auth.pendingSign ? (
                     <WalletContinue auth={auth} />
                   ) : auth.needsDeeplink ? (
-                    <span className="wal-start">
-                      <button
-                        className="btn small"
-                        disabled={auth.busy}
-                        onClick={() => auth.startWalletDeeplink("link")}
-                      >
-                        {auth.busy ? "Opening…" : "Connect a wallet"}
-                      </button>
-                      {/* Before the tap, not after. See ConnectButton. */}
-                      <em className="wal-note-2">Two steps, both in your wallet. Nothing is spent.</em>
-                    </span>
+                    <button
+                      className="btn small"
+                      disabled={auth.busy}
+                      onClick={() => auth.startWalletDeeplink("link")}
+                    >
+                      {auth.busy ? "Opening…" : "Connect a wallet"}
+                    </button>
                   ) : auth.walletAvailable ? (
                     <button
                       className="btn small"
@@ -216,6 +212,14 @@ export default function SettingsPage() {
                 </span>
               )}
             </span>
+            {/* ITS OWN LINE, spanning the row. Inside the value cell
+                it sat in a right-aligned column beside the "Wallet"
+                label, wrapped to two lines and had its second line
+                clipped by the row below. A sentence does not belong
+                in a cell sized for a value. */}
+            {auth.needsDeeplink && !linkedWallet && !auth.pendingSign && (
+              <em className="wal-note-2">Two steps, both in your wallet. Nothing is spent.</em>
+            )}
           </div>
           <div>
             <span className="set-k">Credits</span>

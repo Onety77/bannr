@@ -327,9 +327,16 @@ h1, h2, h3 {
   .set-acct { grid-template-columns: 1fr; gap: 0; }
   .set-acct > div {
     display: flex; align-items: baseline; justify-content: space-between;
+    /* Wraps, so a row carrying a sentence as well as a value gives it
+       a line of its own rather than squeezing it into the cell and
+       clipping what does not fit. */
+    flex-wrap: wrap;
     gap: 16px; padding: 11px 0;
     border-bottom: 1px solid var(--hairline);
   }
+  /* No column gap on the wrapped line — the 16px above is for the
+     label and the value, not for a full-width note under them. */
+  .set-acct > div > .wal-note-2 { margin-top: 0; }
   .set-acct > div:last-child { border-bottom: 0; }
   .set-k { margin-bottom: 0; flex: none; }
   .set-v { font-size: 16px; text-align: right; }
@@ -2894,9 +2901,16 @@ textarea::placeholder {
 }
 
 /* The promise the count keeps: said before the first tap, where it
-   can still change what someone expects. */
+   can still change what someone expects.
+   Full width and on its own line — in the value cell it wrapped and
+   had its second line clipped by the row beneath. */
 .wal-start { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-.wal-note-2 { font-style: normal; font-size: 11.5px; color: var(--muted); }
+.wal-note-2 {
+  display: block; width: 100%;
+  margin-top: 8px;
+  font-style: normal; font-size: 11.5px; line-height: 1.45;
+  color: var(--muted);
+}
 .wcont .hint { font-size: 11.5px; margin: 0; }
 .wcont-row { display: flex; gap: 8px; flex-wrap: wrap; }
 
