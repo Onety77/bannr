@@ -2869,6 +2869,22 @@ textarea::placeholder {
 }
 .post-ca span { font-size: 11.5px; color: var(--muted); }
 
+/* The wallet's second hop. Reads as a step in progress rather than a
+   fresh choice — the address is already known, only the proof is
+   outstanding. */
+.wcont {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--r-md, 12px);
+  background: var(--bg-soft);
+  border: 1px solid var(--hairline-2);
+}
+[data-theme="dark"] .wcont { background: var(--card-soft); }
+.wcont-lead { font-size: 13px; }
+.wcont-lead b { font-family: var(--mono); font-weight: 600; }
+.wcont .hint { font-size: 11.5px; margin: 0; }
+.wcont-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
 
 @media (max-width: 560px) {
   .fcard-actions { gap: 4px; }

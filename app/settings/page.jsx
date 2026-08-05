@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/useAuth";
 import { short, useWallet } from "@/lib/wallet";
 import AdvancedPanel from "@/components/AdvancedPanel";
 import ConnectButton, { WalletSignIn, ConnectNote } from "@/components/ConnectButton";
+import WalletContinue from "@/components/WalletContinue";
 
 const EMPTY = { defaults: {}, avoid: "", styles: [], variants: 3 };
 
@@ -180,7 +181,9 @@ export default function SettingsPage() {
                       approves, and the browser comes back here with a
                       signature. Same button, same page, no second
                       browser and no session to carry across. */}
-                  {auth.needsDeeplink ? (
+                  {auth.pendingSign ? (
+                    <WalletContinue auth={auth} />
+                  ) : auth.needsDeeplink ? (
                     <button
                       className="btn small"
                       disabled={auth.busy}

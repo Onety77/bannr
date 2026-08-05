@@ -22,6 +22,7 @@
 // app opens, they approve, they come back here signed in.
 // ============================================================
 "use client";
+import WalletContinue from "@/components/WalletContinue";
 
 export default function ConnectButton({ auth, size = "small", label = "Sign in", block = false }) {
   const cls = `btn ${size} primary${block ? " block" : ""}`;
@@ -38,9 +39,17 @@ export default function ConnectButton({ auth, size = "small", label = "Sign in",
 export function WalletSignIn({ auth, block = true }) {
   const cls = `btn small${block ? " block" : ""}`;
 
+  // Midway through a deeplink flow: the wallet named an address and a
+  // challenge is waiting for the tap that carries it back. That tap
+  // is not optional — see components/WalletContinue.
+  if (auth.pendingSign) return <WalletContinue auth={auth} />;
+
   // A phone browser. The wallet app is right there on the device even
   // though this browser cannot see it, so this is a button like any
   // other — it just happens to leave and come back.
+  //
+  // NOT an async handler. The navigation has to happen inside this
+  // tap or iOS opens phantom.app in the browser instead of the app.
   if (auth.needsDeeplink) {
     return (
       <button className={cls} disabled={auth.busy} onClick={() => auth.startWalletDeeplink("signin")}>
