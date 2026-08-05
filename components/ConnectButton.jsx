@@ -12,13 +12,16 @@
 //
 // WALLET is kept as the second option, because some of this audience
 // genuinely prefers it and every existing account was made that way.
-// Its three awkward cases still need handling:
+// Three cases:
 //   1. injected provider present   → sign normally
-//   2. phone, no provider          → hand off to the wallet's browser
+//   2. phone, no provider          → deeplink to the wallet APP
 //   3. desktop, no provider        → don't offer it at all
+//
+// Case 2 used to send people into Phantom's own browser and then
+// reunite two sessions by hand. It is a plain button now: the wallet
+// app opens, they approve, they come back here signed in.
 // ============================================================
 "use client";
-import { phantomBrowseUrl, solflareBrowseUrl } from "@/lib/wallet";
 
 export default function ConnectButton({ auth, size = "small", label = "Sign in", block = false }) {
   const cls = `btn ${size} primary${block ? " block" : ""}`;
@@ -35,11 +38,14 @@ export default function ConnectButton({ auth, size = "small", label = "Sign in",
 export function WalletSignIn({ auth, block = true }) {
   const cls = `btn small${block ? " block" : ""}`;
 
-  if (auth.needsHandoff) {
+  // A phone browser. The wallet app is right there on the device even
+  // though this browser cannot see it, so this is a button like any
+  // other — it just happens to leave and come back.
+  if (auth.needsDeeplink) {
     return (
-      <a className={cls} href={phantomBrowseUrl()}>
-        Continue with a wallet
-      </a>
+      <button className={cls} disabled={auth.busy} onClick={() => auth.startWalletDeeplink("signin")}>
+        {auth.busy ? <span className="spinner" /> : "Continue with a wallet"}
+      </button>
     );
   }
   // No wallet on this device: offering it would only lead to a dead
@@ -56,15 +62,10 @@ export function WalletSignIn({ auth, block = true }) {
 // The explanatory line under the buttons. Separate because the nav has
 // no room for it and the create page very much wants it.
 export function ConnectNote({ auth }) {
-  if (auth.needsHandoff) {
-    return (
-      <p className="hint signin-note">
-        New accounts get 12 free credits. Prefer a wallet? That opens bannr inside
-        Phantom, since phone browsers can&apos;t talk to wallet apps directly.{" "}
-        <a href={solflareBrowseUrl()} className="link-quiet">Use Solflare instead</a>
-      </p>
-    );
-  }
+  // The phone case no longer needs explaining. It used to describe a
+  // detour through another browser, because the detour was strange
+  // enough that people abandoned it without one. A button that opens
+  // your wallet and comes back is just a button.
   return (
     <p className="hint signin-note">
       New accounts get 12 free credits. No wallet needed — you only connect one

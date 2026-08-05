@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME } from "@/lib/styles";
 import { countTouched } from "@/lib/advanced";
 import { useAuth } from "@/lib/useAuth";
-import { short, useWallet, phantomBrowseUrl } from "@/lib/wallet";
+import { short, useWallet } from "@/lib/wallet";
 import AdvancedPanel from "@/components/AdvancedPanel";
 import ConnectButton, { WalletSignIn, ConnectNote } from "@/components/ConnectButton";
 
@@ -22,24 +22,6 @@ const EMPTY = { defaults: {}, avoid: "", styles: [], variants: 3 };
 export default function SettingsPage() {
   const auth = useAuth();
   const wallet = useWallet();
-  const [handingOff, setHandingOff] = useState(false);
-
-  // A wallet's in-app browser has NONE of this browser's cookies, so
-  // handing off to it plainly arrives signed out — and connecting a
-  // wallet there makes a second account instead of linking to this
-  // one. The token carries the session across. See lib/handoff.js.
-  async function walletHandoff() {
-    setHandingOff(true);
-    try {
-      const r = await fetch("/api/auth/handoff", { method: "POST" });
-      const d = await r.json();
-      if (!r.ok || !d.token) { setHandingOff(false); return; }
-      const target = `${window.location.origin}/link?t=${encodeURIComponent(d.token)}`;
-      window.location.href = phantomBrowseUrl(target);
-    } catch {
-      setHandingOff(false);
-    }
-  }
   const [settings, setSettings] = useState(EMPTY);
   const [payments, setPayments] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -64,6 +46,16 @@ export default function SettingsPage() {
 
   // Only once signed in — the endpoint 401s otherwise.
   useEffect(() => { if (auth.user) loadIdentities(); }, [auth.user?.accountId, loadIdentities]);
+
+  // A wallet linked by deeplink finishes on a fresh page load, so
+  // there is no promise here to await — the click that started it
+  // happened two navigations ago. The flag is how this page learns
+  // the list it is showing has just gone stale.
+  useEffect(() => {
+    if (!auth.linked) return;
+    loadIdentities();
+    auth.clearLinked();
+  }, [auth.linked, loadIdentities]);
 
   useEffect(() => {
     if (!auth.user) return;
@@ -183,17 +175,18 @@ export default function SettingsPage() {
                       people are holding, the row said "None linked"
                       and offered nothing.
 
-                      A phone browser genuinely cannot reach a wallet
-                      app, so the answer there is a handoff into the
-                      wallet's own browser rather than a connect
-                      attempt that dead-ends. */}
-                  {auth.needsHandoff ? (
+                      A phone browser cannot see a wallet app, but it
+                      can ASK one: the deeplink opens Phantom, the user
+                      approves, and the browser comes back here with a
+                      signature. Same button, same page, no second
+                      browser and no session to carry across. */}
+                  {auth.needsDeeplink ? (
                     <button
                       className="btn small"
-                      disabled={handingOff}
-                      onClick={walletHandoff}
+                      disabled={auth.busy}
+                      onClick={() => auth.startWalletDeeplink("link")}
                     >
-                      {handingOff ? "Opening…" : "Connect a wallet"}
+                      {auth.busy ? "Opening…" : "Connect a wallet"}
                     </button>
                   ) : auth.walletAvailable ? (
                     <button
