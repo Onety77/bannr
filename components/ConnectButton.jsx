@@ -52,9 +52,20 @@ export function WalletSignIn({ auth, block = true }) {
   // tap or iOS opens phantom.app in the browser instead of the app.
   if (auth.needsDeeplink) {
     return (
-      <button className={cls} disabled={auth.busy} onClick={() => auth.startWalletDeeplink("signin")}>
-        {auth.busy ? <span className="spinner" /> : "Continue with a wallet"}
-      </button>
+      <span className="wal-start">
+        <button className={cls} disabled={auth.busy} onClick={() => auth.startWalletDeeplink("signin")}>
+          {auth.busy ? <span className="spinner" /> : "Continue with a wallet"}
+        </button>
+        {/* Said BEFORE the first tap, which is the whole point. The
+            second wallet prompt is unavoidable on a first connection
+            — one asks for the address, one proves it is yours — and
+            arriving unannounced it reads as being asked twice for the
+            same thing, or worse, as something trying to take
+            something. Announced, it reads as step two.
+
+            Not a word about why two are needed. That is our problem. */}
+        <em className="wal-note-2">Two steps, both in your wallet. Nothing is spent.</em>
+      </span>
     );
   }
   // No wallet on this device: offering it would only lead to a dead

@@ -191,13 +191,17 @@ export default function SettingsPage() {
                   {auth.pendingSign ? (
                     <WalletContinue auth={auth} />
                   ) : auth.needsDeeplink ? (
-                    <button
-                      className="btn small"
-                      disabled={auth.busy}
-                      onClick={() => auth.startWalletDeeplink("link")}
-                    >
-                      {auth.busy ? "Opening…" : "Connect a wallet"}
-                    </button>
+                    <span className="wal-start">
+                      <button
+                        className="btn small"
+                        disabled={auth.busy}
+                        onClick={() => auth.startWalletDeeplink("link")}
+                      >
+                        {auth.busy ? "Opening…" : "Connect a wallet"}
+                      </button>
+                      {/* Before the tap, not after. See ConnectButton. */}
+                      <em className="wal-note-2">Two steps, both in your wallet. Nothing is spent.</em>
+                    </span>
                   ) : auth.walletAvailable ? (
                     <button
                       className="btn small"

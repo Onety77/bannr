@@ -21,19 +21,25 @@ export default function WalletContinue({ auth }) {
 
   return (
     <div className="wcont">
+      {/* "Step 2 of 2" rather than a fresh-looking request. The line
+          before the first tap promised two; this is the one that
+          keeps the promise, and a count is what turns "it's asking
+          again?" into "this is the last one". */}
       <span className="wcont-lead">
-        Connected <b>{short(p.address)}</b>
+        <b className="wcont-step">Step 2 of 2</b>
+        Connected <span className="mono">{short(p.address)}</span>
       </span>
-      <p className="hint">
-        One more tap to prove it&apos;s yours. Nothing is sent, nothing is spent.
-      </p>
+      {/* SIGN, because that is the word Phantom puts on its own
+          screen. Calling it "approve" here and reading "Sign Message"
+          there makes it look like a different, unannounced request. */}
+      <p className="hint">Sign to prove it&apos;s yours. It costs nothing and moves nothing.</p>
       <div className="wcont-row">
         <button
           className="btn small primary"
           disabled={auth.busy}
           onClick={auth.continueWalletDeeplink}
         >
-          {auth.busy ? <span className="spinner" /> : "Approve in your wallet"}
+          {auth.busy ? <span className="spinner" /> : "Sign the message"}
         </button>
         <button className="btn small" onClick={auth.cancelWalletDeeplink}>
           Cancel

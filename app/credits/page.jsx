@@ -207,11 +207,12 @@ export default function CreditsPage() {
       {auth.pendingPay && (
         <div className="wcont page-gap-top">
           <span className="wcont-lead">
-            Paying from <b>{short(auth.pendingPay.address)}</b>
+            <b className="wcont-step">Step 2 of 2</b>
+            Paying from <span className="mono">{short(auth.pendingPay.address)}</span>
           </span>
           <p className="hint">
             {tx
-              ? `${tx.pack.credits} credits for ${tx.pack.sol} SOL. One tap to approve in your wallet.`
+              ? `${tx.pack.credits} credits for ${tx.pack.sol} SOL. This one does move funds — it is the payment.`
               : "Preparing the payment…"}
           </p>
           <div className="wcont-row">
