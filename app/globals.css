@@ -2922,6 +2922,32 @@ textarea::placeholder {
 .nts-routes { display: flex; flex-direction: column; gap: 3px; }
 .nts-route { font-size: 12.5px; color: var(--muted); }
 
+/* ============================================================
+   THE TWO DOORS
+
+   Equal weight, deliberately. One rendered as the primary button and
+   the other as a plain one would say "this is the right one" — and
+   which is right genuinely depends on whether someone holds the
+   token, which we cannot know before they choose.
+
+   Each carries ONE line naming where it leads, because the only thing
+   anyone is actually stuck on is whether the free generations start
+   now or after another step. Not how it works. Not why there are two.
+   ============================================================ */
+.doors { display: flex; flex-direction: column; gap: 14px; }
+.door { display: flex; flex-direction: column; gap: 6px; }
+.door .btn { width: 100%; }
+.door em {
+  font-style: normal; font-size: 11.5px; line-height: 1.45;
+  color: var(--muted); text-align: center;
+}
+/* The line that takes the stakes out of the fork. Quieter than the
+   outcomes above it — it is reassurance, not a reason to pick. */
+.doors-note {
+  margin: 2px 0 0;
+  font-size: 11.5px; color: var(--faint); text-align: center;
+}
+
 /* The promise the count keeps: said before the first tap, where it
    can still change what someone expects.
    Full width and on its own line — in the value cell it wrapped and

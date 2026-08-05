@@ -15,7 +15,9 @@ import { countTouched } from "@/lib/advanced";
 import { useAuth } from "@/lib/useAuth";
 import { short, useWallet } from "@/lib/wallet";
 import AdvancedPanel from "@/components/AdvancedPanel";
-import ConnectButton, { WalletSignIn, ConnectNote } from "@/components/ConnectButton";
+import { SignInChoice } from "@/components/ConnectButton";
+import { useToken } from "@/lib/useToken";
+import { offerLine } from "@/lib/offer";
 import WalletContinue from "@/components/WalletContinue";
 
 const EMPTY = { defaults: {}, avoid: "", styles: [], variants: 3 };
@@ -23,6 +25,7 @@ const EMPTY = { defaults: {}, avoid: "", styles: [], variants: 3 };
 export default function SettingsPage() {
   const auth = useAuth();
   const wallet = useWallet();
+  const offer = offerLine(useToken());
   const [settings, setSettings] = useState(EMPTY);
   const [payments, setPayments] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -104,9 +107,7 @@ export default function SettingsPage() {
       <main className="wrap">
         <div className="page-head"><h1>Settings</h1><p>Sign in to see your account.</p></div>
         <div className="panel set-signin">
-          <ConnectButton auth={auth} size="" block label="Sign in with Google" />
-          <WalletSignIn auth={auth} />
-          <ConnectNote auth={auth} />
+          <SignInChoice auth={auth} />
         </div>
       </main>
     );
@@ -217,8 +218,13 @@ export default function SettingsPage() {
                 label, wrapped to two lines and had its second line
                 clipped by the row below. A sentence does not belong
                 in a cell sized for a value. */}
-            {auth.needsDeeplink && !linkedWallet && !auth.pendingSign && (
-              <em className="wal-note-2">Two steps, both in your wallet.</em>
+            {/* WHY the row exists, for anyone already signed in with
+                Google and wondering why a wallet is being asked for
+                too. It is not a second login — it is the only way to
+                see what you hold. Shown only when there is something
+                to gain by it. */}
+            {!linkedWallet && !auth.pendingSign && offer && (
+              <em className="wal-note-2">{offer} We check the wallet you connect.</em>
             )}
           </div>
           <div>

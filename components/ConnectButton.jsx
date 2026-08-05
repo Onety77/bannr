@@ -2,26 +2,41 @@
 // SIGN IN — every way into an account in one component, so the nav
 // and the create page can never disagree about what is on offer.
 //
-// GOOGLE LEADS. It works in any browser, on any phone, with no
-// extension and no seed phrase. A wallet was never needed to USE
-// bannr — only to pay for it — so putting one at the door turned away
-// everyone who hasn't got one, which includes most of the marketing
-// and design people who actually buy banners. It also removes the
-// worst failure in the product: a phone browser cannot see a wallet
-// app at all, so "Connect" simply hung there.
+// TWO DOORS INTO THE SAME ROOM. A wallet and a Google account are
+// equal here: either one opens an account, either one can be added to
+// the other afterwards. A wallet briefly could not create an account
+// at all, which made the button beside it a door that opened onto an
+// error telling you to go and use the other one.
 //
-// WALLET is kept as the second option, because some of this audience
-// genuinely prefers it and every existing account was made that way.
-// Three cases:
+// WHAT MADE THIS CONFUSING WAS NEVER THE CHOICE — it was that
+// nothing said where either one led.
+//
+//   Two verbs. "Sign in to generate" beside "Continue with a wallet"
+//   reads as two different systems rather than two ways into one.
+//   One verb now.
+//
+//   No stated outcome. The only difference anyone cares about is
+//   whether the free generations start now or after another step,
+//   and that was invisible at the exact moment of choosing. One line
+//   under each, naming that and nothing else.
+//
+//   No way back. A fork with no stated exit reads as a commitment,
+//   so people stall on it. One line says you can add the other
+//   later, which is true and which is what removes the stakes.
+//
+// THE ORDER FOLLOWS WHAT IS TRUE, not a preference: when the gate is
+// live the wallet is listed first, because it is the one that pays
+// off immediately. With no gate a wallet buys you nothing yet, so
+// Google leads. One rule, and it is explainable to anyone who asks
+// why their screen differs from a friend's.
+//
+// The wallet has three cases:
 //   1. injected provider present   → sign normally
 //   2. phone, no provider          → deeplink to the wallet APP
 //   3. desktop, no provider        → don't offer it at all
-//
-// Case 2 used to send people into Phantom's own browser and then
-// reunite two sessions by hand. It is a plain button now: the wallet
-// app opens, they approve, they come back here signed in.
 // ============================================================
 "use client";
+import { useEffect } from "react";
 import WalletContinue from "@/components/WalletContinue";
 import { useToken } from "@/lib/useToken";
 import { offerLine } from "@/lib/offer";
@@ -36,44 +51,30 @@ export default function ConnectButton({ auth, size = "small", label = "Sign in",
   );
 }
 
-// The wallet route, offered underneath rather than beside it — the
-// alternative now, not the default.
+// Just the wallet button. Returns null where a wallet cannot be
+// reached at all — a desktop with no extension — because offering a
+// door that leads nowhere is worse than offering one door.
 export function WalletSignIn({ auth, block = true }) {
   const cls = `btn small${block ? " block" : ""}`;
 
-  // Midway through a deeplink flow: the wallet named an address and a
-  // challenge is waiting for the tap that carries it back. That tap
-  // is not optional — see components/WalletContinue.
-  if (auth.pendingSign) return <WalletContinue auth={auth} />;
+  // Arm the one-tap path. A wallet connected on an earlier visit
+  // still has a session, so only the signature is missing — and the
+  // challenge for it is fetched now, before the tap, because fetching
+  // it during the tap would spend the gesture the universal link
+  // needs. Costs nothing when there is no session to arm.
+  useEffect(() => {
+    if (auth.needsDeeplink) auth.armWalletDeeplink?.();
+  }, [auth.needsDeeplink]);
 
-  // A phone browser. The wallet app is right there on the device even
-  // though this browser cannot see it, so this is a button like any
-  // other — it just happens to leave and come back.
-  //
   // NOT an async handler. The navigation has to happen inside this
   // tap or iOS opens phantom.app in the browser instead of the app.
   if (auth.needsDeeplink) {
     return (
-      <span className="wal-start">
-        <button className={cls} disabled={auth.busy} onClick={() => auth.startWalletDeeplink("signin")}>
-          {auth.busy ? <span className="spinner" /> : "Continue with a wallet"}
-        </button>
-        {/* Said BEFORE the first tap, which is the whole point. The
-            second wallet prompt is unavoidable on a first connection
-            — one asks for the address, one proves it is yours — and
-            arriving unannounced it reads as being asked twice for the
-            same thing. Announced, it reads as step two.
-
-            The count and nothing else. Not why two are needed, and
-            not that neither costs anything: safety is not on anyone's
-            mind until we put it there, and "nothing is spent" is an
-            answer to a question that only exists once you read it. */}
-        <em className="wal-note-2">Two steps, both in your wallet.</em>
-      </span>
+      <button className={cls} disabled={auth.busy} onClick={() => auth.startWalletDeeplink("signin")}>
+        {auth.busy ? <span className="spinner" /> : "Continue with a wallet"}
+      </button>
     );
   }
-  // No wallet on this device: offering it would only lead to a dead
-  // end, and Google is right there.
   if (!auth.walletAvailable) return null;
 
   return (
@@ -83,24 +84,56 @@ export function WalletSignIn({ auth, block = true }) {
   );
 }
 
-// The explanatory line under the buttons. Separate because the nav has
-// no room for it and the create page very much wants it.
-export function ConnectNote({ auth }) {
+// ============================================================
+// THE CHOICE. Both doors, each saying where it leads, in the order
+// that is true today. Used wherever someone signed out is asked to
+// sign in — which is two places, and they must not drift apart.
+// ============================================================
+export function SignInChoice({ auth }) {
   const offer = offerLine(useToken());
 
-  // The phone case no longer needs explaining. It used to describe a
-  // detour through another browser, because the detour was strange
-  // enough that people abandoned it without one. A button that opens
-  // your wallet and comes back is just a button.
-  // The offer is a config an admin can change, so it is read rather
-  // than written down here. Absent — no token yet, or the gate off —
-  // this says what is true instead of what used to be.
+  // Midway through a wallet flow: the address is known and a
+  // signature is waiting. That replaces the whole choice — they have
+  // already chosen.
+  if (auth.pendingSign) return <WalletContinue auth={auth} />;
+
+  // Whether a wallet is reachable on this device at all. Mirrors
+  // WalletSignIn's own conditions, because the reversibility line
+  // below must not claim there is another door when there is not.
+  const walletPossible = auth.needsDeeplink || auth.walletAvailable;
+
+  const google = (
+    <div className="door" key="google">
+      <ConnectButton auth={auth} size="" block label="Continue with Google" />
+      <em>{offer ? "Add a wallet later for free generations" : "Works on any device"}</em>
+    </div>
+  );
+
+  const wallet = walletPossible ? (
+    <div className="door" key="wallet">
+      <WalletSignIn auth={auth} />
+      {/* The outcome, and only the outcome. This briefly carried "·
+          two taps" as well, which stopped being true the moment
+          returning visitors started getting one — the session
+          survives, so only the signature is missing. A count that is
+          wrong half the time is worse than no count, and the "Step 2
+          of 2" on the screen that follows already stops the second
+          prompt arriving as a surprise. */}
+      <em>{offer ? "Free generations start right away" : "Sign in with the wallet you pay from"}</em>
+    </div>
+  ) : null;
+
+  // Wallet first only when it actually pays off sooner.
+  const order = offer && wallet ? [wallet, google] : [google, wallet];
+
   return (
-    <p className="hint signin-note">
-      {offer
-        ? `${offer} Sign in with Google, then connect the wallet holding it.`
-        : "Sign in with Google. Credits are paid in SOL, from any wallet."}
-    </p>
+    <div className="doors">
+      {order}
+      {/* The line that takes the stakes out of the fork. Only when
+          there really are two, or it is a promise about a door this
+          device cannot open. */}
+      {wallet && <p className="doors-note">You can add the other later.</p>}
+    </div>
   );
 }
 

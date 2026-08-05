@@ -5,7 +5,7 @@
 // it can never read or forge.
 import { NextResponse } from "next/server";
 import { verifySignIn, createSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
-import { getByIdentity, publicUser, addPayingWallet } from "@/lib/users";
+import { getOrCreateByIdentity, publicUser, addPayingWallet } from "@/lib/users";
 import { identitiesFor } from "@/lib/identities";
 
 export const runtime = "nodejs";
@@ -30,32 +30,21 @@ export async function POST(req) {
       );
     }
 
-    // The signature proved they hold this address. It resolves to an
-    // account — but it NO LONGER CREATES ONE.
+    // The signature proved they hold this address. That address is an
+    // IDENTITY — it resolves to an account id, creating one on first
+    // sight.
     //
-    // Google is the only door now. An account reached solely by a
-    // wallet lives and dies with that seed phrase: lose it and the
-    // credits, the banners and the handle go with it, and there is
-    // nothing we can do because there is nothing else that identifies
-    // them. That was survivable when signing up cost nothing; it is
-    // not survivable now that an account holds money and a token
-    // allowance.
+    // A WALLET IS A FULL DOOR, not a second-class one. This briefly
+    // required a Google account first, on the grounds that an account
+    // reachable only by a wallet dies with its seed phrase. That was
+    // solving a rare problem by taxing the common one: this audience
+    // holds seed phrases for a living, and being asked for a Google
+    // account before you may spend a token you already bought is the
+    // kind of friction that ends the visit. Reverted deliberately.
     //
-    // Wallets that ALREADY open an account keep working — every
-    // account that existed before this change was made with one, and
-    // shutting that door would lock those people out of their own
-    // credits to solve a problem they do not have.
-    const user = await getByIdentity("wallet", wallet);
-    if (!user) {
-      return NextResponse.json(
-        {
-          error:
-            "This wallet isn't linked to an account yet. Sign in with Google first, then connect it — that way your credits survive losing a device.",
-          code: "needs_google",
-        },
-        { status: 403 }
-      );
-    }
+    // Google remains available and can be linked afterwards by anyone
+    // who wants the second way in.
+    const user = await getOrCreateByIdentity("wallet", wallet);
     // Signing in from a wallet also says "payments from here are mine".
     await addPayingWallet(user.id, wallet);
 

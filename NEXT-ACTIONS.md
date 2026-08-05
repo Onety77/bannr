@@ -23,10 +23,10 @@ Short list, and only one item has a waiting period.
 > config — so if the gate is off, the homepage simply does not
 > mention a free tier rather than promising one that isn't there.
 >
-> Also: **a wallet no longer creates an account.** Google is the only
-> door, so credits survive a lost phone. Wallets that already open an
-> account still work; new ones are told to sign in with Google first
-> and then connect.
+> **Two doors, both real.** A wallet or a Google account each opens an
+> account, and either can be added to the other later. A wallet only
+> needs linking to a Google account so we can *read its holdings* —
+> that is what the settings row is for, not a second login.
 
 - [ ] **Turn the gate on, in this order**, at `/admin7731` → Token:
       set `mint`, `minTokens`, `dailyRuns`, the daily ceiling — *then*

@@ -10,7 +10,7 @@ import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_
 import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
 import { useProgress } from "@/lib/useProgress";
-import ConnectButton, { ConnectNote, WalletSignIn } from "@/components/ConnectButton";
+import { SignInChoice } from "@/components/ConnectButton";
 import Lightbox from "@/components/Lightbox";
 import StageAura from "@/components/StageAura";
 import PostButton from "@/components/PostButton";
@@ -1550,9 +1550,7 @@ function CreateInner() {
                 at this point rather than before starting. */}
             {!auth.loading && !auth.user ? (
               <>
-                <ConnectButton auth={auth} size="" block label="Sign in to generate" />
-                <WalletSignIn auth={auth} />
-                <ConnectNote auth={auth} />
+                <SignInChoice auth={auth} />
               </>
             ) : (
               /* NOT onClick={generate}: that would pass the click event
