@@ -3294,14 +3294,33 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 }
 .rail-meta em { font-style: normal; font-size: 11px; color: var(--muted); }
 
-/* ---- styles ---- */
-/* Chips, because every one of them is a run somebody might start —
-   they are doors, not a legend. */
-.rail-styles { display: flex; flex-wrap: wrap; gap: 6px; }
-.rail-styles a {
-  padding: 5px 11px; border-radius: var(--pill);
-  background: var(--bg-soft);
-  font-size: 12.5px; font-weight: 600; color: var(--text-2);
-  transition: background 0.14s, color 0.14s;
+
+
+/* ---- filter by style ---- */
+/* At the top of the feed, where a filter belongs. They were in the
+   rail and they went to the create page, which everyone read as a
+   filter anyway — so they became one, and the rail took a CTA
+   instead. Two copies of one control pointing different ways teaches
+   people to trust neither. */
+.feed-filters {
+  display: flex; gap: 8px; margin-bottom: 20px;
+  /* Sideways on a phone rather than wrapping to three lines and
+     pushing the feed off the screen. */
+  overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
-.rail-styles a:hover { background: var(--accent); color: var(--on-accent); }
+.feed-filters::-webkit-scrollbar { display: none; }
+.feed-chip {
+  flex: none;
+  padding: 7px 14px; border-radius: var(--pill);
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  background: var(--card); box-shadow: 0 0 0 1px var(--hairline);
+  transition: color 0.14s, background 0.14s, box-shadow 0.14s;
+}
+.feed-chip:hover { color: var(--text); }
+.feed-chip.on {
+  color: var(--on-accent); background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.rail-cta p { font-size: 12.5px; line-height: 1.5; color: var(--muted); margin-bottom: 12px; }

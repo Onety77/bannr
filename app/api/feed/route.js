@@ -19,12 +19,17 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req) {
   const session = requireUser(req);
-  const before = Number(new URL(req.url).searchParams.get("before") || 0);
+  const url = new URL(req.url);
+  const before = Number(url.searchParams.get("before") || 0);
+  // A style id, or nothing. An unknown id matches no posts, which is
+  // the honest answer to a stale link.
+  const styleId = String(url.searchParams.get("style") || "").slice(0, 40);
 
   try {
     const data = await listPosts({
       before: Number.isFinite(before) && before > 0 ? before : 0,
       viewer: session?.accountId || null,
+      styleId,
     });
     // no-store: a hidden post has to be gone on the next load, not
     // whenever a cache decides. Same reasoning as /api/spotlight.

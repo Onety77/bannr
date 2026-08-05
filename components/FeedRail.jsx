@@ -24,7 +24,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import TokenBar from "@/components/TokenBar";
-import { STYLES, AUTO_ID, AUTO_NAME } from "@/lib/styles";
 
 export default function FeedRail() {
   const [top, setTop] = useState(null);
@@ -68,14 +67,14 @@ export default function FeedRail() {
         </section>
       )}
 
-      <section className="rail-card">
-        <h3>Start from a style</h3>
-        <div className="rail-styles">
-          <Link href={`/create?style=${AUTO_ID}`}>{AUTO_NAME}</Link>
-          {STYLES.map((s) => (
-            <Link key={s.id} href={`/create?style=${s.id}`}>{s.name}</Link>
-          ))}
-        </div>
+      {/* The style chips moved to the top of the feed, where they
+          FILTER it — which is what everyone assumed they did here. A
+          second copy of the same control pointing somewhere else is
+          the kind of thing that teaches people not to trust either. */}
+      <section className="rail-card rail-cta">
+        <h3>Your turn</h3>
+        <p>Paste a contract address and get three options in about a minute.</p>
+        <Link className="btn primary block" href="/create">Make a banner</Link>
       </section>
 
       {/* Renders nothing until the token is announced. */}

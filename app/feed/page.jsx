@@ -6,25 +6,38 @@
 // asked for anything, and the only thing a session changes here is
 // whether the hearts are filled in.
 //
+// FILTERED BY STYLE, and the filter lives in the URL. That makes a
+// filtered feed a thing you can link to and come back to — /feed?style
+// =tech is a page about Tek banners, not a temporary state of this
+// one. It also means the back button does what it looks like it does.
+//
 // Optimistic likes. The heart moves on tap and is put back if the
 // server disagrees — a like is not worth a spinner, and a feed that
 // waits on the network to acknowledge a tap feels broken on a phone.
 // ============================================================
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import FeedCard from "@/components/FeedCard";
 import FeedRail from "@/components/FeedRail";
 import { useAuth } from "@/lib/useAuth";
 import { readFeed, writeFeed, mergeFresh, STALE_MS } from "@/lib/feedCache";
 import { useRestoreScroll } from "@/lib/useRestoreScroll";
+import { STYLES, AUTO_ID, AUTO_NAME } from "@/lib/styles";
 
-export default function FeedPage() {
+function FeedInner() {
   const auth = useAuth();
+  const router = useRouter();
+  const params = useSearchParams();
+  const style = (params.get("style") || "").trim();
+  const qs = style ? `&style=${encodeURIComponent(style)}` : "";
+
   // Read synchronously in the initialiser, so the first render is
-  // already the feed you left rather than skeletons that get
-  // replaced a frame later.
-  const cached = typeof window === "undefined" ? null : readFeed();
+  // already the feed you left rather than skeletons that get replaced
+  // a frame later. Keyed by filter: the cache for Tek is not the cache
+  // for everything.
+  const cached = typeof window === "undefined" ? null : readFeed(style);
   const [posts, setPosts] = useState(cached?.posts ?? null);
   const [cursor, setCursor] = useState(cached?.cursor ?? 0);
   const [done, setDone] = useState(cached?.done ?? false);
@@ -34,11 +47,11 @@ export default function FeedPage() {
   const load = useCallback(async (before = 0) => {
     setBusy(true);
     try {
-      const r = await fetch(`/api/feed${before ? `?before=${before}` : ""}`, { cache: "no-store" });
+      const r = await fetch(`/api/feed?before=${before || 0}${qs}`, { cache: "no-store" });
       const d = await r.json();
       setPosts((prev) => {
         const next = before ? [...(prev || []), ...(d.posts || [])] : d.posts || [];
-        writeFeed({ posts: next, cursor: d.cursor || 0, done: Boolean(d.done), at: Date.now() });
+        writeFeed({ posts: next, cursor: d.cursor || 0, done: Boolean(d.done), at: Date.now() }, style);
         return next;
       });
       setCursor(d.cursor || 0);
@@ -49,37 +62,52 @@ export default function FeedPage() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [qs, style]);
 
   // Quietly re-read the first page and fold it in. No skeletons, no
   // spinner, nothing moves under the reader: anything new appears
-  // above where they are, and posts they can already see keep their
-  // place while taking the server's like count.
+  // above where they are, and posts already on screen keep their place
+  // while taking the server's like count.
   const revalidate = useCallback(async () => {
     try {
-      const r = await fetch("/api/feed", { cache: "no-store" });
+      const r = await fetch(`/api/feed?before=0${qs}`, { cache: "no-store" });
       const d = await r.json();
       if (!d?.posts) return;
       setPosts((prev) => {
         const next = mergeFresh(prev, d.posts);
-        writeFeed({ posts: next, at: Date.now() });
+        writeFeed({ posts: next, at: Date.now() }, style);
         return next;
       });
     } catch {
       // The cached feed is still on screen and still fine.
     }
-  }, []);
+  }, [qs, style]);
 
+  // Re-runs when the filter changes, because `style` is in the deps.
+  // A warm cache for that filter paints instantly; a cold one loads.
   useEffect(() => {
-    const c = readFeed();
-    if (!c?.posts?.length) { load(0); return; }
+    const c = readFeed(style);
+    if (!c?.posts?.length) {
+      setPosts(null);
+      setDone(false);
+      setCursor(0);
+      load(0);
+      return;
+    }
+    setPosts(c.posts);
+    setCursor(c.cursor || 0);
+    setDone(Boolean(c.done));
     if (Date.now() - (c.at || 0) > STALE_MS) revalidate();
-  }, [load, revalidate]);
+  }, [style, load, revalidate]);
 
-  // Saving and restoring the position is identical on every cached
-  // list, so both pages call the same hook rather than keeping two
-  // copies that drift into disagreeing.
-  useRestoreScroll("feed", Boolean(posts?.length));
+  // Keyed by filter too, so switching back to a style returns you to
+  // where you were in it rather than to the top.
+  useRestoreScroll(`feed:${style}`, Boolean(posts?.length));
+
+  function pick(next) {
+    if (next === style) return;
+    router.push(next ? `/feed?style=${encodeURIComponent(next)}` : "/feed", { scroll: false });
+  }
 
   async function like(post) {
     if (!auth.user) { setError("Sign in to like banners."); return; }
@@ -98,11 +126,9 @@ export default function FeedPage() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error();
-      // The server's count is authoritative — someone else may have
-      // liked the same post while this one was in the air.
       setPosts((list) => {
         const next = list.map((p) => (p.id === post.id ? { ...p, liked: d.liked, likes: d.likes } : p));
-        writeFeed({ posts: next });
+        writeFeed({ posts: next }, style);
         return next;
       });
     } catch {
@@ -114,6 +140,8 @@ export default function FeedPage() {
     }
   }
 
+  const chips = [["", "All"], [AUTO_ID, AUTO_NAME], ...STYLES.map((s) => [s.id, s.name])];
+
   return (
     <main className="wrap feed-page">
       <div className="page-head">
@@ -121,73 +149,91 @@ export default function FeedPage() {
         <p>Banners people made and chose to share.</p>
       </div>
 
-      {/* Two columns that are CENTRED TOGETHER, not a column with a
-          thing bolted to its right. Centring only the feed and then
-          hanging a rail off it leaves the pair sitting left of
-          middle, which reads as a mistake even when nobody can say
-          why. */}
-      <div className="feed-layout">
-        <div className="feed-main">
+      {/* Scrolls sideways on a phone rather than wrapping to three
+          lines and pushing the feed off the screen. */}
+      <div className="feed-filters" role="tablist" aria-label="Filter by style">
+        {chips.map(([id, label]) => (
+          <button
+            key={id || "all"}
+            role="tab"
+            aria-selected={style === id}
+            className={`feed-chip${style === id ? " on" : ""}`}
+            onClick={() => pick(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {error && <div className="notice error">{error}</div>}
 
-
-      {posts === null ? (
-        /* The shape of the thing, not a spinner. A feed that arrives as
-           its own outline feels faster than one that arrives as a dot,
-           because the layout stops moving the moment the data lands. */
-        <div className="feed">
-          {[0, 1, 2].map((i) => (
-            <div className="fskel" key={i}>
-              <div className="fskel-top">
-                <span className="fskel-dot" />
-                <span className="fskel-lines">
-                  <span className="fskel-line w40" />
-                  <span className="fskel-line w22" />
-                </span>
+      {/* Two columns centred TOGETHER, not a column with a rail bolted
+          to its right — that leaves the pair sitting left of middle. */}
+      <div className="feed-layout">
+        <div className="feed-main">
+          {posts === null ? (
+            /* The shape of the thing, not a spinner. A feed that arrives
+               as its own outline feels faster than one that arrives as a
+               dot, because the layout stops moving when the data lands. */
+            <div className="feed">
+              {[0, 1, 2].map((i) => (
+                <div className="fskel" key={i}>
+                  <div className="fskel-top">
+                    <span className="fskel-dot" />
+                    <span className="fskel-lines">
+                      <span className="fskel-line w40" />
+                      <span className="fskel-line w22" />
+                    </span>
+                  </div>
+                  <div className="fskel-art" />
+                  <div className="fskel-foot" />
+                </div>
+              ))}
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="empty-canvas page-gap">
+              <div>
+                <div className="dims">
+                  {style ? "Nothing in this style yet" : "Nothing here yet"}
+                </div>
+                <div className="sub">
+                  {style
+                    ? "Be the first — make one and post it."
+                    : "Make a banner and post it — the feed starts with whoever goes first."}
+                </div>
+                <Link className="btn primary" href={style ? `/create?style=${style}` : "/create"} style={{ marginTop: 14 }}>
+                  Create a banner
+                </Link>
               </div>
-              <div className="fskel-art" />
-              <div className="fskel-foot" />
             </div>
-          ))}
-        </div>
-      ) : posts.length === 0 ? (
-        <div className="empty-canvas page-gap">
-          <div>
-            <div className="dims">Nothing here yet</div>
-            <div className="sub">
-              Make a banner and post it — the feed starts with whoever goes first.
-            </div>
-            <Link className="btn primary" href="/create" style={{ marginTop: 14 }}>
-              Create a banner
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="feed">
-            {posts.map((p) => (
-              <FeedCard
-                key={p.id}
-                post={p}
-                signedIn={Boolean(auth.user)}
-                onLike={like}
-              />
-            ))}
-          </div>
+          ) : (
+            <>
+              <div className="feed">
+                {posts.map((p) => (
+                  <FeedCard key={p.id} post={p} signedIn={Boolean(auth.user)} onLike={like} />
+                ))}
+              </div>
 
-          {!done && (
-            <div className="feed-more">
-              <button className="btn" disabled={busy} onClick={() => load(cursor)}>
-                {busy ? <span className="spinner" /> : "Load more"}
-              </button>
-            </div>
+              {!done && (
+                <div className="feed-more">
+                  <button className="btn" disabled={busy} onClick={() => load(cursor)}>
+                    {busy ? <span className="spinner" /> : "Load more"}
+                  </button>
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
         </div>
         <FeedRail />
       </div>
     </main>
+  );
+}
+
+export default function FeedPage() {
+  return (
+    <Suspense fallback={<main className="wrap feed-page"><div className="page-head"><h1>Feed</h1></div></main>}>
+      <FeedInner />
+    </Suspense>
   );
 }
