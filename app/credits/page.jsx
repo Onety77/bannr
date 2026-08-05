@@ -6,12 +6,16 @@ import { setUser } from "@/lib/credits";
 import { PACKS } from "@/lib/packs";
 import TokenBar from "@/components/TokenBar";
 import { useAuth } from "@/lib/useAuth";
-import { useWallet, short } from "@/lib/wallet";
+import { useWallet, short, buildTreasuryTx } from "@/lib/wallet";
 
 
 export default function CreditsPage() {
   const [msg, setMsg] = useState(null);
   const [err, setErr] = useState(null);
+  // A transaction built and waiting for the tap that carries it to
+  // the wallet app, and whether a broadcast one is being confirmed.
+  const [tx, setTx] = useState(null);
+  const [claiming, setClaiming] = useState(false);
   const auth = useAuth();
   const wallet = useWallet();
   // Test mode is explicit and loud. Without it, a configured treasury
@@ -41,6 +45,18 @@ export default function CreditsPage() {
       setMsg(`TEST TOP-UP — ${pack.credits} credits added, no SOL moved. With payments live this sends ${pack.sol} SOL to the treasury and Helius credits you automatically.`);
       return;
     }
+    // A phone browser cannot see a wallet, so it asks the app by
+    // deeplink instead. The pack goes with the request, because this
+    // page will be GONE by the time the answer arrives — the redirect
+    // lands in a new tab, on a fresh load, that never saw the tap.
+    //
+    // Synchronous, and the last thing to run: the navigation has to
+    // happen inside this tap or iOS opens phantom.app in the browser.
+    if (auth.needsDeeplink) {
+      auth.startWalletDeeplink("buy", "phantom", { packId: pack.id });
+      return;
+    }
+
     // Connecting happens HERE, at the moment of paying, and not a
     // moment before. It is the only step in the whole product that
     // needs a wallet — signing in, generating and editing all work
@@ -62,6 +78,53 @@ export default function CreditsPage() {
     setUser(out.user);
     setMsg(`${out.credits} credits added. Thank you.`);
   }
+
+  // ---------- the deeplink half ----------
+  // Resumed in whatever tab the redirect landed in, which is not the
+  // one the pack was chosen in. Everything it needs came back through
+  // localStorage; see lib/walletFlow.
+
+  // The wallet named an address: build the transaction NOW, on page
+  // load, where an await costs nothing. It has to be ready before the
+  // tap, because fetching a blockhash inside the tap would spend the
+  // gesture and land the user on phantom.app instead of in Phantom.
+  useEffect(() => {
+    const p = auth.pendingPay;
+    if (!p || tx) return;
+    let live = true;
+    (async () => {
+      const pack = PACKS.find((x) => x.id === p.payload?.packId);
+      if (!pack) { setErr("Couldn't tell which pack that was — pick it again."); return; }
+      const built = await buildTreasuryTx(pack.sol, auth.user?.accountId, p.address);
+      if (!live) return;
+      if (built.error) { setErr(built.error); return; }
+      setTx({ transaction: built.transaction, pack });
+    })();
+    return () => { live = false; };
+  }, [auth.pendingPay, auth.user?.accountId, tx]);
+
+  // The wallet broadcast it. All that is left is waiting for the
+  // chain, which the existing claim poll already does.
+  useEffect(() => {
+    const p = auth.paid;
+    if (!p?.signature || claiming) return;
+    setClaiming(true);
+    setTx(null);
+    setMsg(`Payment sent (${p.signature.slice(0, 12)}…). Confirming…`);
+    (async () => {
+      const out = await claim(p.signature);
+      if (out.error) { setErr(out.error); setMsg(null); }
+      else {
+        setUser(out.user);
+        setMsg(`${out.credits} credits added. Thank you.`);
+      }
+      // Ends the flow either way. A confirmed payment is not something
+      // to retry, and a failed one has a signature the user can be
+      // told about rather than a loop to sit in.
+      auth.finishFlow();
+      setClaiming(false);
+    })();
+  }, [auth.paid, claiming]);
 
   // Poll the claim endpoint until the transaction lands. The webhook
   // is still running as a backstop, and both paths write the same
@@ -134,6 +197,40 @@ export default function CreditsPage() {
 
       {msg && <div className="notice money page-gap-top">{msg}</div>}
       {err && <div className="notice error page-gap-top">{err}</div>}
+
+      {/* THE SECOND HOP OF A PHONE PURCHASE.
+          The pack was chosen in a different tab, which iOS left
+          behind; this one came back from the wallet knowing only an
+          address. The transaction is already built — building it
+          needs a blockhash, and fetching one inside the tap would
+          spend the gesture that lets the link reach the app. */}
+      {auth.pendingPay && (
+        <div className="wcont page-gap-top">
+          <span className="wcont-lead">
+            Paying from <b>{short(auth.pendingPay.address)}</b>
+          </span>
+          <p className="hint">
+            {tx
+              ? `${tx.pack.credits} credits for ${tx.pack.sol} SOL. One tap to approve in your wallet.`
+              : "Preparing the payment…"}
+          </p>
+          <div className="wcont-row">
+            <button
+              className="btn small primary"
+              disabled={!tx || auth.busy}
+              onClick={() => auth.payWithDeeplink(tx.transaction)}
+            >
+              {!tx || auth.busy ? <span className="spinner" /> : "Approve payment"}
+            </button>
+            <button
+              className="btn small"
+              onClick={() => { setTx(null); auth.cancelWalletDeeplink(); auth.finishFlow(); }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="packs">
         {PACKS.map((p) => (
