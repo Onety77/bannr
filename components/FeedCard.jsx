@@ -180,8 +180,9 @@ export default function FeedCard({ post, signedIn, onLike }) {
             being read as part of the banner. The ring is the card's
             own colour, so it reads as punched through.
 
-            Deliberately allowed to cover whatever the banner has in
-            that corner. The source picture is the point of it. */}
+            Top RIGHT: that end of the coin row above is empty, so it
+            fills dead space rather than taking any, and it stays off
+            the part of the banner most likely to hold the subject. */}
         {post.logo && (
           <img className="fcard-pfp-img" src={post.logo} alt="" aria-hidden="true" />
         )}

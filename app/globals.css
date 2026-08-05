@@ -2996,7 +2996,12 @@ textarea::placeholder {
 .fcard-shot .fcard-pfp-img {
   position: absolute;
   z-index: 2;
-  left: 14px;               /* flush with the card's own padding */
+  /* THE RIGHT, and this is the whole reason it works. That end of the
+     coin row holds nothing — the ticker and the address sit hard left
+     and leave it empty — so the logo fills dead space instead of
+     taking space. On the left it had to shove the ticker aside, and it
+     landed on the part of the banner most likely to hold the subject. */
+  right: 14px;
   top: 0;
   transform: translateY(-50%);
   width: var(--pfp); height: var(--pfp);
@@ -3008,11 +3013,12 @@ textarea::placeholder {
 }
 
 /* The strip it rises into. Tall enough for exactly the half that
-   overhangs, and indented so the ticker sits beside the logo rather
-   than under it. */
+   overhangs, and kept clear on the right so a long ticker cannot grow
+   under the logo. The row wraps, so without this a second line would
+   run straight beneath it. */
 .fcard-pfp .fcard-coin {
   min-height: calc(var(--pfp) / 2);
-  padding-left: calc(14px + var(--pfp) + 12px);
+  padding-right: calc(14px + var(--pfp) + 12px);
 }
 
 /* The double-tap heart. Big, brief, and gone. */
