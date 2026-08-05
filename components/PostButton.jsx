@@ -15,7 +15,7 @@
 "use client";
 import { useState } from "react";
 import { shrink } from "@/lib/credits";
-import { composeBeforeAfter, BA_RATIO } from "@/lib/beforeAfter";
+import { squareLogo } from "@/lib/postLogo";
 import { LOOKS_LIKE_CA } from "@/lib/ca";
 
 // `prepared` says the image is already at feed size, so it is posted
@@ -28,14 +28,14 @@ import { LOOKS_LIKE_CA } from "@/lib/ca";
 // /create and from My banners produces two different signatures and
 // the duplicate check never fires.
 //
-// `logo` is the source image the banner was built from. A post pairs
-// the two — see lib/beforeAfter.js — so the feed shows what this place
-// DOES rather than only what it produces.
+// `logo` is the source image the banner was built from. A post keeps
+// it — see lib/postLogo.js — so the feed shows what this place DOES
+// rather than only what it produces.
 //
 // NOT AN OPTION, AND NOT ANNOUNCED. It is how a post looks, the same
 // way a post has a handle on it. A checkbox would turn a house style
 // into a decision, and every decision put in front of someone is one
-// more reason to close the dialog. The banner is untouched by it, so
+// more reason to close the dialog. The image is untouched by it, so
 // there is nothing to opt out of.
 //
 // Not required either: with no upload in hand, the contract address
@@ -111,24 +111,17 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
     setMsg("");
     try {
       const caClean = ca.trim();
-      // Silent throughout. Every failure below falls back to the
-      // plain banner, and none of them is worth a sentence in front
-      // of someone who asked to post a picture.
-      const src0 = await sourceLogo(caClean);
-      const paired = src0 ? await composeBeforeAfter(src0, variant.dataUrl) : null;
+      // Silent throughout. Every failure below leaves the post without
+      // a logo, which is a post, and none of it is worth a sentence in
+      // front of someone who asked to publish a picture.
+      const found = await sourceLogo(caClean);
+      const postLogo = found ? await squareLogo(found) : null;
 
       // 900px wide: enough for a feed card at 2x, a fraction of the
       // bytes of the original, and comfortably inside a Firestore
-      // document.
-      //
-      // A paired post is taller than 3:1, so it shrinks to its own
-      // ratio and carries it to the feed — see BA_RATIO. `prepared`
-      // never applies to one, because it was just rendered at full
-      // size regardless of where the banner came from.
-      const ratio = paired ? BA_RATIO : null;
-      const src = paired
-        ? await shrink(paired, 900, Math.round(900 / BA_RATIO))
-        : prepared ? variant.dataUrl : await shrink(variant.dataUrl, 900, 300);
+      // document. Still 3:1 — the banner is posted exactly as it was
+      // made, and the logo rides on the card rather than in the image.
+      const src = prepared ? variant.dataUrl : await shrink(variant.dataUrl, 900, 300);
       if (!src) { setMsg("Couldn't prepare that image."); setStage("error"); return; }
 
       const r = await fetch("/api/feed", {
@@ -136,9 +129,9 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           src,
-          // Lets the feed reserve the right height before the image
-          // decodes, which is what keeps scroll restoration honest.
-          ratio,
+          // The picture the banner grew from. The card lays it over
+          // the artwork; nothing is baked into the image.
+          logo: postLogo,
           ticker: brief?.ticker || "",
           name: brief?.name || "",
           styleId: variant.templateId || "",

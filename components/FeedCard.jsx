@@ -126,7 +126,7 @@ export default function FeedCard({ post, signedIn, onLike }) {
   }
 
   return (
-    <article className="fcard">
+    <article className={`fcard${post.logo ? " fcard-pfp" : ""}`}>
       <header className="fcard-top">
         <Avatar handle={post.handle} photo={post.photo} />
         <div className="fcard-id">
@@ -141,7 +141,10 @@ export default function FeedCard({ post, signedIn, onLike }) {
         </div>
       </header>
 
-      {(label || post.ca) && (
+      {/* Rendered when there is a logo even with nothing to say, so
+          the logo always has a strip of card to rise into. Its own
+          min-height reserves exactly the half that overhangs. */}
+      {(label || post.ca || post.logo) && (
         <div className="fcard-coin">
           {label && <span className="fcard-tick">{label}</span>}
           {post.ca && (
@@ -161,17 +164,27 @@ export default function FeedCard({ post, signedIn, onLike }) {
         </div>
       )}
 
-      {/* The reservation, not a preference. A post that pairs the
-          logo with the banner is taller than 3:1, and the box has to
-          know that BEFORE the image decodes or the page reflows under
-          whoever is reading and scroll restoration lands in the wrong
-          place. Older posts have no ratio and are 3:1, which is what
-          the stylesheet already says. */}
+      {/* Almost every post is 3:1 and the stylesheet says so, which is
+          what lets the box be the right height before the image
+          decodes — the thing that keeps scroll restoration landing on
+          the right row. `ratio` overrides it only for the handful of
+          posts made while the logo was painted into a taller image. */}
       <div
         className="fcard-shot"
         onPointerUp={onImageTap}
         style={post.ratio ? { aspectRatio: String(post.ratio) } : undefined}
       >
+        {/* THE PICTURE IT GREW FROM, over the artwork rather than in
+            it. Half on the banner, half on the card — the one place
+            nothing inside an image can sit, which is what stops it
+            being read as part of the banner. The ring is the card's
+            own colour, so it reads as punched through.
+
+            Deliberately allowed to cover whatever the banner has in
+            that corner. The source picture is the point of it. */}
+        {post.logo && (
+          <img className="fcard-pfp-img" src={post.logo} alt="" aria-hidden="true" />
+        )}
         <img
           ref={imgRef}
           className={loaded ? "in" : ""}
