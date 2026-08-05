@@ -77,6 +77,14 @@ async function dexscreenerLookup(addr) {
       symbol: p.baseToken.symbol?.trim() || null,
       description: null, // not exposed on this endpoint
       imageUrl: p.info?.imageUrl || null,
+      // THE BANNER THEY ALREADY HAVE. DexScreener serves the current
+      // header at exactly the size we generate, and we were already
+      // calling this endpoint for the name and the logo — it was
+      // sitting in the response the whole time.
+      //
+      // Absent for most tokens, and that absence is information too:
+      // a project with no header has nothing to lose by trying one.
+      header: p.info?.header || null,
       chain: p.chainId,
       source: "DexScreener",
     };
@@ -115,18 +123,22 @@ export async function GET(req) {
 
   let result = null;
   if (kind === "solana") {
-    result = await heliusLookup(ca);
-    // fill any gaps (or the whole thing, if no Helius key) from DexScreener
-    if (!result || !result.imageUrl || !result.name) {
-      const dex = await dexscreenerLookup(ca);
-      if (dex) {
-        result = {
-          ...dex,
-          ...Object.fromEntries(Object.entries(result || {}).filter(([, v]) => v != null)),
-          source: result?.name ? result.source : dex.source,
-          imageUrl: result?.imageUrl || dex.imageUrl,
-        };
-      }
+    // BOTH, in parallel. Helius has the better metadata and no idea
+    // what the token page looks like; the existing header only exists
+    // on DexScreener. This used to skip DexScreener whenever Helius
+    // answered completely, which is exactly when a real project with a
+    // real banner would have been skipped.
+    const [helius, dex] = await Promise.all([heliusLookup(ca), dexscreenerLookup(ca)]);
+    result = helius;
+    if (dex) {
+      result = {
+        ...dex,
+        ...Object.fromEntries(Object.entries(helius || {}).filter(([, v]) => v != null)),
+        source: helius?.name ? helius.source : dex.source,
+        imageUrl: helius?.imageUrl || dex.imageUrl,
+        // Only DexScreener knows this one.
+        header: dex.header || null,
+      };
     }
   } else {
     result = await dexscreenerLookup(ca);
@@ -151,6 +163,8 @@ export async function GET(req) {
     ok: true,
     chain: result.chain,
     source: result.source,
+    // What is on their token page right now, if anything.
+    header: result.header || null,
     name: result.name,
     symbol: result.symbol,
     description: result.description,
