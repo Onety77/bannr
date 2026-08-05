@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import FeedCard from "@/components/FeedCard";
+import FeedRail from "@/components/FeedRail";
 import { useAuth } from "@/lib/useAuth";
 import { readFeed, writeFeed, mergeFresh, STALE_MS } from "@/lib/feedCache";
 import { useRestoreScroll } from "@/lib/useRestoreScroll";
@@ -124,13 +125,22 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="wrap">
+    <main className="wrap feed-page">
       <div className="page-head">
         <h1>Feed</h1>
-        <p>Banners people made and chose to share. Tap any style to make your own.</p>
+        <p>Banners people made and chose to share.</p>
       </div>
 
+      {/* Two columns that are CENTRED TOGETHER, not a column with a
+          thing bolted to its right. Centring only the feed and then
+          hanging a rail off it leaves the pair sitting left of
+          middle, which reads as a mistake even when nobody can say
+          why. */}
+      <div className="feed-layout">
+        <div className="feed-main">
+
       {error && <div className="notice error">{error}</div>}
+
 
       {posts === null ? (
         /* The shape of the thing, not a spinner. A feed that arrives as
@@ -186,6 +196,9 @@ export default function FeedPage() {
           )}
         </>
       )}
+        </div>
+        <FeedRail />
+      </div>
     </main>
   );
 }

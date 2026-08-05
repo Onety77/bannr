@@ -3224,3 +3224,95 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 @media (max-width: 700px) {
   .wal em { display: none; }
 }
+
+/* ============================================================
+   THE FEED ON A WIDE SCREEN
+
+   It was a 720px column adrift in 1800px of nothing — a phone layout
+   stretched into a browser window.
+
+   The obvious fix is more columns, and it is wrong: a banner is 3:1,
+   so three columns means banners a third the size, and the artwork is
+   the entire product. The column stays and gets WIDER, so the work is
+   seen nearer its true size, and the space beside it gets something
+   worth reading instead of being reclaimed.
+
+   Both columns are centred TOGETHER. Centring the feed and then
+   hanging a rail off its right leaves the pair sitting left of middle,
+   which reads as a mistake even when nobody can say why.
+   ============================================================ */
+.feed-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+
+/* The column width is the grid's job here, not the feed's. Other
+   pages that use .feed — a single post, a profile — keep their own. */
+.feed-page .feed { max-width: none; }
+.feed-page .page-head { text-align: left; }
+
+.rail { display: none; }
+
+@media (min-width: 1100px) {
+  .feed-layout {
+    grid-template-columns: minmax(0, 820px) 300px;
+    gap: 34px;
+    justify-content: center;
+    align-items: start;
+  }
+  .rail {
+    display: flex; flex-direction: column; gap: 16px;
+    /* Follows you down. A rail that scrolls away takes the leaderboard
+       with it, and the leaderboard is the reason to look right. */
+    position: sticky; top: 84px;
+  }
+}
+
+.rail-card {
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--hairline);
+  padding: 14px 16px 16px;
+}
+.rail-card h3 {
+  font-size: 11.5px; font-weight: 700;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* ---- most liked ---- */
+.rail-top { display: flex; flex-direction: column; gap: 4px; }
+.rail-top a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px; margin: -6px;
+  border-radius: 10px;
+  transition: background 0.14s;
+}
+.rail-top a:hover { background: var(--bg-soft); }
+.rail-rank {
+  flex: none; width: 16px;
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  color: var(--faint); text-align: center;
+}
+.rail-top img {
+  flex: none; width: 62px; aspect-ratio: 3 / 1;
+  object-fit: cover; border-radius: 5px;
+  background: var(--bg-soft);
+}
+.rail-meta { display: flex; flex-direction: column; min-width: 0; }
+.rail-meta b {
+  font-family: var(--mono); font-size: 12.5px; font-weight: 700;
+  color: var(--accent);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rail-meta em { font-style: normal; font-size: 11px; color: var(--muted); }
+
+/* ---- styles ---- */
+/* Chips, because every one of them is a run somebody might start —
+   they are doors, not a legend. */
+.rail-styles { display: flex; flex-wrap: wrap; gap: 6px; }
+.rail-styles a {
+  padding: 5px 11px; border-radius: var(--pill);
+  background: var(--bg-soft);
+  font-size: 12.5px; font-weight: 600; color: var(--text-2);
+  transition: background 0.14s, color 0.14s;
+}
+.rail-styles a:hover { background: var(--accent); color: var(--on-accent); }
