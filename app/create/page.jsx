@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 // Metadata only. lib/templates.js is server-only — importing it here
 // would ship every prompt in the product to the browser.
-import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles } from "@/lib/styles";
+import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles, slotsFor, optionsForSlots } from "@/lib/styles";
 import { loadDraft, saveDraft, setInFlight, getInFlight } from "@/lib/draft";
 import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_COST, EDIT_COST, REROLL_COST } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";
@@ -16,7 +16,7 @@ import StageAura from "@/components/StageAura";
 import PostButton from "@/components/PostButton";
 import XComingSoon from "@/components/XComingSoon";
 import AdvancedPanel from "@/components/AdvancedPanel";
-import { countTouched } from "@/lib/advanced";
+import { countTouched, optionLabels, spreadSettings } from "@/lib/advanced";
 import { track } from "@/lib/track";
 import { LOOKS_LIKE_CA } from "@/lib/ca";
 import { openTopUp } from "@/lib/modals";
@@ -844,7 +844,27 @@ function CreateInner() {
       // What NOT to make. Without this the director writes a polite
       // variation of the concept the user just rejected.
       if (v.concept) fd.set("avoidConcept", v.concept);
-      const adv = advanced[v.templateId];
+      // A reroll is one option, so a per-option control has to be
+      // resolved HERE — the server would otherwise see a run of one and
+      // hand it the first shot in the list. Rerolling the High angle
+      // option and getting a Far away banner back is not a reroll of
+      // that option, it is a different option at the same price.
+      //
+      // Counted off the RESULTS rather than the current plan: the plan
+      // reflects the picker as it stands now, and someone can change
+      // the styles or the option count after a run and before rerolling
+      // one of its banners. The results are the run that was actually
+      // made, so they are the only honest source for "which of this
+      // style's options was this one".
+      const shown = results?.variants || [];
+      const adv = advanced[v.templateId]
+        ? spreadSettings(
+            v.templateId,
+            advanced[v.templateId],
+            shown.slice(0, i).filter((o) => o.templateId === v.templateId).length,
+            shown.filter((o) => o.templateId === v.templateId).length
+          )
+        : null;
       if (adv && Object.keys(adv).length)
         fd.set("advanced", JSON.stringify({ [v.templateId]: adv }));
       fd.set("logo", logoFile);
@@ -1026,6 +1046,32 @@ function CreateInner() {
   // Exactly what the run will produce — same helper the server uses,
   // so this preview can't drift from reality.
   const plan = distributeStyles(styleIds, Math.max(variants, styleIds.length));
+
+  // How many options each style gets, and which per-option choice each
+  // one lands on. Both come from the shared helpers rather than being
+  // recomputed here, for the same reason `plan` does: this is a promise
+  // about what the money buys, and a preview that can disagree with the
+  // server is worse than no preview.
+  const slotsOf = (id) => plan.filter((s) => s === id).length;
+  const labelsOf = (id) => optionLabels(id, advanced[id] || {}, slotsOf(id));
+  const shotAt = (id, i) => {
+    // i is the index in the WHOLE run; the labels are indexed within
+    // this style's own options.
+    const nth = plan.slice(0, i).filter((s) => s === id).length;
+    return labelsOf(id)[nth] || "";
+  };
+
+  // Asking for more shots than this style has options raises the option
+  // count instead of refusing the click — the same reflex that already
+  // fires when a fifth style is selected. Returns false when the run's
+  // ceiling genuinely cannot deliver it, which is the panel's cue to
+  // leave the button alone.
+  function needSlots(id, n) {
+    const want = optionsForSlots(styleIds, id, n);
+    if (slotsFor(styleIds, id, want) < n) return false;
+    setVariants((v) => Math.max(v, want));
+    return true;
+  }
   const planSummary = [...new Set(plan)]
     .map((id) => {
       const n = plan.filter((s) => s === id).length;
@@ -1394,6 +1440,8 @@ function CreateInner() {
                     styleId={AUTO_ID}
                     settings={advanced[AUTO_ID] || {}}
                     touched={countTouched(AUTO_ID, advanced[AUTO_ID])}
+                    slots={slotsOf(AUTO_ID)}
+                    onNeedSlots={(n) => needSlots(AUTO_ID, n)}
                     onChange={(next) => setAdvanced((a) => ({ ...a, [AUTO_ID]: next }))}
                     onReset={() =>
                       setAdvanced((a) => {
@@ -1453,6 +1501,8 @@ function CreateInner() {
                         styleId={t.id}
                         settings={advanced[t.id] || {}}
                         touched={touched}
+                        slots={slotsOf(t.id)}
+                        onNeedSlots={(n) => needSlots(t.id, n)}
                         onChange={(next) => setAdvanced((a) => ({ ...a, [t.id]: next }))}
                         onReset={() =>
                           setAdvanced((a) => {
@@ -1611,6 +1661,7 @@ function CreateInner() {
                     <div className="bar">
                       <span className="mode">
                         OPTION {i + 1} · <b>{nameFor(styleId)}</b>
+                        {shotAt(styleId, i) && <> · {shotAt(styleId, i)}</>}
                       </span>
                       <span className="hint">{i === 0 ? "exact DEX Screener size" : ""}</span>
                     </div>
@@ -1629,6 +1680,7 @@ function CreateInner() {
                   <div className="bar">
                     <span className="mode">
                       OPTION {i + 1} · <b>{nameFor(plan[i]) || "…"}</b>
+                      {plan[i] && shotAt(plan[i], i) && <> · {shotAt(plan[i], i)}</>}
                     </span>
                     <span className="skel-phase">
                       <span className="spinner" />

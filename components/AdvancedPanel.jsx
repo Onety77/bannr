@@ -9,12 +9,31 @@
 // never implies you've changed things you haven't.
 // ============================================================
 "use client";
-import { controlsFor, defaultValue, isDefault } from "@/lib/advanced";
+import { controlsFor, defaultValue, isDefault, picked } from "@/lib/advanced";
 
-export default function AdvancedPanel({ styleId, settings, onChange, onReset, touched }) {
+export default function AdvancedPanel({ styleId, settings, onChange, onReset, touched, slots = 1, onNeedSlots }) {
   const controls = controlsFor(styleId);
 
   const set = (key, value) => onChange({ ...settings, [key]: value });
+
+  // ══ TOGGLING ONE VALUE OF A MULTI CONTROL ══
+  //
+  // The cap is not arbitrary and it is not four: it is how many of this
+  // run's options this particular style will actually receive, which
+  // depends on how many styles are selected. Two styles across four
+  // options is 2 and 2, so POV can carry two shots there and no more.
+  //
+  // Rather than refuse the fourth click, ask the page for more options
+  // first — same reflex as selecting a fifth style, and the reason the
+  // count bumps itself instead of erroring. Only when the ceiling
+  // genuinely cannot accommodate it does the button go quiet.
+  const toggle = (c, v) => {
+    const cur = picked(settings[c.key]);
+    if (cur.includes(v)) return set(c.key, cur.filter((x) => x !== v));
+    const next = [...cur, v];
+    if (next.length > slots && !onNeedSlots?.(next.length)) return;
+    set(c.key, next);
+  };
 
   return (
     <div className="adv">
@@ -67,6 +86,41 @@ export default function AdvancedPanel({ styleId, settings, onChange, onReset, to
                 value={v}
                 onChange={(e) => set(c.key, e.target.value)}
               />
+            ) : c.multi ? (
+              // Several answers, spread one per option. "Default" is
+              // the empty selection rather than an option of its own —
+              // clicking the last chosen value off returns to it, so
+              // there is no state where nothing is selected AND Default
+              // is not showing.
+              (() => {
+                const on = picked(v);
+                return (
+                  <div className="adv-opts">
+                    <button
+                      type="button"
+                      className={`adv-opt ${on.length === 0 ? "on" : ""}`}
+                      onClick={() => set(c.key, [])}
+                    >
+                      Default
+                    </button>
+                    {c.options.filter((o) => o.v !== "auto").map((o) => {
+                      const sel = on.includes(o.v);
+                      return (
+                        <button
+                          key={o.v}
+                          type="button"
+                          className={`adv-opt ${sel ? "on" : ""}`}
+                          aria-pressed={sel}
+                          onClick={() => toggle(c, o.v)}
+                        >
+                          {sel && <span className="adv-nth">{on.indexOf(o.v) + 1}</span>}
+                          {o.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()
             ) : (
               <div className="adv-opts">
                 {c.options.map((o) => (
@@ -80,6 +134,21 @@ export default function AdvancedPanel({ styleId, settings, onChange, onReset, to
                   </button>
                 ))}
               </div>
+            )}
+            {/* What the selection will actually do. Worth saying out
+                loud because the count can go stale underneath it: drop
+                a style or lower the option count after choosing three
+                shots and the third quietly stops being rendered, which
+                is exactly the kind of silent loss the plan preview
+                exists to prevent. */}
+            {c.multi && picked(v).length > 0 && (
+              <span className={`adv-spread ${picked(v).length > slots ? "over" : ""}`}>
+                {picked(v).length > slots
+                  ? `Only the first ${slots} will be used — this style gets ${slots} of the run's options.`
+                  : picked(v).length === 1
+                  ? `Every option takes this shot.`
+                  : `One each, across ${picked(v).length} of this style's ${slots} options.`}
+              </span>
             )}
           </div>
         );

@@ -45,7 +45,7 @@ import { getGate, evaluate } from "@/lib/tokenGate";
 import { linkedWallets } from "@/lib/identities";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { styleReferences } from "@/lib/references";
-import { buildDirection } from "@/lib/advanced";
+import { buildDirection, spreadSettings, sharedSettings, optionDirection } from "@/lib/advanced";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -335,17 +335,28 @@ export async function POST(req) {
       const styleId = perVariantStyle[i];
       const isAuto = styleId === AUTO_ID;
       const template = isAuto ? autoTemplate() : getTemplate(styleId);
+      // This job's position among the options of ITS OWN style, and how
+      // many that style got in total. Both were already being computed
+      // inline for seasoning; naming them lets the multi-value controls
+      // spread across exactly the same positions, so the shot a banner
+      // gets and the creative lean it gets are indexed the same way.
+      const nth = perVariantStyle.slice(0, i).filter((s) => s === styleId).length;
+      const of = perVariantStyle.filter((s) => s === styleId).length;
       return {
         i,
         isAuto,
         template,
-        settings: advanced[styleId] || {},
+        nth,
+        of,
+        // Controls that took several answers are resolved to ONE here,
+        // per option. Everything downstream — buildDirection, the
+        // prompt, the concept pass — sees an ordinary settings object
+        // and never learns that a multi control exists.
+        settings: spreadSettings(styleId, advanced[styleId] || {}, nth, of),
         // Seasoning is indexed per style, not per variant, so two
         // options of the SAME style get different creative leans while
         // two different styles both start from the neutral prompt.
-        seasoning: VARIANT_SEASONING[
-          perVariantStyle.slice(0, i).filter((s) => s === styleId).length % VARIANT_SEASONING.length
-        ],
+        seasoning: VARIANT_SEASONING[nth % VARIANT_SEASONING.length],
         engine: demoMode ? "demo" : "gpt-image",
         display: !demoMode && isAuto
           ? { id: AUTO_ID, name: AUTO_NAME }
@@ -375,7 +386,7 @@ export async function POST(req) {
         Object.entries(wanting).map(async ([styleId, indices]) => {
           const isDefault = styleId === AUTO_ID;
           const tpl = isDefault ? null : getTemplate(styleId);
-          const settings = advanced[styleId] || {};
+          const settings = sharedSettings(styleId, advanced[styleId] || {});
           const list = await generateConcepts({
             brief,
             // On a reroll the director is told what is already on
@@ -393,6 +404,19 @@ export async function POST(req) {
                 ? `ALREADY MADE FOR THIS PROJECT — the client has this concept in front of them and asked for something else. Do not repeat it, and do not produce a near neighbour of it:\n\n${avoidConcept}`
                 : "",
             ].filter(Boolean).join("\n\n"),
+            // ONE ASSIGNMENT PER CONCEPT, in the order the concepts
+            // come back. Only ever non-empty when a per-option control
+            // was given more than one answer.
+            //
+            // The director has to know this. Left to write freely it
+            // picks its own shots, and the image prompt then arrives
+            // carrying a concept built on one camera and a setting
+            // demanding another — a contradiction the renderer
+            // resolves by ignoring whichever it feels like. So the
+            // choice is made once, here, and both halves are told.
+            perConcept: indices.map((jobIndex) =>
+              optionDirection(styleId, jobs[jobIndex].settings)
+            ),
             // `concepts` is either true (the design director) or the
             // name of the one this style wants.
             director: isDefault ? "default" : (typeof tpl.concepts === "string" ? tpl.concepts : "design"),
