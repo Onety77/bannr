@@ -224,6 +224,19 @@ export default function AdminToken({ user }) {
             <em>Someone who buys at noon should be generating at noon. Qualifying accounts are not re-read at all for the rest of the day.</em>
           </label>
           <label className="tk-f">
+            <span>Minimum market cap for the public list</span>
+            <input
+              type="number" min={0}
+              value={form.dirMinMarketCap}
+              onChange={(e) => set("dirMinMarketCap", e.target.value)}
+            />
+            <em>
+              Tokens under this drop off <b>/token</b> and come back if they recover —
+              it is checked live, nothing is stored. Set it too low and a dead coin
+              represents you; too high and the page is empty.
+            </em>
+          </label>
+          <label className="tk-f">
             <span>One line shown to holders (optional)</span>
             <input value={form.note} onChange={(e) => set("note", e.target.value)} maxLength={200} />
           </label>
