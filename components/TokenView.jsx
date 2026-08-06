@@ -34,6 +34,15 @@ const big = (n) => {
   return fmt(v, 0);
 };
 
+// Market figures, at the precision anyone actually reads them: $312K,
+// not $312,481.
+const usd = (n) => {
+  const v = Number(n || 0);
+  if (v >= 1_000_000) return "$" + (v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1).replace(/\.0$/, "") + "M";
+  if (v >= 1_000) return "$" + Math.round(v / 1_000) + "K";
+  return "$" + Math.round(v);
+};
+
 const day = (ts) =>
   new Date(ts || 0).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
@@ -61,6 +70,38 @@ export default function TokenView() {
       </div>
 
       <TokenBar />
+
+      {/* PROOF, above the flywheel. Someone landing here from a link
+          is deciding whether any of this is real, and a list of live
+          tokens with charts answers that faster than a burn total —
+          which only means something once you believe the product
+          exists. Hidden below a handful of rows: a directory with two
+          entries argues against us. */}
+      {d?.tokens?.length >= 4 && (
+        <div className="page-gap-top">
+          <div className="tok-head">
+            <h2>Tokens made with bannr</h2>
+            {d.made > 0 && <span className="hint">{d.made.toLocaleString("en-US")} banners made</span>}
+          </div>
+          <div className="tok-grid">
+            {d.tokens.map((t) => (
+              <a
+                className="tok-tok"
+                key={t.address}
+                href={t.url || `https://dexscreener.com/${t.chain}/${t.address}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img src={t.src} alt="" aria-hidden="true" />
+                <span className="tok-tok-meta">
+                  <b>${t.symbol || t.ticker?.replace(/^\$/, "") || "—"}</b>
+                  <em>{usd(t.marketCap)} mcap · {usd(t.volume24h)} 24h</em>
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {d?.live ? (
         <>

@@ -25,8 +25,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import TokenBar from "@/components/TokenBar";
 
+const railUsd = (n) => {
+  const v = Number(n || 0);
+  if (v >= 1_000_000) return "$" + (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (v >= 1_000) return "$" + Math.round(v / 1_000) + "K";
+  return "$" + Math.round(v);
+};
+
 export default function FeedRail() {
   const [top, setTop] = useState(null);
+  const [tokens, setTokens] = useState([]);
 
   useEffect(() => {
     let live = true;
@@ -38,6 +46,15 @@ export default function FeedRail() {
       } catch {
         if (live) setTop([]);
       }
+    })();
+    // Same endpoint the /token page reads, so the two can never
+    // disagree about which projects are live.
+    (async () => {
+      try {
+        const r = await fetch("/api/buybacks");
+        const d = await r.json();
+        if (live) setTokens(d.tokens || []);
+      } catch {}
     })();
     return () => { live = false; };
   }, []);
@@ -64,6 +81,30 @@ export default function FeedRail() {
               </li>
             ))}
           </ol>
+        </section>
+      )}
+
+      {/* THE SAME PROOF, compact. Not a second tab and not a second
+          page — the rail exists to fill space beside a single column,
+          and "real tokens are using this" is worth more there than
+          another list of links. Five, then a way through to the rest. */}
+      {tokens.length >= 4 && (
+        <section className="rail-card">
+          <h3>Live tokens</h3>
+          <ol className="rail-top rail-toks">
+            {tokens.slice(0, 5).map((t) => (
+              <li key={t.address}>
+                <a href={t.url || `https://dexscreener.com/${t.chain}/${t.address}`} target="_blank" rel="noopener noreferrer">
+                  <img src={t.src} alt="" aria-hidden="true" />
+                  <span className="rail-meta">
+                    <b>${t.symbol || "—"}</b>
+                    <em>{railUsd(t.marketCap)} mcap</em>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ol>
+          <Link className="rail-more" href="/token">All of them</Link>
         </section>
       )}
 
