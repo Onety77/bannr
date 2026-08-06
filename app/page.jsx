@@ -59,7 +59,7 @@ const FEATURES = [
   },
   {
     title: "Pay in SOL",
-    body: "Native payments, credited automatically the moment they confirm on-chain.",
+    body: "Credited the moment the transaction confirms.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M7 5h12l-2.5 3.5H4.5L7 5zM17 19H5l2.5-3.5h12L17 19zM4.5 10.5h12L19 14H7l-2.5-3.5z" />
@@ -85,15 +85,15 @@ const FEATURES = [
 const STEPS = [
   {
     title: "Drop your assets",
-    body: "Logo or mascot, ticker, name. Add a tagline or vibe notes if you like — the engine reads everything you give it.",
+    body: "Logo or mascot, ticker, name. A line about the project if you have one.",
   },
   {
     title: "Pick a style",
-    body: "Six moods to steer the art, or leave it on Default and let bannr find the best fit for your project itself.",
+    body: "Six to choose from, or leave it on Default and let bannr decide.",
   },
   {
     title: "Download and ship",
-    body: "Two to four finished options at exact dimensions, ticker spelled correctly. Pick your favorite and upload.",
+    body: "Two to four finished options at exact dimensions. Pick one and upload it.",
   },
 ];
 
@@ -152,8 +152,8 @@ export default async function Landing() {
           <div className="sec-head">
             <h2>Everything a launch needs.</h2>
             <p className="sub">
-              The parts that make a banner look professional — composition,
-              dimensions, typography — handled for you.
+              Composition, dimensions, typography — the parts that separate a
+              banner from a picture with a name on it.
             </p>
           </div>
 

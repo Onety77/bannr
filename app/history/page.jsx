@@ -62,7 +62,7 @@ export default function HistoryPage() {
     <main className="wrap">
       <div className="page-head">
         <h1>My banners</h1>
-        <p>Every run, saved with its brief. Re-run any of them with one click.</p>
+        <p>Every run, saved with its brief.</p>
       </div>
 
       {/* Signed out is not the same as having made nothing, and it

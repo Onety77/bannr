@@ -130,7 +130,7 @@ export default function SettingsPage() {
       <Link href="/you" className="set-back">← You</Link>
       <div className="page-head">
         <h1>Settings</h1>
-        <p>Saved to your account, so they follow you to any device.</p>
+        <p>Saved to your account.</p>
       </div>
 
       {/* ---------- account ---------- */}
@@ -283,7 +283,7 @@ export default function SettingsPage() {
           <p className="hint">
             {identities?.length > 1
               ? "Either one opens this account and the same credits."
-              : "Add a second so you can sign in from anywhere. You can't remove the last one."}
+              : "You can't remove the last one."}
           </p>
         </div>
 
@@ -300,7 +300,7 @@ export default function SettingsPage() {
       <div className="panel">
         <div className="panel-head">
           <h3>Billing</h3>
-          <span className="hint">Every purchase is on-chain — these link to the transaction.</span>
+          <span className="hint">Tap any of these to open the transaction.</span>
         </div>
         {payments.length === 0 ? (
           <p className="hint">No purchases yet.</p>

@@ -146,7 +146,7 @@ function FeedInner() {
     <main className="wrap feed-page">
       <div className="page-head">
         <h1>Feed</h1>
-        <p>Banners people made and chose to share.</p>
+        <p>What people are shipping.</p>
       </div>
 
       {/* Scrolls sideways on a phone rather than wrapping to three

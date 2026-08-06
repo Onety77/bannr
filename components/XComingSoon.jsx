@@ -54,8 +54,7 @@ export default function XComingSoon() {
           Headers for <span className="xcs-x">𝕏</span>.
         </h2>
         <p>
-          Built around where the platform actually crops them, and where your
-          avatar lands.
+          Designed for X, not resized for it.
         </p>
       </div>
 

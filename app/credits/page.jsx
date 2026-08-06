@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { setUser } from "@/lib/credits";
 import { PACKS } from "@/lib/packs";
 import TokenBar from "@/components/TokenBar";
+import { useToken } from "@/lib/useToken";
+import { offerLine } from "@/lib/offer";
 import { useAuth } from "@/lib/useAuth";
 import { useWallet, short, buildTreasuryTx } from "@/lib/wallet";
 
@@ -18,6 +20,7 @@ export default function CreditsPage() {
   const [claiming, setClaiming] = useState(false);
   const auth = useAuth();
   const wallet = useWallet();
+  const offer = offerLine(useToken());
   // Test mode is explicit and loud. Without it, a configured treasury
   // means the Buy button moves REAL SOL — which, before the Helius
   // webhook exists, would take payment and credit nothing.
@@ -183,11 +186,12 @@ export default function CreditsPage() {
             </>
           )}
         </div>
-        <p className="hint">
-          {wallet.address
-            ? "Connected. Pick a pack to pay — or disconnect and pay from a different wallet, it makes no difference to your account."
-            : "Pick a pack and your wallet opens for approval. Any wallet works, and you can use a different one every time."}
-        </p>
+        {/* No sentence here. It used to narrate the mechanic — "pick a
+            pack and your wallet opens for approval" — to people who
+            have approved a thousand transactions. Explaining a wallet
+            to someone holding one reads as talking down, and the only
+            genuinely non-obvious fact (any wallet can pay, it need not
+            be the linked one) is not worth raising the question. */}
       </div>
 
       {/* Above the packs on purpose: for anyone holding enough, this
@@ -249,10 +253,14 @@ export default function CreditsPage() {
         ))}
       </div>
 
-      <div className="notice page-gap">
-        COMING WITH $BANNR — hold the token, get 3 free runs every day.
-        Holder checks run live via Helius at generation time.
-      </div>
+      {/* The offer, read live, or nothing at all.
+          It used to be hardcoded — "get 3 free runs every day" — while
+          the real number is a config an admin can change, so it was
+          one edit away from being a lie. And it ended "holder checks
+          run live via Helius at generation time", which is a sentence
+          about our infrastructure that nobody buying credits has any
+          use for. */}
+      {offer && <div className="notice page-gap">{offer}</div>}
     </main>
   );
 }
