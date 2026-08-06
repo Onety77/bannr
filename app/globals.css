@@ -2554,13 +2554,29 @@ body::after {
 .credits .tbar, .tbar.compact { margin: 18px 0 0; }
 
 /* ONE ROW, ONE GAP, ONE HEIGHT.
-   align-items: stretch is the whole fix — the address pill is the
+   align-items: stretch is half the fix — the address pill is the
    tallest thing here, so everything beside it takes its height
    instead of each chip sizing itself off its own font and sitting at
-   a different altitude. Wrapping is honest rather than incidental:
-   below 560px the address takes a line of its own and the two smaller
-   chips share the next one. */
-.tbar-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+   a different altitude.
+
+   INLINE-flex is the other half, and it is not a detail. As a block
+   this row ignored text-align and pinned itself to the left edge
+   while the entire hero above it — headline, lede, the address field,
+   the links under it — was centred. Inline-level means the bar obeys
+   whatever alignment its container already has: centred inside the
+   hero, hard left under the left-aligned heading on /token. One rule,
+   correct in both, and no flag to pass or forget.
+
+   justify-content then centres each WRAPPED LINE inside a box that
+   has already shrunk to hug its widest one — so on a phone the two
+   small chips sit centred beneath the address rather than hanging off
+   its left end, and on a left-aligned page the whole thing still
+   starts at the left margin. */
+.tbar-row {
+  display: inline-flex; flex-wrap: wrap;
+  align-items: stretch; justify-content: center;
+  gap: 8px; max-width: 100%;
+}
 
 .tbar-ca {
   display: inline-flex; align-items: center; gap: 10px;
@@ -2610,11 +2626,6 @@ body::after {
   .tbar-mint.full { display: none; }
   .tbar-mint.short { display: inline; }
   .tbar-ca { font-size: 12px; }
-  /* The address takes the whole line and pushes Copy to the far edge,
-     so the tap target is the width of the screen. The market cap and
-     the way through then share the line below as a matched pair,
-     which is a decision rather than whatever happened to fit. */
-  .tbar-ca { flex: 1 1 100%; justify-content: space-between; }
 }
 
 
