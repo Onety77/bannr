@@ -2930,19 +2930,25 @@ textarea::placeholder {
    smallest change that fixes it: a short fade with a few pixels of
    rise, so the new content arrives rather than appears.
 
-   DELIBERATELY UNDERPOWERED. 190ms, 6px, ease-out — fast enough that
-   it never delays anyone and is felt rather than watched. Slides,
-   flips and cross-fades all draw attention to the transition, and the
-   transition is not the thing anyone came for.
+   TUNED UP ONCE. The first pass was 190ms and 6px, which is below
+   the threshold where a transition registers at all — technically
+   present, and nobody could see it, which is the worst of both.
+   "Subtle" does not mean imperceptible; it means you feel it and
+   never wait for it. 260ms and 10px is still faster than a blink and
+   is actually felt.
+
+   Still no slides, flips or cross-fades — those draw attention to
+   the transition, and the transition is not the thing anyone came
+   for.
 
    Applied by putting `key` on the container so React remounts it and
    the animation replays. No JS, no library, no layout cost.
    ============================================================ */
 @keyframes view-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
 }
-.swap { animation: view-in 0.19s cubic-bezier(0.22, 1, 0.36, 1); }
+.swap { animation: view-in 0.26s cubic-bezier(0.22, 1, 0.36, 1); }
 
 /* The tab you pressed should feel pressed. */
 .surface-tabs button, .admin-tabs button, .feed-filters button {
