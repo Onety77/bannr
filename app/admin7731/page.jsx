@@ -300,13 +300,13 @@ export default function AdminPage() {
         </div>
       )}
 
-      {tab === "token" && <AdminToken user={user} />}
-      {tab === "feed" && <AdminFeed user={user} />}
+      {tab === "token" && <div className="swap" key="token"><AdminToken user={user} /></div>}
+      {tab === "feed" && <div className="swap" key="feed"><AdminFeed user={user} /></div>}
       {tab === "money" && (
-        <>
+        <div className="swap" key="money">
           <AdminBuybacks user={user} />
           <AdminGrant user={user} />
-        </>
+        </div>
       )}
 
       {tab === "generations" ? (

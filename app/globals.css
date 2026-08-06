@@ -2923,6 +2923,41 @@ textarea::placeholder {
 .nts-route { font-size: 12.5px; color: var(--muted); }
 
 /* ============================================================
+   SWITCHING BETWEEN VIEWS
+
+   Content used to replace itself instantly, which reads as a page
+   redrawing rather than as something responding to you. This is the
+   smallest change that fixes it: a short fade with a few pixels of
+   rise, so the new content arrives rather than appears.
+
+   DELIBERATELY UNDERPOWERED. 190ms, 6px, ease-out — fast enough that
+   it never delays anyone and is felt rather than watched. Slides,
+   flips and cross-fades all draw attention to the transition, and the
+   transition is not the thing anyone came for.
+
+   Applied by putting `key` on the container so React remounts it and
+   the animation replays. No JS, no library, no layout cost.
+   ============================================================ */
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.swap { animation: view-in 0.19s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* The tab you pressed should feel pressed. */
+.surface-tabs button, .admin-tabs button, .feed-filters button {
+  transition: background 0.16s, color 0.16s, border-color 0.16s, transform 0.1s;
+}
+.surface-tabs button:active, .admin-tabs button:active, .feed-filters button:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swap { animation: none; }
+  .surface-tabs button:active, .admin-tabs button:active, .feed-filters button:active { transform: none; }
+}
+
+/* ============================================================
    /token — WHERE THE MONEY GOES
 
    Two lines, never summed. The product line is given the weight even

@@ -72,7 +72,7 @@ export default function TokenView() {
         <h1>{sym}</h1>
       </div>
 
-      <TokenBar />
+      <TokenBar hideMore />
 
       {/* TWO VIEWS, not one long page. The buybacks are why this page
           exists, so they open — and stacking the token list above them
@@ -100,7 +100,7 @@ export default function TokenView() {
       )}
 
       {hasTokens && view === "tokens" ? (
-        <div className="page-gap-top">
+        <div className="page-gap-top swap" key="tokens">
           <div className="tok-head">
             <h2>Performing tokens</h2>
             {d.made > 0 && <span className="hint">{d.made.toLocaleString("en-US")} banners made</span>}
@@ -130,7 +130,7 @@ export default function TokenView() {
           </div>
         </div>
       ) : d?.live ? (
-        <>
+        <div className="swap" key="money">
           <div className="tok-lines page-gap-top">
             {/* Product first, and given the weight, even though it is
                 the smaller number. It is the one that is hard to copy. */}
@@ -195,9 +195,9 @@ export default function TokenView() {
               </a>
             ))}
           </div>
-        </>
+        </div>
       ) : (
-        <div className="empty-canvas page-gap">
+        <div className="empty-canvas page-gap swap" key="empty">
           <div>
             <div className="dims">Nothing burned yet</div>
             <div className="empty-cta">

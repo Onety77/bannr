@@ -1091,8 +1091,14 @@ function CreateInner() {
         </div>
       )}
 
-      {surface === "x" && <XComingSoon />}
+      {surface === "x" && <div className="swap" key="x"><XComingSoon /></div>}
 
+      {/* NOT keyed and NOT animated on return, deliberately. This is
+          hidden rather than unmounted because the brief lives inside
+          it — remounting to replay a fade would reset the advanced
+          panel and every open/closed section with it. A 190ms flourish
+          is not worth losing someone's work state for. The X side
+          above genuinely mounts, so that one animates. */}
       <div className="create-grid" hidden={surface !== "dex"}>
         {/* ------------ LEFT: the brief ------------ */}
         <div>

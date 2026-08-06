@@ -29,7 +29,9 @@ const usd = (n) => {
   return "$" + Math.round(v);
 };
 
-export default function TokenBar({ compact = false }) {
+// `hideMore` drops the link to /token — passed by /token itself,
+// where a link to the page you are standing on is furniture.
+export default function TokenBar({ compact = false, hideMore = false }) {
   const [t, setT] = useState(null);
   const [copied, setCopied] = useState(false);
   const price = usePrice();
@@ -137,7 +139,7 @@ export default function TokenBar({ compact = false }) {
           that row copies — the whole reason the bar is a button rather
           than a link — and making the container navigate would take
           the one action it was built for and give it to a page. */}
-      <Link className="tbar-more" href="/token">Buybacks and burns</Link>
+      {!hideMore && <Link className="tbar-more" href="/token">Buybacks and burns</Link>}
     </div>
   );
 }
