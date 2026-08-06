@@ -1792,6 +1792,26 @@ function CreateInner() {
                   )}
                 </div>
               ))}
+              {/* Where the banner is going. Once, under the set, rather
+                  than on every option — it is the same destination for
+                  all of them.
+
+                  A plain outbound link and nothing more. There is no
+                  way to hand DEX Screener the address or the file: no
+                  documented query parameter, an order form behind a
+                  sign-in gate that would drop one anyway, and a file
+                  input on another origin that no page is allowed to
+                  write to. Naming them as the destination is also the
+                  point — the fee is theirs, not ours, and nothing here
+                  may read as though it goes through us. */}
+              <a
+                className="dex-next"
+                href="https://marketplace.dexscreener.com/product/token-info"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Submit it on DEX Screener ↗
+              </a>
             </div>
           )}
         </div>

@@ -1504,6 +1504,13 @@ h1, h2, h3 {
 .result .bar .mode { font-size: 12.5px; color: var(--muted); flex: 1; min-width: 180px; }
 .result .bar .mode b { color: var(--text); font-weight: 600; }
 
+.dex-next {
+  display: block; padding: 14px 0 4px;
+  font-size: 13.5px; color: var(--muted); text-align: center;
+  transition: color 0.15s;
+}
+.dex-next:hover { color: var(--text); }
+
 .xconv { background: var(--card); }
 .xconv img { width: 100%; object-fit: cover; }
 
