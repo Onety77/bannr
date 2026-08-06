@@ -19,10 +19,20 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePrice } from "@/lib/usePrice";
+
+// $312K, not $312,481 — the precision anyone actually reads.
+const usd = (n) => {
+  const v = Number(n || 0);
+  if (v >= 1_000_000) return "$" + (v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 2).replace(/\.00$/, "") + "M";
+  if (v >= 1_000) return "$" + Math.round(v / 1_000) + "K";
+  return "$" + Math.round(v);
+};
 
 export default function TokenBar({ compact = false }) {
   const [t, setT] = useState(null);
   const [copied, setCopied] = useState(false);
+  const price = usePrice();
 
   useEffect(() => {
     let live = true;
@@ -86,6 +96,30 @@ export default function TokenBar({ compact = false }) {
         <span className="tbar-mint short">{short}</span>
         <span className={`tbar-copy${copied ? " done" : ""}`}>{copied ? "Copied" : "Copy"}</span>
       </button>
+
+      {/* LIVE, every five seconds. The bar already means "the token";
+          a number that moves makes it a thing happening rather than a
+          string to copy — and this is the one component that is
+          already on the homepage, the feed rail and /token.
+
+          Absent entirely until there is a price, so nothing renders a
+          zero while the market data is still on its way. */}
+      {price?.marketCap > 0 && (
+        <a
+          className="tbar-live"
+          href={price.url}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <b>{usd(price.marketCap)}</b>
+          <span className="tbar-live-k">mcap</span>
+          {Number.isFinite(price.change24h) && price.change24h !== 0 && (
+            <span className={`tbar-chg${price.change24h > 0 ? " up" : " down"}`}>
+              {price.change24h > 0 ? "+" : ""}{price.change24h.toFixed(1)}%
+            </span>
+          )}
+        </a>
+      )}
 
       {/* Only when the gate is actually live. Announcing the token and
           switching on free generations are separate decisions, and the

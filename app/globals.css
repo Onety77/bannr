@@ -2995,6 +2995,25 @@ textarea::placeholder {
 }
 .rail-more:hover { color: var(--accent); }
 
+/* ---- the live number ----
+   Tabular figures, so a market cap ticking every five seconds does
+   not shuffle its own width and jiggle everything beside it. */
+.tbar-live {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  margin-top: 8px; padding: 5px 11px;
+  border-radius: var(--pill, 999px);
+  background: var(--bg-soft);
+  border: 1px solid var(--hairline-2);
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s;
+}
+.tbar-live:hover { border-color: var(--accent); }
+.tbar-live b { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.tbar-live-k { font-size: 11px; color: var(--muted); }
+.tbar-chg { font-size: 12px; font-weight: 600; }
+.tbar-chg.up { color: var(--ok); }
+.tbar-chg.down { color: var(--danger); }
+
 /* Admin: the token a banner was found on. */
 .attach { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .attach input {

@@ -31,6 +31,9 @@ export async function GET() {
       // with it. Both are proof rather than pitch, and both live
       // here so the page someone pastes carries all of it.
       tokens: dir.tokens,
+      // The bar, so the page can state it. A missing project should
+      // be able to read why rather than assume favouritism.
+      floor: dir.floor || 0,
       made,
       // The address is withheld until announced, exactly as elsewhere —
       // this route must not become the leak.
@@ -40,7 +43,7 @@ export async function GET() {
       entries,
       totals,
       revenue,
-    }, { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } });
+    }, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=300" } });
   } catch {
     return NextResponse.json({ live: false, entries: [], totals: null, revenue: null, tokens: [], made: 0 });
   }

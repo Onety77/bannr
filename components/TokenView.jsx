@@ -48,6 +48,9 @@ const day = (ts) =>
 
 export default function TokenView() {
   const [d, setD] = useState(null);
+  // "money" is the default because the buybacks are the reason this
+  // page is pasted anywhere.
+  const [view, setView] = useState("money");
 
   useEffect(() => {
     let live = true;
@@ -61,28 +64,53 @@ export default function TokenView() {
   const sym = d?.symbol ? `$${d.symbol}` : "$BANNR";
   const product = d?.totals?.product;
   const fees = d?.totals?.fees;
+  const hasTokens = d?.tokens?.length >= 4;
 
   return (
     <main className="wrap tok-wrap">
       <div className="page-head">
         <h1>{sym}</h1>
-        <p>Every buyback and burn, on-chain.</p>
       </div>
 
       <TokenBar />
 
-      {/* PROOF, above the flywheel. Someone landing here from a link
-          is deciding whether any of this is real, and a list of live
-          tokens with charts answers that faster than a burn total —
-          which only means something once you believe the product
-          exists. Hidden below a handful of rows: a directory with two
-          entries argues against us. */}
-      {d?.tokens?.length >= 4 && (
+      {/* TWO VIEWS, not one long page. The buybacks are why this page
+          exists, so they open — and stacking the token list above them
+          pushed the reason for the page below the fold, which was the
+          wrong way round. The list is only offered once there is one. */}
+      {hasTokens && (
+        <div className="surface-tabs" role="tablist" aria-label="What to show">
+          <button
+            role="tab"
+            aria-selected={view === "money"}
+            className={view === "money" ? "on" : ""}
+            onClick={() => setView("money")}
+          >
+            Buybacks &amp; burns
+          </button>
+          <button
+            role="tab"
+            aria-selected={view === "tokens"}
+            className={view === "tokens" ? "on" : ""}
+            onClick={() => setView("tokens")}
+          >
+            Performing tokens
+          </button>
+        </div>
+      )}
+
+      {hasTokens && view === "tokens" ? (
         <div className="page-gap-top">
           <div className="tok-head">
-            <h2>Tokens made with bannr</h2>
+            <h2>Performing tokens</h2>
             {d.made > 0 && <span className="hint">{d.made.toLocaleString("en-US")} banners made</span>}
           </div>
+          {/* States the bar, so a project that is missing knows why
+              rather than assuming favouritism. */}
+          <p className="tok-note">
+            Live tokens made with bannr, above {usd(d.floor || 15000)} market cap.
+            They drop off below it and come back if they recover.
+          </p>
           <div className="tok-grid">
             {d.tokens.map((t) => (
               <a
@@ -101,9 +129,7 @@ export default function TokenView() {
             ))}
           </div>
         </div>
-      )}
-
-      {d?.live ? (
+      ) : d?.live ? (
         <>
           <div className="tok-lines page-gap-top">
             {/* Product first, and given the weight, even though it is
