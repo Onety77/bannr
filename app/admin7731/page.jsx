@@ -9,6 +9,8 @@ import { ADMIN_EMAIL } from "@/lib/admin";
 import AdminToken from "@/components/AdminToken";
 import AdminFeed from "@/components/AdminFeed";
 import AdminFunnel from "@/components/AdminFunnel";
+import AdminBuybacks from "@/components/AdminBuybacks";
+import AdminGrant from "@/components/AdminGrant";
 
 const FLAGS = [
   ["featuredWall", "Fresh wall"],
@@ -27,7 +29,7 @@ export default function AdminPage() {
   const [items, setItems] = useState(null);
   const [busy, setBusy] = useState(null); // `${id}:${field}`
   const [error, setError] = useState(null);
-  const [tab, setTab] = useState("generations"); // generations | refusals | token | feed
+  const [tab, setTab] = useState("generations"); // generations | refusals | token | feed | money
   const [refusals, setRefusals] = useState(null);
   // all = the 60 most recent. The rest ask "what is live right now",
   // which is a different question and the only one that can reach a
@@ -242,6 +244,9 @@ export default function AdminPage() {
         <button className={tab === "feed" ? "on" : ""} onClick={() => setTab("feed")}>
           Feed
         </button>
+        <button className={tab === "money" ? "on" : ""} onClick={() => setTab("money")}>
+          Money
+        </button>
       </div>
 
       {error && <div className="notice error">{error}</div>}
@@ -296,6 +301,12 @@ export default function AdminPage() {
 
       {tab === "token" && <AdminToken user={user} />}
       {tab === "feed" && <AdminFeed user={user} />}
+      {tab === "money" && (
+        <>
+          <AdminBuybacks user={user} />
+          <AdminGrant user={user} />
+        </>
+      )}
 
       {tab === "generations" ? (
         !items ? (

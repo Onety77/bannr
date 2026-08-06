@@ -43,8 +43,17 @@ Short list, and only one item has a waiting period.
       only thing that can't be outrun. At Tier 4 (150 img/min) the
       theoretical ceiling is ~$5,200/day — the rate limit is no longer
       protecting you.
-- [ ] **Delete `TEST_CREDIT_EMAILS` and `/api/dev/grant`.** Four
-      addresses can currently mint credits from nothing.
+- [x] ~~Delete `TEST_CREDIT_EMAILS` and `/api/dev/grant`.~~ **Done.**
+      Credits are granted from `/admin7731` → **Money** now: to a named
+      handle, with a reason, written to `grants`. Same screen is the
+      airdrop tool — most-liked post, people working on X.
+- [ ] **Set `DEV_WALLET`** in Vercel — the creator-fee wallet, separate
+      from the treasury. Without it a buyback logged as *from trading
+      fees* reads 0 SOL spent: the burned tokens still count, the SOL
+      does not.
+- [ ] **Do the first buyback BEFORE announcing `/token`.** A counter
+      reading zero advertises that the flywheel exists and is not
+      turning. Log it in Money, then share the page.
 - [ ] **Set the daily ceiling** in `/admin7731` → Token *before*
       switching the gate on. `0` means unlimited.
 - [ ] **Confirm `HELIUS_RPC_URL` is set in Vercel Production.** If it

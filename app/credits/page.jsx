@@ -21,33 +21,22 @@ export default function CreditsPage() {
   const auth = useAuth();
   const wallet = useWallet();
   const offer = offerLine(useToken());
-  // Test mode is explicit and loud. Without it, a configured treasury
-  // means the Buy button moves REAL SOL — which, before the Helius
-  // webhook exists, would take payment and credit nothing.
-  const testMode = process.env.NEXT_PUBLIC_ENABLE_TEST_CREDITS === "1";
-  const treasuryConfigured = Boolean(process.env.NEXT_PUBLIC_TREASURY_WALLET) && !testMode;
+  // No test mode any more. It existed so credits could be topped up
+  // before payments worked, and it did that by calling /api/dev/grant
+  // — a route gated by an environment flag and a hardcoded list of
+  // four emails, which minted 1,404 credits across eight accounts
+  // against zero real payments before anyone noticed.
+  //
+  // The same need is served properly from /admin7731 now: an admin
+  // grants credits to a NAMED person, with a reason, written down.
+  const treasuryConfigured = Boolean(process.env.NEXT_PUBLIC_TREASURY_WALLET);
   const credits = auth.user?.credits ?? 0;
 
   async function buy(pack) {
     setErr(null); setMsg(null);
     if (!auth.user) return setErr("Sign in first.");
+    if (!treasuryConfigured) return setErr("Payments aren't switched on yet.");
 
-    if (!treasuryConfigured) {
-      // Nothing is paid in test mode. The grant happens SERVER-side and
-      // only where it has been explicitly enabled — the client can no
-      // longer mint credits for itself, which is the whole point of
-      // moving balances to the account.
-      const res = await fetch("/api/dev/grant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: pack.credits }),
-      });
-      const d = await res.json();
-      if (!res.ok) return setErr(d.error || "Top-up failed.");
-      setUser(d.user);
-      setMsg(`TEST TOP-UP — ${pack.credits} credits added, no SOL moved. With payments live this sends ${pack.sol} SOL to the treasury and Helius credits you automatically.`);
-      return;
-    }
     // A phone browser cannot see a wallet, so it asks the app by
     // deeplink instead. The pack goes with the request, because this
     // page will be GONE by the time the answer arrives — the redirect
@@ -159,14 +148,6 @@ export default function CreditsPage() {
         <h1>Credits</h1>
         <p>1 run = 3 credits = up to 4 banner options. Pay in SOL.</p>
       </div>
-
-      {/* Impossible to mistake for the real thing — the whole risk of a
-          test flag is forgetting it's on. */}
-      {testMode && (
-        <div className="notice test-mode">
-          <b>TEST MODE</b> — instant credit top-ups.
-        </div>
-      )}
 
       {/* This used to lead with "Connect wallet", which is now both
           unnecessary and misleading: picking a pack connects one for

@@ -182,6 +182,12 @@ export async function POST(req) {
     await payRef.create({
       accountId: session.accountId,
       sol,
+      // The SAME number under the webhook's name for it. These two
+      // paths write the same document and had drifted: the webhook
+      // writes `amountSol`, this writes `sol`, and /settings reads
+      // only `amountSol` — so every payment claimed here (which is
+      // the main path) showed a blank amount in billing history.
+      amountSol: sol,
       packId: pack.id,
       creditsGranted: pack.credits,
       status: "credited",
