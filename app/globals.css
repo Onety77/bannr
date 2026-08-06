@@ -2959,6 +2959,15 @@ textarea::placeholder {
 
 .tok-note { margin: 16px 0 6px; font-size: 12px; color: var(--faint); }
 
+/* The way through from the token bar. Quiet — the bar's job is the
+   address, and this must not compete with it. */
+.tbar-more {
+  display: inline-block; margin-top: 8px;
+  font-size: 12px; color: var(--muted);
+  border-bottom: 1px solid var(--hairline-2);
+}
+.tbar-more:hover { color: var(--accent); border-bottom-color: currentColor; }
+
 /* Admin: logging one, and granting credits. */
 .bb-add { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .bb-add input, .bb-add select {

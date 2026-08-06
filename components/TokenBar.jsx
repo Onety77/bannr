@@ -18,6 +18,7 @@
 // ============================================================
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export default function TokenBar({ compact = false }) {
   const [t, setT] = useState(null);
@@ -97,6 +98,12 @@ export default function TokenBar({ compact = false }) {
           {t.note ? ` ${t.note}` : ""}
         </p>
       )}
+
+      {/* BESIDE the address, never wrapping it. Tapping anywhere on
+          that row copies — the whole reason the bar is a button rather
+          than a link — and making the container navigate would take
+          the one action it was built for and give it to a page. */}
+      <Link className="tbar-more" href="/token">Where the money goes</Link>
     </div>
   );
 }
