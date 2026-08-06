@@ -3032,6 +3032,10 @@ textarea::placeholder {
 }
 .tok-head h2 { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; margin: 0; }
 .tok-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+/* A single token spans both columns. Half a row floating against
+   emptiness is what the old >= 4 threshold was avoiding, and hiding
+   the section to avoid it cost far more than the layout ever did. */
+.tok-grid > :only-child { grid-column: 1 / -1; }
 .tok-tok {
   display: flex; flex-direction: column;
   border-radius: var(--r-md, 12px);

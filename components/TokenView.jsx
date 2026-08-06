@@ -64,7 +64,20 @@ export default function TokenView() {
   const sym = d?.symbol ? `$${d.symbol}` : "$BANNR";
   const product = d?.totals?.product;
   const fees = d?.totals?.fees;
-  const hasTokens = d?.tokens?.length >= 4;
+  // ONE IS ENOUGH TO SHOW.
+  //
+  // This was `>= 4`, to stop a two-column grid looking sparse. That
+  // traded a cosmetic problem for a much worse one: the threshold gates
+  // the TAB as well as the list, so the whole section — button and all —
+  // vanished the day an unrelated token slipped under the market-cap
+  // floor and the count went 4 to 3. A $28M token sat on the page
+  // invisible, and there was no way to tell from the outside whether
+  // that was a rule or a bug.
+  //
+  // A list that quietly disappears is not a better first impression
+  // than a short one. The sparseness is a layout problem and is fixed
+  // in the layout: a lone row spans the grid.
+  const hasTokens = d?.tokens?.length >= 1;
 
   return (
     <main className="wrap tok-wrap">
