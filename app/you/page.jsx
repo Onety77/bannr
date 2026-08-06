@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import { useAuth } from "@/lib/useAuth";
+import ConnectButton from "@/components/ConnectButton";
 import { useRestoreScroll } from "@/lib/useRestoreScroll";
 
 export default function YouPage() {
@@ -88,12 +89,15 @@ export default function YouPage() {
     return (
       <main className="wrap">
         <div className="page-head"><h1>You</h1></div>
+        {/* Sign in HERE. This used to send people to /create to do
+            it, which is a strange thing to ask of someone who tapped
+            "You" — and it was only that way because the sign-in
+            surface was too big to put on more than one page. */}
         <div className="empty-canvas page-gap">
           <div>
             <div className="dims">Not signed in</div>
-            <div className="sub">Sign in from the create page — it takes one tap.</div>
             <div className="empty-cta">
-              <Link href="/create" className="btn primary small">Go to Create</Link>
+              <ConnectButton auth={auth} label="Sign in" />
             </div>
           </div>
         </div>

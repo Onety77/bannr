@@ -2923,29 +2923,61 @@ textarea::placeholder {
 .nts-route { font-size: 12.5px; color: var(--muted); }
 
 /* ============================================================
-   THE TWO DOORS
+   MODALS — signing in, and topping up.
 
-   Equal weight, deliberately. One rendered as the primary button and
-   the other as a plain one would say "this is the right one" — and
-   which is right genuinely depends on whether someone holds the
-   token, which we cannot know before they choose.
-
-   Each carries ONE line naming where it leads, because the only thing
-   anyone is actually stuck on is whether the free generations start
-   now or after another step. Not how it works. Not why there are two.
+   Both are the same shape: a title, two buttons, nothing else. The
+   choice lives here rather than spread across whatever page you were
+   on, which is what let sign-in move to every tab instead of only
+   /create.
    ============================================================ */
-.doors { display: flex; flex-direction: column; gap: 14px; }
-.door { display: flex; flex-direction: column; gap: 6px; }
-.door .btn { width: 100%; }
-.door em {
-  font-style: normal; font-size: 11.5px; line-height: 1.45;
-  color: var(--muted); text-align: center;
+.modal-back {
+  position: fixed; inset: 0; z-index: 200;
+  display: grid; place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  animation: modal-in 0.14s ease;
 }
-/* The line that takes the stakes out of the fork. Quieter than the
-   outcomes above it — it is reassurance, not a reason to pick. */
-.doors-note {
-  margin: 2px 0 0;
-  font-size: 11.5px; color: var(--faint); text-align: center;
+.modal {
+  position: relative;
+  width: 100%; max-width: 340px;
+  padding: 26px 22px 22px;
+  border-radius: var(--r-lg);
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--hairline), 0 30px 70px -30px rgba(0, 0, 0, 0.8);
+  animation: modal-rise 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.modal-title {
+  font-size: 19px; font-weight: 650; letter-spacing: -0.01em;
+  text-align: center; margin: 0 0 18px;
+}
+.modal-lead {
+  font-size: 13px; color: var(--muted);
+  text-align: center; margin: -8px 0 18px; line-height: 1.5;
+}
+.modal-err { margin: 12px 0 0; font-size: 12px; color: var(--danger); text-align: center; }
+.modal-x {
+  position: absolute; top: 8px; right: 10px;
+  width: 30px; height: 30px; border-radius: 50%;
+  font-size: 20px; line-height: 1; color: var(--muted);
+  display: grid; place-items: center;
+}
+.modal-x:hover { color: var(--text); background: var(--bg-soft); }
+
+.signin-opts { display: flex; flex-direction: column; gap: 10px; }
+.signin-opts .btn {
+  width: 100%; justify-content: center;
+  padding-top: 12px; padding-bottom: 12px;
+  font-size: 14px;
+}
+
+@keyframes modal-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-back, .modal { animation: none; }
 }
 
 /* The promise the count keeps: said before the first tap, where it

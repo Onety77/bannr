@@ -10,7 +10,7 @@ import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_
 import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
 import { useProgress } from "@/lib/useProgress";
-import { SignInChoice } from "@/components/ConnectButton";
+import ConnectButton from "@/components/ConnectButton";
 import Lightbox from "@/components/Lightbox";
 import StageAura from "@/components/StageAura";
 import PostButton from "@/components/PostButton";
@@ -19,7 +19,7 @@ import AdvancedPanel from "@/components/AdvancedPanel";
 import { countTouched } from "@/lib/advanced";
 import { track } from "@/lib/track";
 import { LOOKS_LIKE_CA } from "@/lib/ca";
-import NothingToSpend from "@/components/NothingToSpend";
+import { openTopUp } from "@/lib/modals";
 
 // A generation takes ~45s. Rather than hold a dead spinner for that
 // long, narrate what the model is actually doing — reading the brief,
@@ -464,10 +464,13 @@ function CreateInner() {
     // the server would have allowed it, and the button would simply
     // never fire. The server is still the authority; this only stops
     // an obviously-doomed request leaving the browser.
-    if ((auth.user.holderRunsLeft || 0) <= 0 && auth.user.credits < GENERATION_COST)
-      return setError(
-        `Not enough credits (need ${GENERATION_COST}). Buy some on the credits page, or hold $BANNR for free runs each day.`
-      );
+    // Nothing to spend. A sentence pointing at another page is a
+    // dead end at the exact moment of intent; the dialog carries the
+    // two things they can actually do about it.
+    if ((auth.user.holderRunsLeft || 0) <= 0 && auth.user.credits < GENERATION_COST) {
+      openTopUp();
+      return;
+    }
 
     setBusy(true);
     setResults(null);
@@ -823,7 +826,7 @@ function CreateInner() {
     if (!v || rerollBusy !== null || busy) return;
     if (!auth.user) return setError("Sign in to generate banners.");
     if (auth.user.credits < REROLL_COST)
-      return setError(`Not enough credits (need ${REROLL_COST}). Buy some on the credits page, or hold $BANNR for free runs each day.`);
+      { openTopUp(); return; }
     // The run is held in memory, not the logo file that made it — a
     // restored draft can have the banners without the upload.
     if (!logoFile)
@@ -1045,11 +1048,6 @@ function CreateInner() {
           </p>
         )}
       </div>
-
-      {/* Said BEFORE the brief, not after Generate. A new account
-          starts at zero now, and finding that out having filled in
-          every field is the version that loses people. */}
-      <NothingToSpend auth={auth} cost={GENERATION_COST} />
 
       {/* Two surfaces, two different design problems. Named by where
           the artwork LANDS rather than what it depicts — an X header is
@@ -1550,7 +1548,7 @@ function CreateInner() {
                 at this point rather than before starting. */}
             {!auth.loading && !auth.user ? (
               <>
-                <SignInChoice auth={auth} />
+                <ConnectButton auth={auth} size="" block label="Sign in to generate" />
               </>
             ) : (
               /* NOT onClick={generate}: that would pass the click event

@@ -5,6 +5,7 @@ import Socials from "@/components/Socials";
 import TabBar from "@/components/TabBar";
 import Fx from "@/components/Fx";
 import Track from "@/components/Track";
+import Modals from "@/components/Modals";
 
 const body = Inter({
   subsets: ["latin"],
@@ -102,6 +103,7 @@ export default function RootLayout({ children }) {
           </footer>
         </div>
         <TabBar />
+        <Modals />
       </body>
     </html>
   );

@@ -9,6 +9,7 @@
 import Link from "next/link";
 import PostButton from "@/components/PostButton";
 import { useAuth } from "@/lib/useAuth";
+import ConnectButton from "@/components/ConnectButton";
 import { readHistory, writeHistory, patchHistory, STALE_MS } from "@/lib/historyCache";
 import { useRestoreScroll } from "@/lib/useRestoreScroll";
 import { useEffect, useState } from "react";
@@ -64,7 +65,19 @@ export default function HistoryPage() {
         <p>Every run, saved with its brief. Re-run any of them with one click.</p>
       </div>
 
-      {items === null ? (
+      {/* Signed out is not the same as having made nothing, and it
+          used to render as an empty shelf offering a Create button
+          that would only ask them to sign in anyway. */}
+      {!auth.loading && !auth.user ? (
+        <div className="empty-canvas page-gap">
+          <div>
+            <div className="dims">Not signed in</div>
+            <div className="empty-cta">
+              <ConnectButton auth={auth} label="Sign in" />
+            </div>
+          </div>
+        </div>
+      ) : items === null ? (
         <div className="empty-canvas page-gap"><div className="dims">LOADING…</div></div>
       ) : items.length === 0 ? (
         <div className="empty-canvas page-gap">

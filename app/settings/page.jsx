@@ -15,7 +15,7 @@ import { countTouched } from "@/lib/advanced";
 import { useAuth } from "@/lib/useAuth";
 import { short, useWallet } from "@/lib/wallet";
 import AdvancedPanel from "@/components/AdvancedPanel";
-import { SignInChoice } from "@/components/ConnectButton";
+import ConnectButton from "@/components/ConnectButton";
 import { useToken } from "@/lib/useToken";
 import { offerLine } from "@/lib/offer";
 import WalletContinue from "@/components/WalletContinue";
@@ -107,7 +107,7 @@ export default function SettingsPage() {
       <main className="wrap">
         <div className="page-head"><h1>Settings</h1><p>Sign in to see your account.</p></div>
         <div className="panel set-signin">
-          <SignInChoice auth={auth} />
+          <ConnectButton auth={auth} size="" block label="Sign in" />
         </div>
       </main>
     );
