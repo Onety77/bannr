@@ -2995,6 +2995,17 @@ textarea::placeholder {
 }
 .rail-more:hover { color: var(--accent); }
 
+/* Admin: the token a banner was found on. */
+.attach { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.attach input {
+  flex: 1; min-width: 120px;
+  padding: 6px 9px;
+  border: 1px solid var(--hairline-2); border-radius: 8px;
+  background: var(--bg); color: inherit;
+  font-family: var(--mono); font-size: 11px;
+}
+.attach-err { width: 100%; font-size: 11px; color: var(--danger); }
+
 /* The way through from the token bar. Quiet — the bar's job is the
    address, and this must not compete with it. */
 .tbar-more {

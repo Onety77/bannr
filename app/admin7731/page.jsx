@@ -11,6 +11,7 @@ import AdminFeed from "@/components/AdminFeed";
 import AdminFunnel from "@/components/AdminFunnel";
 import AdminBuybacks from "@/components/AdminBuybacks";
 import AdminGrant from "@/components/AdminGrant";
+import AttachCa from "@/components/AttachCa";
 
 const FLAGS = [
   ["featuredWall", "Fresh wall"],
@@ -347,6 +348,20 @@ export default function AdminPage() {
                       </button>
                     ))}
                   </div>
+                  {/* THE ADDRESS YOU FOUND IT ON. Most banners are
+                      never posted to the feed — they go straight onto
+                      DEX Screener — so recognising one here and
+                      attaching its token is how those get counted in
+                      the directory.
+
+                      Only when it is already live on that token's
+                      page. Everything else in this product treats
+                      publishing as a deliberate act, and this is the
+                      one path that could put a private banner on a
+                      public page. The condition is that they
+                      published it themselves, somewhere more
+                      prominent than our feed. */}
+                  <AttachCa item={it} user={user} />
                 </div>
               </div>
             ))}
