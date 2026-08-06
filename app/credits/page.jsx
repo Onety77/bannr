@@ -178,7 +178,6 @@ export default function CreditsPage() {
       {/* Above the packs on purpose: for anyone holding enough, this
           IS the pricing, and finding it under the packs would mean
           finding it after deciding to pay. */}
-      <TokenBar />
 
       {msg && <div className="notice money page-gap-top">{msg}</div>}
       {err && <div className="notice error page-gap-top">{err}</div>}

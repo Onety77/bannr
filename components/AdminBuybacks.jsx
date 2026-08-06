@@ -102,8 +102,13 @@ export default function AdminBuybacks({ user }) {
         </button>
       </form>
       {err && <div className="notice error">{err}</div>}
+      {/* Both transactions, and it is worth saying which is which:
+          the burn is the supply that is gone, the swap is where the
+          SOL came from. Only the burn and the money is unexplained;
+          only the swap and the tokens could still come back. */}
       <p className="hint">
-        Amounts are read from the chain. Logging the same signature twice does nothing.
+        Log the swap and the burn separately — they are usually two transactions.
+        Amounts are read from the chain, and the same signature twice does nothing.
       </p>
 
       <div className="tok-log">
@@ -112,7 +117,13 @@ export default function AdminBuybacks({ user }) {
             <span className={`tok-tag${e.source === "product" ? " on" : ""}`}>
               {e.source === "product" ? "banners" : "fees"}
             </span>
-            <span className="tok-amt">{fmt(e.sol)} SOL → {fmt(e.burned || e.bought)}</span>
+            <span className="tok-amt">
+              {e.kind === "burn"
+                ? `${fmt(e.burned)} burned`
+                : e.kind === "both"
+                  ? `${fmt(e.sol)} SOL → ${fmt(e.burned)} burned`
+                  : `${fmt(e.sol)} SOL → ${fmt(e.bought)}`}
+            </span>
             <a
               className="tok-go"
               href={`https://solscan.io/tx/${e.signature}`}

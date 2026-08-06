@@ -59,7 +59,9 @@ export async function generateMetadata() {
     // The page still renders; it just unfurls with the standing line.
   }
 
-  const title = `$${symbol} — where the money goes`;
+  // Names only what we actually do. "Where the money goes" claimed to
+  // account for all of it, and we account for the part we buy back.
+  const title = `$${symbol} — buybacks and burns`;
   return {
     title,
     description,

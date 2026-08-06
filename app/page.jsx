@@ -124,13 +124,12 @@ export default async function Landing() {
               inside it as text, so nothing competes with the one
               obvious move. */}
           <HeroStart />
-          {/* The offer, or nothing. Before the token is announced
-              and any time the gate is off there is no free tier, and a
-              hero still promising one is worse than a hero that does
-              not mention it. */}
-          <p className="hero-note reveal d2">
-            {offer || "Pay per banner in SOL. No subscription, no seats."}
-          </p>
+          {/* The offer, or NOTHING. Before the token is announced
+              there is no free tier to describe, and the line that used
+              to sit here — "pay per banner in SOL, no subscription, no
+              seats" — was answering a pricing objection nobody had
+              reached yet, three seconds into the page. */}
+          {offer && <p className="hero-note reveal d2">{offer}</p>}
           {/* Renders nothing until the token is announced, so the hero
               is unchanged until the day it isn't. */}
           <div className="reveal d2"><TokenBar /></div>

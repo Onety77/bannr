@@ -57,7 +57,7 @@ export default function TokenView() {
     <main className="wrap tok-wrap">
       <div className="page-head">
         <h1>{sym}</h1>
-        <p>Where the money goes.</p>
+        <p>Every buyback and burn, on-chain.</p>
       </div>
 
       <TokenBar />
@@ -67,9 +67,18 @@ export default function TokenView() {
           <div className="tok-lines page-gap-top">
             {/* Product first, and given the weight, even though it is
                 the smaller number. It is the one that is hard to copy. */}
+            {/* Burned is the headline when there is any, because that
+                is the supply that is gone. Before the first burn it
+                says bought instead of standing there reading zero —
+                the tokens are real either way, they are just still in
+                a wallet. */}
             <div className="tok-line tok-line-lead">
               <span className="tok-src">From banners sold</span>
-              <b>{big(product?.burned)} {sym} burned</b>
+              <b>
+                {product?.burned
+                  ? <>{big(product.burned)} {sym} burned</>
+                  : <>{big(product?.bought)} {sym} bought</>}
+              </b>
               <em>
                 {fmt(product?.sol)} SOL spent
                 {d.revenue?.sol ? ` · ${fmt(d.revenue.sol)} SOL earned from ${d.revenue.count} purchases` : ""}
@@ -77,7 +86,11 @@ export default function TokenView() {
             </div>
             <div className="tok-line">
               <span className="tok-src">From trading fees</span>
-              <b>{big(fees?.burned)} {sym} burned</b>
+              <b>
+                {fees?.burned
+                  ? <>{big(fees.burned)} {sym} burned</>
+                  : <>{big(fees?.bought)} {sym} bought</>}
+              </b>
               <em>{fmt(fees?.sol)} SOL spent</em>
             </div>
           </div>
@@ -100,8 +113,16 @@ export default function TokenView() {
                 <span className={`tok-tag${e.source === "product" ? " on" : ""}`}>
                   {e.source === "product" ? "banners" : "fees"}
                 </span>
+                {/* Each row says what ITS transaction did. A swap and
+                    a burn are usually two of them, and a row claiming
+                    "0 SOL → 2.8M" or "12 SOL → 0" reads like a fault
+                    rather than like half of a pair. */}
                 <span className="tok-amt">
-                  {fmt(e.sol)} SOL → {big(e.burned || e.bought)} {sym}
+                  {e.kind === "burn"
+                    ? <>{big(e.burned)} {sym} burned</>
+                    : e.kind === "both"
+                      ? <>{fmt(e.sol)} SOL → {big(e.burned)} {sym} burned</>
+                      : <>{fmt(e.sol)} SOL → {big(e.bought)} {sym}</>}
                 </span>
                 <span className="tok-go" aria-hidden="true">↗</span>
               </a>

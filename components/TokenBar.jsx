@@ -103,7 +103,7 @@ export default function TokenBar({ compact = false }) {
           that row copies — the whole reason the bar is a button rather
           than a link — and making the container navigate would take
           the one action it was built for and give it to a page. */}
-      <Link className="tbar-more" href="/token">Where the money goes</Link>
+      <Link className="tbar-more" href="/token">Buybacks and burns</Link>
     </div>
   );
 }
