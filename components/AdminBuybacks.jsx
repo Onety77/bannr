@@ -22,6 +22,12 @@ export default function AdminBuybacks({ user }) {
   const [source, setSource] = useState("product");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  // What the chain says this transaction did, read BEFORE anything is
+  // recorded. Whether it was a swap or a burn is detected rather than
+  // chosen, so this is the only chance to see that it was understood
+  // correctly — without it you find out from the list afterwards.
+  const [look, setLook] = useState(null);
+  const [looking, setLooking] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -32,6 +38,35 @@ export default function AdminBuybacks({ user }) {
   }, [user]);
 
   useEffect(() => { if (user) load(); }, [user, load]);
+
+  // Re-read whenever the signature or the SOURCE changes — the source
+  // decides which wallet's balance is inspected, so the same
+  // transaction reads differently under each.
+  useEffect(() => {
+    const s = sig.trim();
+    setLook(null);
+    setErr(null);
+    if (s.length < 80 || !user) return;
+    let live = true;
+    setLooking(true);
+    const id = setTimeout(async () => {
+      try {
+        const token = await user.getIdToken();
+        const r = await fetch(`/api/admin/buyback?sig=${encodeURIComponent(s)}&source=${source}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const d = await r.json();
+        if (!live) return;
+        if (!r.ok) setErr(d.error || "Couldn't read that transaction.");
+        else setLook(d);
+      } catch {
+        if (live) setErr("Couldn't reach the network.");
+      } finally {
+        if (live) setLooking(false);
+      }
+    }, 350);
+    return () => { live = false; clearTimeout(id); };
+  }, [sig, source, user]);
 
   async function add(e) {
     e?.preventDefault();
@@ -47,6 +82,7 @@ export default function AdminBuybacks({ user }) {
       const d = await r.json();
       if (!r.ok) { setErr(d.error || "Couldn't read that transaction."); return; }
       setSig("");
+      setLook(null);
       setData(d);
     } catch {
       setErr("Network error.");
@@ -97,10 +133,32 @@ export default function AdminBuybacks({ user }) {
           <option value="product">From banners (treasury)</option>
           <option value="fees">From trading fees (dev wallet)</option>
         </select>
-        <button className="btn small primary" disabled={busy}>
+        <button className="btn small primary" disabled={busy || looking || !look || look.already}>
           {busy ? <span className="spinner" /> : "Log it"}
         </button>
       </form>
+
+      {/* What the chain says, before it is committed. The kind is
+          DETECTED — a swap and a burn are different transactions and
+          nobody chooses which this was — so this is the one moment to
+          see that it was read the way you meant. */}
+      {looking && <p className="bb-read">Reading the transaction…</p>}
+      {look && (
+        <p className={`bb-read${look.already ? " bb-read-dupe" : " on"}`}>
+          {look.already ? (
+            <>Already logged — nothing to do.</>
+          ) : look.kind === "burn" ? (
+            <><b>Burn</b> · {fmt(look.burned)} tokens destroyed</>
+          ) : look.kind === "both" ? (
+            <><b>Swap and burn</b> · {fmt(look.sol)} SOL → {fmt(look.burned)} tokens, burned</>
+          ) : (
+            <>
+              <b>Swap</b> · {fmt(look.sol)} SOL → {fmt(look.bought)} tokens
+              {look.sol === 0 && " — 0 SOL means that wallet didn't pay; check the source above"}
+            </>
+          )}
+        </p>
+      )}
       {err && <div className="notice error">{err}</div>}
       {/* Both transactions, and it is worth saying which is which:
           the burn is the supply that is gone, the swap is where the
