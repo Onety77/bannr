@@ -415,7 +415,7 @@ export async function POST(req) {
             // resolves by ignoring whichever it feels like. So the
             // choice is made once, here, and both halves are told.
             perConcept: indices.map((jobIndex) =>
-              optionDirection(styleId, jobs[jobIndex].settings)
+              optionDirection(styleId, jobs[jobIndex].settings, advanced[styleId] || {})
             ),
             // `concepts` is either true (the design director) or the
             // name of the one this style wants.

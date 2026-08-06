@@ -9,7 +9,7 @@
 // never implies you've changed things you haven't.
 // ============================================================
 "use client";
-import { controlsFor, defaultValue, isDefault, picked } from "@/lib/advanced";
+import { controlsFor, defaultValue, isDefault, isMulti, picked } from "@/lib/advanced";
 
 export default function AdvancedPanel({ styleId, settings, onChange, onReset, touched, slots = 1, onNeedSlots }) {
   const controls = controlsFor(styleId);
@@ -39,7 +39,9 @@ export default function AdvancedPanel({ styleId, settings, onChange, onReset, to
     <div className="adv">
       <div className="adv-head">
         <span className="hint">
-          Everything here is optional. Anything left on Default is decided for you.
+          Everything here is optional. Anything left on Default is decided for
+          you — and most settings take more than one answer, which spreads them
+          across your options.
         </span>
         {touched > 0 && (
           <button type="button" className="adv-reset" onClick={onReset}>
@@ -86,7 +88,7 @@ export default function AdvancedPanel({ styleId, settings, onChange, onReset, to
                 value={v}
                 onChange={(e) => set(c.key, e.target.value)}
               />
-            ) : c.multi ? (
+            ) : isMulti(c) ? (
               // Several answers, spread one per option. "Default" is
               // the empty selection rather than an option of its own —
               // clicking the last chosen value off returns to it, so
@@ -138,15 +140,13 @@ export default function AdvancedPanel({ styleId, settings, onChange, onReset, to
             {/* What the selection will actually do. Worth saying out
                 loud because the count can go stale underneath it: drop
                 a style or lower the option count after choosing three
-                shots and the third quietly stops being rendered, which
-                is exactly the kind of silent loss the plan preview
-                exists to prevent. */}
-            {c.multi && picked(v).length > 0 && (
+                answers and the third quietly stops being rendered,
+                which is exactly the kind of silent loss the plan
+                preview exists to prevent. */}
+            {isMulti(c) && picked(v).length > 1 && (
               <span className={`adv-spread ${picked(v).length > slots ? "over" : ""}`}>
                 {picked(v).length > slots
-                  ? `Only the first ${slots} will be used — this style gets ${slots} of the run's options.`
-                  : picked(v).length === 1
-                  ? `Every option takes this shot.`
+                  ? `Only the first ${slots} will be used — this style gets ${slots} of the run's ${slots === 1 ? "option" : "options"}.`
                   : `One each, across ${picked(v).length} of this style's ${slots} options.`}
               </span>
             )}
