@@ -24,6 +24,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PFP_STYLES, PFP_MAX, PFP_COST, PFP_TEXT_MAX, getPfpStyle, distributeStyles } from "@/lib/pfpStyles";
 import { saveImage } from "@/lib/download";
+import { useProgress } from "@/lib/useProgress";
 import { openTopUp } from "@/lib/modals";
 import { setUser } from "@/lib/credits";
 import StageAura from "@/components/StageAura";
@@ -57,6 +58,15 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
   const [images, setImages] = useState(null);
   const [zoom, setZoom] = useState(null);
   const inputRef = useRef(null);
+
+  // MUST STAY BELOW `busy`. Declared above it this reads a const
+  // before its declaration — a temporal dead zone that builds clean
+  // and throws on load in the browser. scripts/check-tdz.cjs exists
+  // because Lightbox did exactly this once.
+  //
+  // 30s rather than the banner's 45: one square with no art-director
+  // pass in front of it lands sooner than four banners with one.
+  const progress = useProgress(busy, 30_000);
 
   const plan = distributeStyles(styleIds, Math.max(count, styleIds.length));
   const showSwatches = styleIds.includes("solid");
@@ -280,8 +290,26 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
             <span className="pfp-cost">{plan.length * PFP_COST} credit{plan.length * PFP_COST === 1 ? "" : "s"}</span>
           </div>
 
-          <button className="btn primary block pfp-go" disabled={busy || !file} onClick={run}>
-            {busy ? <span className="spinner" /> : `Make ${plan.length === 1 ? "it" : plan.length}`}
+          {/* The same filling button the banner run has, not a bare
+              spinner. A spinner answers "is it working"; this answers
+              the thing anyone waiting actually wants to know, which is
+              how far in they are. Same hook, same markup, shorter
+              median — one square lands sooner than four banners. */}
+          <button
+            className={`btn primary block pfp-go gen-btn${busy ? " is-running" : ""}`}
+            disabled={busy || !file}
+            aria-busy={busy}
+            style={{ "--p": progress }}
+            onClick={run}
+          >
+            <span className="gen-fill" aria-hidden="true" />
+            <span className="gen-label">
+              {busy ? (
+                <><span className="spinner" /> Making {plan.length === 1 ? "it" : `${plan.length} options`}…</>
+              ) : (
+                `Make ${plan.length === 1 ? "it" : plan.length}`
+              )}
+            </span>
           </button>
           {error && <p className="pfp-err">{error}</p>}
         </div>
