@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getFirebase } from "@/lib/firebaseClient";
 import { ADMIN_EMAIL } from "@/lib/admin";
+import AdminLaunch from "@/components/AdminLaunch";
 import AdminToken from "@/components/AdminToken";
 import AdminFeed from "@/components/AdminFeed";
 import AdminFunnel from "@/components/AdminFunnel";
@@ -36,6 +37,10 @@ export default function AdminPage() {
   // rest of the time, so every consumer is a plain truthiness check
   // and there is no way to render the nudge when it is not owed.
   const [due, setDue] = useState(null);
+  // Blockers only — the count on the Launch tab. Loaded on arrival for
+  // the same reason as `due`: a badge that appears once you open the
+  // tab cannot tell you to open the tab.
+  const [blockers, setBlockers] = useState(0);
   // all = the 60 most recent. The rest ask "what is live right now",
   // which is a different question and the only one that can reach a
   // banner featured long enough ago to have fallen off the list.
@@ -118,10 +123,17 @@ export default function AdminPage() {
     (async () => {
       try {
         const token = await user.getIdToken();
-        const res = await fetch("/api/admin/buyback", { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) return;
-        const d = await res.json();
-        if (live) setDue(d?.promise?.due ? d.promise : null);
+        const auth = { headers: { Authorization: `Bearer ${token}` } };
+        // Both in one pass, both silent on failure. Neither is the
+        // reason you came to this page, and an error banner for a
+        // background check would sit on top of whatever is.
+        const [pay, launch] = await Promise.all([
+          fetch("/api/admin/buyback", auth).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+          fetch("/api/admin/launch", auth).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        ]);
+        if (!live) return;
+        setDue(pay?.promise?.due ? pay.promise : null);
+        setBlockers(launch?.counts?.blockers || 0);
       } catch {}
     })();
     return () => { live = false; };
@@ -260,6 +272,13 @@ export default function AdminPage() {
       <AdminFunnel user={user} />
 
       <div className="admin-tabs">
+        {/* First, because it is the only tab that answers a question
+            you might not know to ask. The rest report on things you
+            came looking for. */}
+        <button className={tab === "launch" ? "on" : ""} onClick={() => setTab("launch")}>
+          Launch
+          {blockers > 0 ? <span className="admin-badge due">{blockers}</span> : null}
+        </button>
         <button className={tab === "generations" ? "on" : ""} onClick={() => setTab("generations")}>
           Generations
         </button>
@@ -340,6 +359,7 @@ export default function AdminPage() {
         </div>
       )}
 
+      {tab === "launch" && <div className="swap" key="launch"><AdminLaunch user={user} /></div>}
       {tab === "token" && <div className="swap" key="token"><AdminToken user={user} /></div>}
       {tab === "feed" && <div className="swap" key="feed"><AdminFeed user={user} /></div>}
       {tab === "money" && (

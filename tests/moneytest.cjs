@@ -590,6 +590,55 @@ let weekly = Promise.resolve();
   ok(/t\.buybackPct > 0 \? await commitment/.test(PUB), "0% publishes nothing rather than a claim nobody made");
 }
 
+console.log("\n10. THE LAUNCH CHECK REPORTS PRESENCE, NEVER VALUES");
+{
+  const L = read("app/api/admin/launch/route.js");
+  const b = bare(L);
+  ok(/requireAdmin\(req\)/.test(b), "admin-verified on every call");
+
+  // ══ THE RULE THIS PAGE LIVES OR DIES BY ══
+  //
+  // An admin session is a Google account, and a page that renders
+  // secrets is one screenshot away from leaking them. Every env var
+  // must reach the response as a boolean — no key, no wallet address,
+  // not even a masked prefix.
+  const refs = [...b.matchAll(/process\.env\.([A-Z_0-9]+)/g)].map((m) => m[0]);
+  ok(refs.length > 0, "it does read the environment");
+  // THE FIRST VERSION OF THIS ASSERTION WAS USELESS, and proving it
+  // was what caught that: it asked whether each variable was wrapped
+  // in Boolean() ANYWHERE in the file, so a var read safely on one
+  // line and leaked raw on the next still passed. Injecting exactly
+  // that bug produced zero failures.
+  //
+  // What matters is not how a value is read but what is ASSIGNED, so
+  // the rule is now about the shape of the response: no property may
+  // take a raw env value. A ternary is fine — it yields a string we
+  // wrote, never the secret.
+  //
+  // A ternary is safe — `detail: process.env.X ? "Set." : "Missing."`
+  // yields a sentence we wrote, never the secret — so the check looks
+  // at what FOLLOWS the variable rather than trying to express that in
+  // one pattern. Two attempts at a pure regex passed a real leak and
+  // then flagged a safe line; reading the next characters in JS is
+  // both shorter and actually right.
+  // `\s*.` rather than a fixed window: the `?` of a ternary is usually
+  // on the NEXT line after indentation, and a four-character lookahead
+  // never reached it — which flagged every safe line in the file.
+  const leaks = [...b.matchAll(/\b(?:ok|detail|fix|label|id)\s*:\s*process\.env\.[A-Z_0-9]+(\s*.)/g)]
+    .filter((m) => m[1].trim() !== "?");
+  ok(leaks.length === 0,
+     "AND NO FIELD IS EVER ASSIGNED A RAW ENV VALUE — every one is a boolean or a sentence");
+  // Belt and braces: nothing interpolates an env var into a string.
+  ok(!/\$\{process\.env\./.test(b), "no env var is ever interpolated into a message");
+
+  // The rehearsal cannot be read from config and must not be guessed.
+  ok(/ok: null/.test(b), "the item nothing can verify is left unanswerable rather than ticked");
+
+  const C = bare(read("components/AdminLaunch.jsx"));
+  ok(/RANK\[a\.severity\] - RANK\[b\.severity\]/.test(C), "blockers sort above everything else");
+  ok(/i\.ok !== true && <p className="lx-fix">/.test(C), "and only unresolved rows say where to go");
+}
+
 // Awaited, so the async block above is counted. Reporting before it
 // resolved is what made three assertions invisible.
 weekly.then(() => {

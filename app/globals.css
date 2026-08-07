@@ -4339,3 +4339,48 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
   max-width: 78ch;
 }
 .tk-ladder-note b { color: var(--text); font-weight: 650; }
+
+/* ---- the launch checklist ----
+   Sorted by what will hurt, not by which panel a setting lives in.
+   The mark on the left is the whole scan: a column of ticks with two
+   exclamation marks in it is readable in a second, which a column of
+   sentences is not. */
+.launch-list { display: grid; gap: 10px; margin-top: 16px; }
+.lx {
+  display: flex; gap: 13px; align-items: flex-start;
+  padding: 14px 16px; border-radius: var(--r-lg);
+  background: var(--bg-soft);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+[data-theme="dark"] .lx { background: var(--card-soft); }
+.lx-mark {
+  flex: none; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; line-height: 1;
+  background: var(--hairline); color: var(--muted);
+}
+.lx-body { min-width: 0; }
+.lx-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.lx-head b { font-size: 14.5px; letter-spacing: -0.01em; }
+.lx-sev {
+  font-family: var(--mono, monospace); font-size: 10px; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--faint);
+}
+.lx-detail { margin-top: 3px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+/* Where to go. Monospace so it reads as a path rather than as more
+   prose — you are meant to skim to it, not read it. */
+.lx-fix {
+  margin-top: 6px; font-family: var(--mono, monospace);
+  font-size: 11.5px; color: var(--faint);
+}
+/* Done recedes. It has nothing left to tell you. */
+.lx.ok { opacity: 0.55; }
+.lx.ok .lx-mark { background: color-mix(in srgb, var(--ok, #2FD98B) 26%, transparent); color: var(--text); }
+.lx.blocker { box-shadow: inset 0 0 0 1px var(--danger); }
+.lx.blocker .lx-mark { background: var(--danger); color: #fff; }
+.lx.blocker .lx-sev { color: var(--danger); }
+.lx.launch .lx-mark { background: var(--accent); color: var(--on-accent); }
+/* Nothing here can read whether a rehearsal happened. Left visibly
+   unanswerable rather than guessed at — a green tick on something
+   nobody verified is worse than an open question. */
+.lx.unknown .lx-mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }

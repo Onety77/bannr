@@ -10,7 +10,7 @@ Next.js · OpenAI `gpt-image-2` · Solana wallet auth · Firestore accounts · S
 
 ```
 npm run check    # TDZ, CSS, nav and event-handler guards (also runs on prebuild)
-npm test         # 26 regression files, ~1680 assertions
+npm test         # 26 regression files, ~1690 assertions
 npm test pfp     # …filtered by filename
 ```
 
