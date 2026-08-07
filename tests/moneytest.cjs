@@ -101,7 +101,12 @@ console.log("\n3b. READ IT BACK BEFORE COMMITTING");
   // The kind is detected, not chosen, so the preview is the only
   // moment to see the transaction was understood the way it was meant.
   ok(ADMINR.includes('const sig = (url.searchParams.get("sig") || "").trim();'), "GET can inspect one signature");
-  ok(ADMINR.includes("if (!sig) return NextResponse.json(await ledger(200));"), "and still returns the ledger without one");
+  // Was pinned to the exact line. It returns the commitment alongside
+  // the ledger now, so the assertion is on the behaviour: no signature
+  // means the ledger comes back rather than an inspection.
+  ok(/if \(!sig\) \{[\s\S]*?await ledger\(200\)/.test(ADMINR), "and still returns the ledger without one");
+  ok(/promise: g\.buybackPct > 0 \? await commitment/.test(ADMINR),
+     "with what is still owed, which is the question the panel is open to answer");
   ok(!/db.collection\("buybacks"\).doc/.test(ADMINR), "the preview records NOTHING — that is the point");
   ok(ADMINR.includes("const already = entries.some"), "and says when a signature is already logged");
 
@@ -444,5 +449,73 @@ console.log("\n8. THE PAYMENT FIELD THAT HAD DRIFTED");
   ok(read("app/api/settings/route.js").includes("amountSol"), "which is what /settings was reading all along");
 }
 
-console.log(bad ? "\n" + bad + " FAILED\n" : "\nall green\n");
-process.exit(bad ? 1 : 0);
+console.log("\n9. THE COMMITMENT IS ARITHMETIC, NOT A SLOGAN");
+let weekly = Promise.resolve();
+{
+  // lastSevenDays is pure when it is handed the rows, so this runs
+  // the shipped function rather than a description of it.
+  const week = new Function(
+    "ledger",
+    B.replace(/^import[^\n]*$/gm, "").replace(/^export /gm, "") + "\nreturn lastSevenDays;"
+  )(async () => ({ entries: [] }));
+
+  const now = Date.now();
+  const day = 24 * 3600_000;
+  // ══ THE EXIT HAS TO WAIT FOR THIS ══
+  //
+  // lastSevenDays is async, and the first version of this block ran it
+  // in a bare `(async () => {...})()`. process.exit() at the bottom of
+  // the file is synchronous, so it fired before the microtask ever
+  // ran: three assertions that reported nothing, failed nothing, and
+  // looked exactly like passing. The suite's own warning about
+  // vacuously-true assertions, arrived at from a new direction. The
+  // promise is exported and the final report awaits it.
+  weekly = (async () => {
+    const rows = [
+      { ts: now - 1 * day, source: "product", sol: 2, bought: 1000, burned: 1000 },
+      { ts: now - 6 * day, source: "product", sol: 1, bought: 500, burned: 0 },
+      { ts: now - 9 * day, source: "product", sol: 50, bought: 99999, burned: 99999 },
+      { ts: now - 2 * day, source: "fees", sol: 30, bought: 8000, burned: 8000 },
+    ];
+    const w = await week(rows);
+    ok(w.sol === 3, "the weekly figure counts only the last seven days (got " + w.sol + ")");
+    ok(w.count === 2, "two rows, not four");
+    // Fee buybacks are circular and traders discount them correctly.
+    // Letting a busy trading week discharge a promise made about
+    // customer revenue is the specific dishonesty this prevents.
+    ok(w.burned === 1000, "AND ONLY PRODUCT REVENUE — a fee buyback cannot pay off a product promise");
+  })();
+
+  ok(/export async function commitment/.test(B), "the promise is computed, not stated");
+  ok(/outstandingSol: Math\.max\(0/.test(B) && /aheadSol: Math\.max\(0/.test(B),
+     "the gap is a figure, in both directions");
+  // A promise measured only by its running total rots quietly upward.
+  ok(/spentBySource/.test(B), "spend is summed across the WHOLE ledger, not the page being displayed");
+  // Everything from one export to the next. Crude, and enough to ask
+  // "what does THIS function do" without matching a neighbour's code.
+  const fn = (name) => {
+    const i = B.indexOf(name);
+    if (i < 0) return "";
+    const j = B.indexOf("\nexport ", i + name.length);
+    return B.slice(i, j < 0 ? B.length : j);
+  };
+  ok(!/limit\(100\)/.test(fn("export async function spentBySource")),
+     "so pagination cannot make a kept promise read as broken");
+  ok(/usd \+= Number\(p\.usd \?\? 0\)/.test(B), "revenue carries the dollars it was actually priced at");
+  ok(!/solUsd|rate\b/.test(bare(fn("export async function productRevenue"))),
+     "and never reconstructs them from today's rate, which would move the published figure with SOL");
+
+  const VIEW = bare(read("components/TokenView.jsx"));
+  ok(/d\.promise &&/.test(VIEW), "the page states it only when a percentage is published");
+  ok(/outstandingSol > 0/.test(VIEW), "and says so when it is behind, which is what makes it checkable");
+
+  const PUB = read("app/api/buybacks/route.js");
+  ok(/t\.buybackPct > 0 \? await commitment/.test(PUB), "0% publishes nothing rather than a claim nobody made");
+}
+
+// Awaited, so the async block above is counted. Reporting before it
+// resolved is what made three assertions invisible.
+weekly.then(() => {
+  console.log(bad ? "\n" + bad + " FAILED\n" : "\nall green\n");
+  process.exit(bad ? 1 : 0);
+});

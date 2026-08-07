@@ -366,7 +366,18 @@ export default function CreditsPage() {
       {ladder.length > 0 && (
         <section className="ladder page-gap">
           <div className="panel-head">
-            <h3>{armed ? `Hold ${sym}` : "Your plan"}</h3>
+            {/* ══ NEVER "YOUR PLAN" ══
+                It said that before the tiers were armed, sitting
+                directly under three purchase buttons and above a card
+                marked "You" — which is a purchase-tier layout, and
+                "plan" is SaaS language for the thing you buy. Aminu
+                designed this ladder and still read it as "buy a pack,
+                change your plan". If he read it that way, everyone
+                will.
+
+                The verb carries the whole distinction, so the verb is
+                in the heading in both states. */}
+            <h3>{armed ? `Hold ${sym}` : `Holding ${sym}`}</h3>
             {/* ONE control, not one per card. The point of opening
                 this is comparing the rungs, and four separate toggles
                 makes comparison a sequence of taps — on a phone, the
@@ -376,6 +387,11 @@ export default function CreditsPage() {
               {openLadder ? "Hide" : "What each gets"}
             </button>
           </div>
+          {/* The axis, in one line, because the packs above are the
+              other axis and the two were reading as one. States the
+              fact and stops — no explanation of why the token works
+              this way, which is our reasoning and not theirs. */}
+          <p className="lad-axis">Separate from credits. Nothing to buy.</p>
           <div className={`ladder-grid ${armed ? "" : "solo"}`}>
             {ladder.map((t) => {
               const mine = (you?.tierId || "free") === t.id;

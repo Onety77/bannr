@@ -102,6 +102,9 @@ export default function AdminBuybacks({ user }) {
   }
 
   const t = data?.totals;
+  // Below the state it reads. `promise` is null until a percentage is
+  // set in the Token panel, and the row simply does not render.
+  const p = data?.promise;
 
   return (
     <div className="panel">
@@ -121,6 +124,38 @@ export default function AdminBuybacks({ user }) {
           <b>{data?.entries?.length || 0}</b><span>logged</span>
         </div>
       </div>
+
+      {/* ══ WHAT TO BUY NEXT ══
+
+          The four figures above are what already happened. This is the
+          only number that answers the question you opened this panel
+          to ask, and it is deliberately given a whole row: a promise
+          measured only by its running total rots quietly upward, and
+          nobody notices it is behind until somebody else does the
+          subtraction in public.
+
+          Absent until a percentage is published in the Token panel —
+          before that there is no promise to be behind on. */}
+      {p && (
+        <div className={`bb-owed ${p.outstandingSol > 0 ? "short" : "ok"}`}>
+          {p.outstandingSol > 0 ? (
+            <>
+              <b>{fmt(p.outstandingSol)} SOL to buy</b>
+              <em>
+                {p.pct}% of {fmt(p.revenueSol)} SOL earned is {fmt(p.owedSol)}; {fmt(p.spentSol)} spent.
+              </em>
+            </>
+          ) : (
+            <>
+              <b>Commitment met</b>
+              <em>
+                {p.pct}% of {fmt(p.revenueSol)} SOL earned is {fmt(p.owedSol)}; {fmt(p.spentSol)} spent
+                {p.aheadSol > 0 ? `, ${fmt(p.aheadSol)} ahead.` : "."}
+              </em>
+            </>
+          )}
+        </div>
+      )}
 
       <form className="bb-add" onSubmit={add}>
         <input

@@ -113,11 +113,19 @@ reduce to `entitlementsOf()`.
 `orderBy` on another throws at runtime, not at build. Over-fetch and filter in
 memory. `lib/directory.js` and `lib/stats.js` both do this deliberately.
 
-**`npm run check` runs three real checks and is wired to `prebuild`.**
+**`npm run check` runs four real checks and is wired to `prebuild`.**
 - `check-tdz` exists because `Lightbox.jsx` once read a `const` above its
   declaration. It built clean and threw on load in production, on the one page
   that renders it. Keep hooks below the state they read.
 - `check-css` and `check-nav` guard class-name drift and unreachable tabs.
+- `check-handlers` exists because `/create` shipped `onClick={importCA}`. React
+  passes the click event as the first argument, `String(event)` is
+  `"[object Object]"`, and the Fetch button reported *"that doesn't look like a
+  contract address"* for every address ever typed into it. It read as a broken
+  address validator and was a broken button — and it survived because the paste
+  path called the same function correctly, so the field filled and only the
+  button was dead. Write `onClick={() => fn()}`. The check stays quiet by only
+  flagging real DOM events whose handler's first parameter is not event-named.
 
 **`npm test` runs `tests/*.cjs`** — 26 files, ~1600 assertions. Every block is
 a regression with a comment saying what broke. They read real source and, for
@@ -255,12 +263,31 @@ Tokens ratchet: the position that qualified you still qualifies you. Set them
 FROM a dollar figure with the calculator in the admin panel, at admin time,
 where a dead price feed is a blank field rather than an outage.
 
-**Still open:** ~30% of product revenue to buyback, published on `/token`.
-Agreed, not built — deliberately deferred, and it is the next thing. Note what
-the numbers actually say: 30% of 100 buyers a month is ~$660 of buying, which
-is a visible bid at a small market cap and noise at a large one. Publish the
-weekly dollar figure, not the percentage — a percentage with no denominator
-invites people to imagine a big number and then feel lied to.
+**The buyback commitment is built as ACCOUNTING, not as a bot.** `buybackPct`
+in the gate config (0 = publish nothing, which is the honest default until you
+intend to honour a number). `commitment()` in `lib/buybacks.js` computes what
+revenue obliges, what has been spent, and the gap; `/token` publishes all three
+including when it is behind, and the admin Buybacks panel leads with what is
+still to buy.
+
+**No hot wallet, deliberately.** Auto-swapping needs signing keys on a server
+for the wallet holding the treasury, which is a drain risk larger than anything
+else in this codebase. The half that makes the pitch work is the provable half,
+and it is provable with a human executing the swap. Do not add an auto-swapper
+without treating it as its own security project.
+
+Two rules that came out of building it: **fees never discharge a product
+promise** — fee buybacks are circular and traders discount them correctly, so
+letting a busy trading week pay off a commitment made about customer revenue is
+a real dishonesty. And **the gap is published even when negative** — a promise
+measured only by its running total rots quietly upward and nobody can tell it
+is behind.
+
+Note what the numbers actually say: 30% of 100 buyers a month is ~$660 of
+buying, a visible bid at a small market cap and noise at a large one. Publish
+the weekly dollar figure, not the percentage — a percentage with no denominator
+invites people to imagine a big number and then feel lied to. `lastSevenDays()`
+is that figure.
 
 **Two risks worth watching:** the new prices are 2.5–3× the old per-credit
 rate. The mitigation is the free run plus the feed and the performing-tokens

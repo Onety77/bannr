@@ -8,8 +8,8 @@ the decisions, what has already been tried and failed, and how the prompts are
 built. This file is only the part that must never be got wrong.
 
 ```
-npm run check    # TDZ, CSS and nav guards — also runs on prebuild
-npm test         # 26 regression files, ~1600 assertions
+npm run check    # TDZ, CSS, nav and event-handler guards — also runs on prebuild
+npm test         # 26 regression files, ~1650 assertions
 npm test pfp     # filtered by filename
 ```
 

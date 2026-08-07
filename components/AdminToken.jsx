@@ -263,6 +263,22 @@ export default function AdminToken({ user }) {
             </em>
           </label>
           <label className="tk-f">
+            <span>% of banner revenue to buybacks</span>
+            <input
+              type="number" min={0} max={100}
+              value={form.buybackPct}
+              onChange={(e) => set("buybackPct", e.target.value)}
+            />
+            <em>
+              Published on <b>/token</b> with the arithmetic beside it — what it
+              obliges so far, what has actually been spent, and the gap. The gap is
+              shown even when you are behind, which is what makes it a commitment
+              rather than a claim. <b>0 publishes nothing at all</b>, which is the
+              honest setting until you intend to honour a number.
+              {form.buybackPct > 0 && <> Trading fees do not count toward it.</>}
+            </em>
+          </label>
+          <label className="tk-f">
             <span>One line shown to holders (optional)</span>
             <input value={form.note} onChange={(e) => set("note", e.target.value)} maxLength={200} />
           </label>

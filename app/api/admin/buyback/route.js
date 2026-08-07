@@ -7,7 +7,7 @@
 // numbers trustworthy — being unable to type them is.
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
-import { record, remove, ledger, inspect } from "@/lib/buybacks";
+import { record, remove, ledger, inspect, commitment } from "@/lib/buybacks";
 import { getGate } from "@/lib/tokenGate";
 
 export const runtime = "nodejs";
@@ -22,7 +22,18 @@ export async function GET(req) {
 
   const url = new URL(req.url);
   const sig = (url.searchParams.get("sig") || "").trim();
-  if (!sig) return NextResponse.json(await ledger(200));
+  if (!sig) {
+    // The ledger, plus what is still owed against the published
+    // commitment. The panel's job is deciding what to buy next, and
+    // that decision is the outstanding figure — not the running total,
+    // which only says what already happened.
+    const g = await getGate();
+    return NextResponse.json({
+      ...(await ledger(200)),
+      promise: g.buybackPct > 0 ? await commitment(g.buybackPct) : null,
+      buybackPct: g.buybackPct || 0,
+    });
+  }
 
   const gate = await getGate();
   const found = await inspect(sig, { mint: gate.mint, wallet: walletFor(url.searchParams.get("source")) });

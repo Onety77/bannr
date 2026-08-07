@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "check": "node scripts/check-tdz.cjs && node scripts/check-css.cjs && node scripts/check-nav.cjs",
+    "check": "node scripts/check-tdz.cjs && node scripts/check-css.cjs && node scripts/check-nav.cjs && node scripts/check-handlers.cjs",
     "prebuild": "npm run check",
     "test": "node tests/run.cjs"
   },

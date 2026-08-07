@@ -9,8 +9,8 @@ Next.js · OpenAI `gpt-image-2` · Solana wallet auth · Firestore accounts · S
 > already been tried and failed — none of which the code can tell you.
 
 ```
-npm run check    # TDZ, CSS and nav guards (also runs on prebuild)
-npm test         # 26 regression files, ~1600 assertions
+npm run check    # TDZ, CSS, nav and event-handler guards (also runs on prebuild)
+npm test         # 26 regression files, ~1650 assertions
 npm test pfp     # …filtered by filename
 ```
 
@@ -114,7 +114,8 @@ Charged after validation but before any paid API call, and refunded
 server-side if the run fails. Partial success still costs a full run — every
 variant that ran cost real money whether it came back or not.
 
-Measured API cost: **~$0.024 per image, ~$0.073 per 3-variant run.**
+Measured API cost: **~$0.024 per image, ~$0.081 per 3-variant run** — three
+images plus the art-director text call that steers them.
 
 ---
 

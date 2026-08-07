@@ -411,7 +411,14 @@ function CreateInner() {
   // before setCa has flushed, and reading state there would fetch the
   // PREVIOUS value.
   async function importCA(addressArg) {
-    const addr = String(addressArg ?? ca).trim();
+    // ONLY A STRING COUNTS AS AN ADDRESS. `?? ca` alone was not
+    // enough: an event object is not null, so it passed the nullish
+    // check and became the literal text "[object Object]", which then
+    // failed the shape test below and was reported to the user as a
+    // bad address. A wiring mistake wearing a validation error's
+    // clothes. Anything that is not a string now falls through to the
+    // field's own value, which is what every caller meant.
+    const addr = String(typeof addressArg === "string" ? addressArg : ca).trim();
     if (!addr) return;
 
     // Shape-check first. The server does this too, but catching it
@@ -443,11 +450,12 @@ function CreateInner() {
       if (d.name) setField("name", d.name.slice(0, 60));
       if (d.symbol) setField("ticker", (d.symbol.startsWith("$") ? d.symbol : "$" + d.symbol).slice(0, 16));
       if (d.description) setField("vibe", d.description.slice(0, 400));
-      // Isolated on purpose: this hits a third-party URL from the
-      // token's own metadata — very often a slow or dead IPFS gateway.
-      // A hang here would previously stall the whole import, and a
-      // failure would report "network error" even though the name,
-      // ticker and description had already imported fine.
+      // Isolated on purpose. /api/lookup already downloads the image
+      // and hands back a data URL, so this no longer reaches a dead
+      // IPFS gateway — but it still decodes a payload of unknown size
+      // from an untrusted source, and a failure here must not report
+      // as a failed import when the name, ticker and description
+      // landed fine.
       let gotLogo = false;
       if (d.logo) {
         try {
@@ -458,10 +466,17 @@ function CreateInner() {
           }
         } catch {}
       }
+      // ══ "NO LOGO" IS NOT AN ERROR, AND MUST NOT READ AS ONE ══
+      //
+      // Most EVM tokens simply have no image to fetch — there is no
+      // on-chain image on those chains and DexScreener only has one if
+      // somebody uploaded it. "Couldn't fetch a logo" describes that
+      // as our failure and invites a retry that will never work.
+      // It states what happened and what to do, and stops.
       setCaMsg(
         `Imported ${d.name || d.symbol}.` +
-          (gotLogo ? "" : " Couldn't fetch a logo — upload one below.") +
-          (d.description ? "" : " Add a short About to steer the style.")
+          (gotLogo ? "" : " No logo found — add one below.") +
+          (d.description ? "" : " An About steers the style.")
       );
     } catch (e) {
       setCaMsg(
@@ -1314,7 +1329,17 @@ function CreateInner() {
                   </button>
                 )}
               </div>
-              <button className="btn small primary" disabled={caBusy || !ca.trim()} onClick={importCA}>
+              {/* () => importCA(), NEVER onClick={importCA}. Passed
+                  directly, React hands the click event in as the
+                  address argument, `String(event)` becomes
+                  "[object Object]", and the shape check rejects it —
+                  so this button reported "that doesn't look like a
+                  contract address" for every address ever typed into
+                  it. It looked like an address-validation bug and was
+                  a wiring bug, which is why it survived: the paste
+                  path worked, so the field filled and only the button
+                  was dead. */}
+              <button className="btn small primary" disabled={caBusy || !ca.trim()} onClick={() => importCA()}>
                 {caBusy ? <span className="spinner" /> : "Fetch"}
               </button>
             </div>

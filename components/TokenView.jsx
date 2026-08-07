@@ -174,6 +174,39 @@ export default function TokenView() {
             </div>
           </div>
 
+          {/* ══ THE PROMISE, AND WHETHER IT IS BEING KEPT ══
+
+              The pitch is "app revenue buys this token back", and a
+              pitch without the arithmetic beside it is a claim. So the
+              percentage is stated with the amount it currently obliges
+              and the amount actually spent — including when that is
+              short, because a promise nobody can check against is not
+              a promise, and showing only the running total lets one
+              rot quietly upward.
+
+              Absent until a percentage is published. A commitment
+              rendered at 0% would invent a claim nobody made. */}
+          {d.promise && (
+            <p className="tok-promise">
+              <b>{d.promise.pct}% of what banners earn buys {sym} back.</b>{" "}
+              {d.promise.outstandingSol > 0
+                ? `${fmt(d.promise.outstandingSol)} SOL of that is still to be spent.`
+                : d.promise.aheadSol > 0
+                ? `${fmt(d.promise.aheadSol)} SOL more than that has been spent.`
+                : "Fully spent."}
+            </p>
+          )}
+
+          {/* The weekly figure, which is the one that reads as a
+              standing bid. A percentage has no denominator; an amount
+              can be checked. */}
+          {d.week?.sol > 0 && (
+            <p className="tok-week">
+              Last 7 days: {fmt(d.week.sol)} SOL{" "}
+              {d.week.burned ? <>→ {big(d.week.burned)} {sym} burned</> : <>→ {big(d.week.bought)} {sym}</>}
+            </p>
+          )}
+
           <p className="tok-note">
             Every line opens on-chain.
           </p>
