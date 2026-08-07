@@ -39,9 +39,7 @@ export default function AdvancedPanel({ styleId, settings, onChange, onReset, to
     <div className="adv">
       <div className="adv-head">
         <span className="hint">
-          Everything here is optional. Anything left on Default is decided for
-          you — and most settings take more than one answer, which spreads them
-          across your options.
+          All optional. Most take more than one answer, spread across your options.
         </span>
         {touched > 0 && (
           <button type="button" className="adv-reset" onClick={onReset}>

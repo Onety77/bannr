@@ -259,7 +259,7 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
               ref={inputRef}
               rows={2}
               maxLength={400}
-              placeholder="What should change? e.g. make the mascot bigger, remove the text at the bottom, warmer colours… (attach an image to show what you mean)"
+              placeholder="make the mascot bigger, warmer colours"
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
               onKeyDown={(e) => {

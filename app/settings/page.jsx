@@ -282,7 +282,7 @@ export default function SettingsPage() {
           </div>
           <p className="hint">
             {identities?.length > 1
-              ? "Either one opens this account and the same credits."
+              ? "Either one opens this account."
               : "You can't remove the last one."}
           </p>
         </div>
@@ -300,7 +300,7 @@ export default function SettingsPage() {
       <div className="panel">
         <div className="panel-head">
           <h3>Billing</h3>
-          <span className="hint">Tap any of these to open the transaction.</span>
+          <span className="hint">Tap one to open the transaction.</span>
         </div>
         {payments.length === 0 ? (
           <p className="hint">No purchases yet.</p>
@@ -328,13 +328,13 @@ export default function SettingsPage() {
       <div className="panel">
         <div className="panel-head">
           <h3>Never include</h3>
-          <span className="hint">Applied to every style, on every run</span>
+          <span className="hint">Every style, every run</span>
         </div>
         <input
           type="text"
           className="adv-text"
           maxLength={300}
-          placeholder="e.g. no people, nothing religious, never use red…"
+          placeholder="no people, never use red"
           value={settings.avoid}
           onChange={(e) => patch({ avoid: e.target.value })}
         />
@@ -391,7 +391,7 @@ export default function SettingsPage() {
       <div className="panel">
         <div className="panel-head">
           <h3>Style defaults</h3>
-          <span className="hint">Set a style once instead of every run</span>
+          <span className="hint">Set once instead of every run</span>
         </div>
         <div className="set-styles">
           {pickable.map((t) => {

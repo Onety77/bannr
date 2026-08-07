@@ -169,7 +169,7 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
             before they have uploaded anything. The work speaks after
             the picture arrives; describing it beforehand is us
             admiring our own engineering at the user. */}
-        <p>Square, built around your subject. Any image works.</p>
+        <p>Square, built around your subject.</p>
       </div>
 
       <div className="pfp-grid">
@@ -181,9 +181,7 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
                 it means something else. These are all the SAME thing,
                 and saying so is what stops someone attaching a mood
                 board and getting a collage. */}
-            <span className="pfp-help">
-              Up to {PFP_IMAGES_MAX}, all of the same subject. More views means a better read of it.
-            </span>
+            <span className="pfp-help">Up to {PFP_IMAGES_MAX}, all of the same subject.</span>
           </label>
 
           <div className="pfp-shots">
@@ -207,7 +205,7 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
                 ) : (
                   <span className="pfp-drop-txt">
                     <b>Drop an image</b>
-                    <span>or tap to choose · PNG, JPG, WEBP</span>
+                    <span>PNG, JPG or WEBP</span>
                   </span>
                 )}
               </button>
@@ -233,7 +231,7 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
         <div className="pfp-panel">
           <label className="pfp-label">
             Style
-            {styleIds.length > 1 && <span className="pfp-help">One per option, in the order picked.</span>}
+            {styleIds.length > 1 && <span className="pfp-help">One per option.</span>}
           </label>
           <div className="pfp-styles">
             {PFP_STYLES.map((s) => {
@@ -286,7 +284,7 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
 
           <label className="pfp-label">
             Text
-            <span className="pfp-help">Optional. Usually a name or ticker — leave it empty for none.</span>
+            <span className="pfp-help">Leave it empty for none.</span>
           </label>
           <input
             className="pfp-text"
@@ -316,7 +314,7 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
               <span className="pfp-track" aria-hidden="true"><span className="pfp-knob" /></span>
               <span className="pfp-toggle-txt">
                 <b>Make a new background</b>
-                <span>{newBg ? "The original setting is replaced." : "Whatever it was shot in stays."}</span>
+                <span>{newBg ? "The original is replaced." : "The original stays."}</span>
               </span>
             </button>
           )}
@@ -328,13 +326,13 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
             <>
               <label className="pfp-label">
                 Anything you want
-                <span className="pfp-help">Optional. Say it plainly — "make him look left", "give it a hoodie".</span>
+                <span className="pfp-help">Optional.</span>
               </label>
               <textarea
                 className="pfp-text pfp-wants"
                 rows={2}
                 maxLength={PFP_WANTS_MAX}
-                placeholder="Leave empty and it decides for you."
+                placeholder="give it a hoodie, make him look left"
                 value={wants}
                 onChange={(e) => setWants(e.target.value)}
               />

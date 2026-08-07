@@ -122,7 +122,6 @@ export default function TokenView() {
               rather than assuming favouritism. */}
           <p className="tok-note">
             Live tokens made with bannr, above {usd(d.floor || 15000)} market cap.
-            They drop off below it and come back if they recover.
           </p>
           <div className="tok-grid">
             {d.tokens.map((t) => (
@@ -176,8 +175,7 @@ export default function TokenView() {
           </div>
 
           <p className="tok-note">
-            Burned tokens go to the incinerator and cannot come back.
-            Every line below opens on-chain.
+            Every line opens on-chain.
           </p>
 
           <div className="tok-log">

@@ -1193,7 +1193,7 @@ function CreateInner() {
             <div className="ca-row">
               <div className="ca-field">
                 <input
-                  placeholder="Paste the contract address — Solana, Ethereum, Base, BNB…"
+                  placeholder="Paste the contract address"
                   value={ca}
                   onChange={(e) => setCa(e.target.value)}
                   onFocus={() => { setCaRecent(getRecentCAs()); setCaOpen(true); }}
@@ -1260,7 +1260,7 @@ function CreateInner() {
               </button>
             </div>
             <div className="hint">
-              Name, ticker, logo and description fill themselves. Everything stays editable.
+              Name, ticker, logo and description fill themselves.
             </div>
             {caMsg && <div className="hint ca-msg">{caMsg}</div>}
           </div>
@@ -1282,7 +1282,7 @@ function CreateInner() {
               ) : (
                 <div>
                   Drop your logo or mascot here
-                  <div className="hint">PNG, JPG or WEBP · required — the banner is built around it</div>
+                  <div className="hint">PNG, JPG or WEBP</div>
                 </div>
               )}
               <input
@@ -1296,8 +1296,7 @@ function CreateInner() {
               Supporting images <span>· optional, up to {MAX_REFS}</span>
             </span>
             <div className="hint">
-              More art of your character, background shots, mood references —
-              they get worked into the banner.
+              More art of your character, or the mood you want.
             </div>
             <div className="refs-grid">
               {refImages.map((r, i) => (
@@ -1351,7 +1350,7 @@ function CreateInner() {
             <div className="field">
               <label>About</label>
               <textarea
-                placeholder="What is this project? e.g. a cat astronaut meme coin, a serious L2 infra project, a community token for night owls…"
+                placeholder="a cat astronaut meme coin, a serious L2 infra project…"
                 value={formRef.current.vibe}
                 onChange={(e) => setField("vibe", e.target.value)}
                 maxLength={400}
@@ -1396,7 +1395,7 @@ function CreateInner() {
                 <button className="panel-collapse" onClick={() => setWantOpen(false)}>Hide</button>
               </label>
               <textarea
-                placeholder="Say it however you like — “make it feel expensive”, “only black and white”, “put the name really big”, “no cartoon characters”…"
+                placeholder="make it feel expensive, only black and white"
                 value={formRef.current.direction}
                 onChange={(e) => setField("direction", e.target.value)}
                 maxLength={240}
@@ -1421,7 +1420,7 @@ function CreateInner() {
                 ))}
               </div>
               <div className="hint">
-                Anything you say here outranks the style you pick. Leave it blank and we&rsquo;ll decide for you.
+                Optional.
               </div>
                 </>
               )}
@@ -1432,7 +1431,7 @@ function CreateInner() {
             {!stylesOpen ? (
               <button className="style-reveal" onClick={() => setStylesOpen(true)}>
                 <span className="style-reveal-now">
-                  <b>{AUTO_NAME}</b> — the direction is chosen for you, from your project.
+                  <b>{AUTO_NAME}</b> — chosen for you.
                 </span>
                 <span className="style-reveal-cta">Pick a style instead</span>
               </button>

@@ -197,7 +197,7 @@ export default function YouPage() {
       {/* ---- what you posted ---- */}
       <div className="panel-head you-sec">
         <h3>Your posts</h3>
-        {posts?.length > 0 && <span className="hint">Tap ✕ to remove one from the feed</span>}
+        {posts?.length > 0 && <span className="hint">Tap ✕ to remove</span>}
       </div>
 
       {posts === null ? (
