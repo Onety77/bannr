@@ -15,11 +15,13 @@ import Lightbox from "@/components/Lightbox";
 import StageAura from "@/components/StageAura";
 import PostButton from "@/components/PostButton";
 import XComingSoon from "@/components/XComingSoon";
+import MemesComingSoon from "@/components/MemesComingSoon";
+import PfpMaker from "@/components/PfpMaker";
 import AdvancedPanel from "@/components/AdvancedPanel";
 import { countTouched, optionLabels, spreadSettings } from "@/lib/advanced";
 import { track } from "@/lib/track";
 import { LOOKS_LIKE_CA } from "@/lib/ca";
-import { openTopUp } from "@/lib/modals";
+import { openSignIn, openTopUp } from "@/lib/modals";
 
 // A generation takes ~45s. Rather than hold a dead spinner for that
 // long, narrate what the model is actually doing — reading the brief,
@@ -1095,12 +1097,19 @@ function CreateInner() {
         )}
       </div>
 
-      {/* Two surfaces, two different design problems. Named by where
-          the artwork LANDS rather than what it depicts — an X header is
-          also for a token project, so "token banners vs X headers"
-          would have implied the second one is not, which is wrong.
-          The tabs exist now rather than at launch so the second is
-          discoverable while it is still being built. */}
+      {/* FOUR SURFACES, named by where the artwork LANDS rather than
+          what it depicts — an X header is also for a token project, so
+          "token banners vs X headers" would have implied the second is
+          not, which is wrong.
+
+          Order is what a project needs in the order they need it: the
+          banner is why anyone came, the avatar goes up the same hour,
+          the X header is the week after, memes are forever. Two are
+          shipped and two are not, and the unshipped ones are shown
+          anyway so they are discoverable while they are being built.
+
+          The row scrolls sideways on a phone rather than wrapping —
+          four pills stacked into two rows stop reading as one control. */}
       <div className="surface-tabs" role="tablist" aria-label="What are you designing?">
         <button
           role="tab"
@@ -1112,11 +1121,28 @@ function CreateInner() {
         </button>
         <button
           role="tab"
+          aria-selected={surface === "pfp"}
+          className={surface === "pfp" ? "on" : ""}
+          onClick={() => setSurface("pfp")}
+        >
+          Profile pictures
+        </button>
+        <button
+          role="tab"
           aria-selected={surface === "x"}
           className={surface === "x" ? "on" : ""}
           onClick={() => setSurface("x")}
         >
           <span className="tab-x">𝕏</span> headers
+          <span className="tab-soon">Soon</span>
+        </button>
+        <button
+          role="tab"
+          aria-selected={surface === "memes"}
+          className={surface === "memes" ? "on" : ""}
+          onClick={() => setSurface("memes")}
+        >
+          Memes
           <span className="tab-soon">Soon</span>
         </button>
       </div>
@@ -1138,6 +1164,20 @@ function CreateInner() {
       )}
 
       {surface === "x" && <div className="swap" key="x"><XComingSoon /></div>}
+      {surface === "memes" && <div className="swap" key="memes"><MemesComingSoon /></div>}
+      {/* Mounts and unmounts, unlike the banner grid below. There is
+          no long-lived work state to protect here — an image, a style
+          and a name — so it can afford the transition the hidden grid
+          cannot. */}
+      {surface === "pfp" && (
+        <div className="swap" key="pfp">
+          <PfpMaker
+            signedIn={Boolean(auth.user)}
+            onSignInNeeded={() => openSignIn()}
+            onCredits={() => auth.refresh()}
+          />
+        </div>
+      )}
 
       {/* NOT keyed and NOT animated on return, deliberately. This is
           hidden rather than unmounted because the brief lives inside

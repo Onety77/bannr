@@ -3860,3 +3860,166 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 }
 
 .rail-cta p { font-size: 12.5px; line-height: 1.5; color: var(--muted); margin-bottom: 12px; }
+/* ============================================================
+   THE PFP MAKER
+
+   Its own form, not the create grid with fields hidden. A profile
+   picture needs the image, a style and an optional name — carrying
+   six greyed-out banner inputs would have been more work for the
+   person, not less.
+   ============================================================ */
+.pfp { padding: 26px 0 90px; }
+.pfp-head { max-width: 620px; margin-bottom: 26px; }
+.pfp-head h2 { font-size: clamp(26px, 4vw, 34px); letter-spacing: -0.025em; margin-bottom: 10px; }
+.pfp-head p { color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 56ch; }
+
+.pfp-grid { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 22px; }
+.pfp-panel {
+  padding: 20px; border-radius: var(--r-lg, 16px);
+  background: var(--card); border: 1px solid var(--hairline);
+}
+.pfp-label {
+  display: block; margin: 18px 0 9px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+}
+.pfp-panel > .pfp-label:first-child { margin-top: 0; }
+.pfp-help {
+  display: block; margin-top: 3px;
+  font-size: 11.5px; font-weight: 400; color: var(--muted); letter-spacing: 0;
+}
+
+/* The upload is square, because the output is — showing a 3:1 well
+   for a 1:1 product would set the wrong expectation before anything
+   has been made. */
+.pfp-drop {
+  position: relative; display: grid; place-items: center;
+  width: 100%; aspect-ratio: 1 / 1;
+  border-radius: var(--r-md, 12px);
+  border: 1.5px dashed var(--hairline-2);
+  background: var(--bg-soft);
+  overflow: hidden; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.pfp-drop:hover { border-color: var(--accent); }
+.pfp-drop.has { border-style: solid; }
+/* `contain`, never `cover`. The whole point is that a portrait
+   screenshot arrives whole — cropping it in the preview would hide
+   the interface the person is about to be told we remove. */
+.pfp-drop img { width: 100%; height: 100%; object-fit: contain; }
+.pfp-drop-txt { display: grid; gap: 5px; text-align: center; padding: 20px; }
+.pfp-drop-txt b { font-size: 14.5px; }
+.pfp-drop-txt span { font-size: 12px; color: var(--muted); }
+.pfp-clear {
+  display: block; margin: 10px auto 0;
+  font-size: 12px; color: var(--muted);
+}
+.pfp-clear:hover { color: var(--danger); }
+
+.pfp-styles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pfp-style {
+  display: grid; gap: 3px; text-align: left;
+  padding: 12px 14px; border-radius: var(--r-md, 12px);
+  background: var(--bg-soft);
+  box-shadow: inset 0 0 0 1px var(--hairline-2);
+  transition: box-shadow 0.15s, background 0.15s;
+}
+.pfp-style b { font-size: 13.5px; }
+.pfp-style span { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+.pfp-style:hover { box-shadow: inset 0 0 0 1px var(--hairline); }
+.pfp-style.on { box-shadow: inset 0 0 0 2px var(--sw); background: color-mix(in srgb, var(--sw) 9%, transparent); }
+
+.pfp-swatches { display: flex; flex-wrap: wrap; gap: 7px; }
+.pfp-sw {
+  width: 30px; height: 30px; border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--hairline-2);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.pfp-sw:hover { transform: scale(1.08); }
+.pfp-sw.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.pfp-sw.auto {
+  width: auto; padding: 0 12px; border-radius: var(--pill);
+  font-size: 11px; font-weight: 600; color: var(--muted);
+  background: var(--bg-soft);
+}
+
+.pfp-text {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--hairline-2); border-radius: var(--r-md, 12px);
+  background: var(--bg); color: inherit;
+  font-size: 14px;
+}
+.pfp-text:focus { border-color: var(--accent); outline: none; }
+
+.pfp-count { display: flex; align-items: center; gap: 6px; }
+.pfp-cost { margin-left: auto; font-size: 12px; color: var(--muted); }
+.pfp-go { margin-top: 20px; }
+.pfp-err { margin-top: 12px; font-size: 13px; color: var(--danger); }
+
+/* The results are shown as squares AND as circles, because both are
+   real: the file is square, and every platform that matters crops it
+   round. Judging one without the other is how a good square avatar
+   ships with its subject clipped. */
+.pfp-out {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 280px));
+  gap: 18px; margin-top: 28px;
+}
+.pfp-shot {
+  position: relative; aspect-ratio: 1 / 1;
+  border-radius: var(--r-lg, 16px); overflow: hidden;
+  background: var(--card); border: 1px solid var(--hairline);
+}
+.pfp-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pfp-shot.skel { display: grid; place-items: center; }
+.pfp-shot figcaption {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent);
+  font-size: 11.5px; color: #fff;
+}
+.pfp-shot figcaption button { margin-left: auto; }
+
+@media (max-width: 860px) {
+  .pfp-grid { grid-template-columns: minmax(0, 1fr); }
+  .pfp-drop { max-width: 340px; margin: 0 auto; }
+}
+
+/* ============================================================
+   MEMES — the teaser. Three cards in a row rather than the X
+   teaser's scatter: a meme is a flat rectangle you read, not an
+   object sitting inside a mockup, so there is no device to angle.
+   ============================================================ */
+.mcs { padding: 34px 0 90px; }
+.mcs-row {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px; margin-top: 44px;
+}
+.mcs-card {
+  position: relative; overflow: hidden;
+  border-radius: var(--r-lg, 16px);
+  background: var(--card); border: 1px solid var(--hairline);
+  /* Rides the same scroll-driven --f as the other stages: flat and
+     dimmed on the way in, upright and lit at dead centre. */
+  opacity: calc(0.45 + 0.55 * var(--f, 1));
+  transform: translateY(calc((1 - var(--f, 1)) * 26px)) scale(calc(0.965 + 0.035 * var(--f, 1)));
+  transition: opacity 0.5s, transform 0.5s;
+}
+.mcs-card.p1 { transition-delay: 0.07s; }
+.mcs-card.p2 { transition-delay: 0.14s; }
+.mcs-card img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; }
+.mcs-card figcaption {
+  padding: 11px 14px;
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 720px) {
+  .mcs-row { grid-template-columns: 1fr; gap: 12px; }
+  /* Four pills will not fit a phone. Scrolling keeps them one
+     control; wrapping to two rows would read as two. */
+  .surface-tabs {
+    overflow-x: auto; scrollbar-width: none;
+    flex-wrap: nowrap; width: 100%;
+  }
+  .surface-tabs::-webkit-scrollbar { display: none; }
+}
