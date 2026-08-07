@@ -33,11 +33,36 @@ const mono = JetBrains_Mono({
 // unfurl — Telegram, X, Discord — against the old vercel.app host
 // while the site itself lives somewhere else. Nothing would look
 // broken; the links would just point at the wrong home.
-const SITE =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "https://getbannr.com");
+const FALLBACK = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "https://getbannr.com";
+
+// ══ A TYPED ENV VAR MUST NOT BE ABLE TO FAIL THE BUILD ══
+//
+// metadataBase is `new URL(SITE)`, and new URL("getbannr.com") throws
+// — no scheme, not a URL. This value is entered by hand in a dashboard
+// at the exact moment a domain goes live, which is the worst possible
+// moment for a missing "https://" to take the whole site down rather
+// than produce a slightly wrong link. The scheme is added if it is
+// missing, a trailing slash is dropped, and anything still unparseable
+// falls back rather than throwing.
+function siteUrl() {
+  const raw = String(process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/+$/, "");
+  if (!raw) return FALLBACK;
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const u = new URL(withScheme);
+    // A half-typed "https://" survives parsing as the hostname
+    // "https", which is a valid URL and a useless one. A real host has
+    // a dot in it, or is localhost.
+    if (!u.hostname.includes(".") && u.hostname !== "localhost") return FALLBACK;
+    return u.origin;
+  } catch {
+    return FALLBACK;
+  }
+}
+
+const SITE = siteUrl();
 
 const DESCRIPTION =
   "Professional DEX Screener banners in seconds. Drop a logo, pick a style, get 2–4 options at exact dimensions. Pay in SOL.";
