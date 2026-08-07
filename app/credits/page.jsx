@@ -30,6 +30,22 @@ import { useAuth } from "@/lib/useAuth";
 import { useWallet, short, buildTreasuryTx } from "@/lib/wallet";
 
 const NUM = (n) => (Number(n) || 0).toLocaleString("en-US");
+
+// Every row the ladder compares, in the order they matter. Named here
+// rather than derived from CAPS so the wording is the reader's — the
+// server calls it `direction`, a person calls it telling us what they
+// want — and so the two perks that are honoured by hand sit in the
+// same table as the ones the pipeline enforces. To the person reading
+// it there is no difference, and there should not be.
+const LADDER_ROWS = [
+  ["dailyRuns", "Free runs"],
+  ["discount", "Off credits"],
+  ["styles", "Pick a style"],
+  ["direction", "Say what you want"],
+  ["advanced", "Advanced settings"],
+  ["earlyAccess", "New surfaces first"],
+  ["customStyle", "A style of your own"],
+];
 // Whole tokens, written the way people say them.
 const tokens = (n) => {
   const v = Number(n) || 0;
@@ -43,6 +59,10 @@ export default function CreditsPage() {
   const [err, setErr] = useState(null);
   const [pricing, setPricing] = useState(null);
   const [checking, setChecking] = useState(false);
+  // Closed by default. The three-line summary on each card answers
+  // "what do I get" for almost everyone; the full table answers "what
+  // would climbing buy me", which is a question you only ask once.
+  const [openLadder, setOpenLadder] = useState(false);
   // A transaction built and waiting for the tap that carries it to
   // the wallet app, and whether a broadcast one is being confirmed.
   const [tx, setTx] = useState(null);
@@ -204,7 +224,18 @@ export default function CreditsPage() {
   }
 
   const sym = pricing?.symbol ? `$${pricing.symbol}` : "$BANNR";
-  const ladder = pricing?.tiers || [];
+  // ══ FREE IS THE FIRST RUNG, NOT A FOOTNOTE ══
+  //
+  // It used to be a clause in the balance row — "+1 free run a day" —
+  // which is the bottom of the ladder printed somewhere you cannot
+  // compare it to the rest of the ladder. A standing with an allowance
+  // and a set of capabilities is a rung; it renders as one.
+  //
+  // It is also what keeps this section alive before the tiers are
+  // armed: publicGate withholds the holder rungs until then, and a
+  // section that renders nothing is a section nobody knows exists.
+  const ladder = pricing ? [pricing.free, ...(pricing.tiers || [])].filter(Boolean) : [];
+  const armed = (pricing?.tiers || []).length > 0;
 
   return (
     <main className="wrap">
@@ -224,9 +255,14 @@ export default function CreditsPage() {
           <span className="wallet-balance">
             <b>{credits}</b> credits
           </span>
-          {you && you.dailyRuns > 0 && (
+          {/* The allowance used to be stated here as "+1 free run a
+              day". It says what is LEFT now, and the allowance itself
+              moved into the Free card in the ladder below where it can
+              be read against the rungs above it. A balance panel
+              should carry balances; an entitlement is not one. */}
+          {you && you.runsLeft > 0 && (
             <span className="wallet-free">
-              +{you.dailyRuns} free {you.dailyRuns === 1 ? "run" : "runs"} a day
+              {you.runsLeft} free {you.runsLeft === 1 ? "run" : "runs"} left today
             </span>
           )}
           {wallet.address && (
@@ -326,34 +362,81 @@ export default function CreditsPage() {
       {/* ---- THE LADDER ----
           Under the packs, not above them. Above, it reads as a reason
           not to buy the thing you came here for; under, it is the
-          answer to "and what if I hold". Absent entirely until the
-          tiers are armed. */}
+          answer to "and what if I hold". */}
       {ladder.length > 0 && (
         <section className="ladder page-gap">
           <div className="panel-head">
-            <h3>Hold {sym}</h3>
+            <h3>{armed ? `Hold ${sym}` : "Your plan"}</h3>
+            {/* ONE control, not one per card. The point of opening
+                this is comparing the rungs, and four separate toggles
+                makes comparison a sequence of taps — on a phone, the
+                two rows you want to weigh against each other end up on
+                different screens. */}
+            <button className="panel-collapse" onClick={() => setOpenLadder((v) => !v)}>
+              {openLadder ? "Hide" : "What each gets"}
+            </button>
           </div>
-          <div className="ladder-grid">
+          <div className={`ladder-grid ${armed ? "" : "solo"}`}>
             {ladder.map((t) => {
-              const mine = you?.tierId === t.id;
+              const mine = (you?.tierId || "free") === t.id;
               return (
                 <div className={`lad ${mine ? "mine" : ""}`} key={t.id}>
                   <div className="lad-h">
                     <b>{t.name}</b>
                     {mine && <span className="lad-you">You</span>}
                   </div>
-                  <div className="lad-hold">{tokens(t.minTokens)} {sym}</div>
+                  <div className="lad-hold">
+                    {t.id === "free" ? "Signed in" : `${tokens(t.minTokens)} ${sym}`}
+                  </div>
                   <ul className="lad-perks">
                     {t.dailyRuns > 0 && <li>{t.dailyRuns} free {t.dailyRuns === 1 ? "run" : "runs"} a day</li>}
                     {t.discount > 0 && <li>{t.discount}% off credits</li>}
                     {t.styles && <li>Every style</li>}
                     {t.earlyAccess && <li>New surfaces first</li>}
                     {t.customStyle && <li>A style of your own</li>}
+                    {/* A rung whose entire list is falsy would render
+                        an empty card, and an empty card reads as a
+                        loading state rather than as an answer. */}
+                    {!t.dailyRuns && !t.discount && !t.styles && <li className="lad-none">Credits only</li>}
                   </ul>
+
+                  {/* ══ EVERYTHING, INCLUDING WHAT IT DOES NOT GET ══
+                      The list above is the pitch and skips the misses,
+                      which is right for a pitch and useless for a
+                      decision: what you are actually working out is
+                      what climbing BUYS you, and that is only legible
+                      when the gaps are on the page next to the gains.
+                      So this shows every row for every rung, with the
+                      absences marked rather than dropped. */}
+                  {openLadder && (
+                    <dl className="lad-all">
+                      {LADDER_ROWS.map(([key, label]) => {
+                        const v = t[key];
+                        const on = key === "dailyRuns" || key === "discount" ? v > 0 : Boolean(v);
+                        return (
+                          <div className={`lad-row ${on ? "" : "off"}`} key={key}>
+                            <dt>{label}</dt>
+                            <dd>
+                              {key === "dailyRuns" ? (v > 0 ? `${v} a day` : "—")
+                                : key === "discount" ? (v > 0 ? `${v}%` : "—")
+                                : on ? "Yes" : "—"}
+                            </dd>
+                          </div>
+                        );
+                      })}
+                    </dl>
+                  )}
                 </div>
               );
             })}
           </div>
+
+          {/* Said once, under the ladder, and only while the rungs
+              above Free do not exist yet. Without it a one-card ladder
+              looks like the whole offer rather than the start of one. */}
+          {!armed && (
+            <p className="lad-soon">The holding tiers arrive with {sym}.</p>
+          )}
 
           {/* ══ THE ONE PLACE HOLDING AND BUYING ARE THE SAME SENTENCE ══
               It sits directly under the ladder and directly above

@@ -30,10 +30,20 @@ import { solUsd, solForUsd } from "@/lib/solPrice";
 import { resolveEntitlements } from "@/lib/entitlements";
 import { getGate } from "@/lib/tokenGate";
 import { entitlementsOf } from "@/lib/tiers";
-import { GENERATION_COST } from "@/lib/users";
+import { GENERATION_COST, getUser } from "@/lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const todayKey = () => new Date().toISOString().slice(0, 10);
+
+// Free runs remaining today. Zero means spent; the fallback covers an
+// account whose balance has never been checked, where the stored
+// figures are absent rather than zero.
+function runsLeftToday(u, ent) {
+  if (!u || u.gateDate !== todayKey()) return ent.dailyRuns;
+  return Math.max(0, (u.gateAllowance || 0) - (u.gateUsed || 0));
+}
 
 export async function GET(req) {
   const session = requireUser(req);
@@ -43,10 +53,14 @@ export async function GET(req) {
   // tokens, and "wait ten minutes" is not an answer there.
   const refresh = new URL(req.url).searchParams.get("refresh") === "1";
 
-  let gate, ent, balance = 0, next = null, reason = "";
+  let gate, ent, balance = 0, next = null, reason = "", me = null;
   try {
     if (session) {
       ({ gate, ent, balance, next, reason } = await resolveEntitlements(session.accountId, { refresh }));
+      // Read AFTER resolveEntitlements, never before: that call is
+      // what writes today's verdict on a first visit, and reading the
+      // account first would report yesterday's figures.
+      me = await getUser(session.accountId).catch(() => null);
     } else {
       gate = await getGate();
       ent = entitlementsOf(gate, null);
@@ -83,17 +97,47 @@ export async function GET(req) {
       generationCost: GENERATION_COST,
       packs,
       discount,
-      // The ladder, for the tier table under the packs. Empty until the
-      // gate is armed, which is what makes the section disappear
-      // rather than advertise an offer that does not exist yet.
+      // ══ THE LADDER, AND WHY FREE IS PART OF IT ══
+      //
+      // `free` is sent unconditionally and in the same shape as a
+      // tier, because it IS one — a standing with an allowance and a
+      // set of capabilities, not the absence of a standing. It used to
+      // be a clause in the balance row ("+1 free run a day"), which
+      // put the bottom of the ladder somewhere you could not compare
+      // it to the rest, and left the section rendering nothing at all
+      // before the tiers are armed.
+      //
+      // The holder rungs stay empty until the gate is live. That is
+      // still right — a threshold nobody can meet yet is not an offer
+      // — but it now degrades to a one-rung ladder rather than to
+      // blank space.
       symbol: gate.symbol || "BANNR",
+      free: {
+        id: "free",
+        name: "Free",
+        minTokens: 0,
+        dailyRuns: ent.tierId ? (gate.free?.dailyRuns ?? 0) : ent.dailyRuns,
+        discount: 0,
+        styles: Boolean(gate.free?.styles),
+        direction: Boolean(gate.free?.direction),
+        advanced: Boolean(gate.free?.advanced),
+        earlyAccess: false,
+        customStyle: false,
+      },
       tiers: gate.enabled ? gate.tiers : [],
-      free: ent.tierId ? null : { dailyRuns: ent.dailyRuns, styles: ent.styles, direction: ent.direction, advanced: ent.advanced },
       you: session
         ? {
             tierId: ent.tierId,
             tierName: ent.tierName,
             dailyRuns: ent.dailyRuns,
+            // What is actually left today, which is what the balance
+            // panel shows. The fallback is the first-visit case: no
+            // gate record exists yet, so the stored figure is 0 while
+            // the ladder in fact owes them the full allowance. Told
+            // apart by whether an allowance was ever recorded, not by
+            // the number being zero — "never checked" and "checked,
+            // and you have none" are different answers.
+            runsLeft: runsLeftToday(me, ent),
             balance,
             reason,
             // The only place in the product where holding the token

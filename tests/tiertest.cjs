@@ -216,7 +216,42 @@ console.log("\n=== 8. THE PAGE AND THE PAYOUT CANNOT DISAGREE ===");
   ok(/status: "unpriced"/.test(W), "and an unpriceable payment is recorded for a human rather than dropped");
 }
 
-console.log("\n=== 9. THE CEILING NOW COVERS EVERYONE ===");
+console.log("\n=== 9. FREE IS A RUNG, NOT A FOOTNOTE ===");
+{
+  const PR = bare(read("app/api/pricing/route.js"));
+  const CR = bare(read("app/credits/page.jsx"));
+  // Sent unconditionally and in tier shape, so the page can render it
+  // with the same component and the reader can compare it to the rest.
+  ok(/free: \{\s*\n?\s*id: "free"/.test(PR), "the free tier is sent in the same shape as a tier");
+  ok(/tiers: gate\.enabled \? gate\.tiers : \[\]/.test(PR),
+     "and the holder rungs still stay empty until the gate is armed");
+  ok(/\[pricing\.free, \.\.\.\(pricing\.tiers/.test(CR), "the page puts free at the bottom of the ladder");
+  // Before the tiers are armed the ladder is one card rather than
+  // nothing at all — a section that renders nothing is a section
+  // nobody knows exists.
+  ok(/const armed =/.test(CR) && /!armed &&/.test(CR), "one rung before launch, and it says the rest are coming");
+
+  // The allowance moved out of the balance panel. A balance panel
+  // carries balances; an entitlement is not one.
+  ok(!/\+\{you\.dailyRuns\}/.test(CR), "the balance row no longer states the allowance");
+  ok(/you\.runsLeft/.test(CR), "it states what is left today instead");
+  ok(/runsLeftToday/.test(PR), "which the server computes");
+  ok(/u\.gateDate !== todayKey\(\)/.test(PR),
+     "AND TELLS 'never checked' APART FROM 'checked, and you have none' — the first-visit bug again");
+  ok(PR.indexOf("resolveEntitlements") < PR.indexOf("getUser(session.accountId)"),
+     "reading the account after the verdict is written, not before");
+}
+{
+  const CR = bare(read("app/credits/page.jsx"));
+  ok(/LADDER_ROWS/.test(CR), "there is one list of what a rung can carry");
+  ok(/earlyAccess.*New surfaces|New surfaces first/.test(CR) && /customStyle|A style of your own/.test(CR),
+     "including the two perks honoured by hand — to the reader there is no difference");
+  ok(/openLadder/.test(CR), "and one control opens every card at once, so the rungs can be compared");
+  ok(/lad-row \$\{on \? "" : "off"\}/.test(CR),
+     "ABSENCES ARE SHOWN, NOT DROPPED — what climbing buys is only legible beside what it does not");
+}
+
+console.log("\n=== 10. THE CEILING NOW COVERS EVERYONE ===");
 {
   const A = bare(read("components/AdminToken.jsx"));
   ok(/form\.free\.dailyRuns/.test(A), "the free tier is editable");
