@@ -27,11 +27,17 @@ const mono = JetBrains_Mono({
 // VERCEL_PROJECT_PRODUCTION_URL is the stable production host rather
 // than the per-deployment one, so a preview build does not mint links
 // pointing at a URL that stops existing.
+// SET NEXT_PUBLIC_SITE_URL IN VERCEL. It is first for a reason:
+// VERCEL_PROJECT_PRODUCTION_URL does not reliably become the custom
+// domain when one is attached, so leaving it to that would mint every
+// unfurl — Telegram, X, Discord — against the old vercel.app host
+// while the site itself lives somewhere else. Nothing would look
+// broken; the links would just point at the wrong home.
 const SITE =
   process.env.NEXT_PUBLIC_SITE_URL ||
   (process.env.VERCEL_PROJECT_PRODUCTION_URL
     ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "https://bannr.vercel.app");
+    : "https://getbannr.com");
 
 const DESCRIPTION =
   "Professional DEX Screener banners in seconds. Drop a logo, pick a style, get 2–4 options at exact dimensions. Pay in SOL.";
