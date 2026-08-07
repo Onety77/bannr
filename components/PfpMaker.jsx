@@ -143,7 +143,35 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
       if (showSwatches && color) fd.set("color", color);
 
       const res = await post("/api/pfp", fd, TIMEOUT);
-      const d = await res.json();
+
+      // ══ THE RESPONSE IS NOT ALWAYS JSON, AND res.json() THREW ══
+      //
+      // This was `await res.json()` on the next line. When the route
+      // answers normally that is fine; when the function itself dies —
+      // a crash, a platform timeout, a response too large to return —
+      // the body is an HTML error page, json() throws, and the catch
+      // below reported the bare string "Something went wrong."
+      //
+      // So the one case where we had no idea what happened was also
+      // the one case where we told the user nothing and threw away the
+      // status code that would have said. Read it as text, keep the
+      // status, and put the real thing in the console.
+      const raw = await res.text();
+      let d = null;
+      try { d = JSON.parse(raw); } catch {}
+
+      if (!d) {
+        console.error("[pfp] non-JSON response", res.status, raw.slice(0, 500));
+        setError(
+          // NOT "you weren't charged". The route refunds in its own
+          // catch, and if the function died that catch never ran — so
+          // claiming it would be a guess about someone's money. It
+          // says what to check instead.
+          `The server failed before it could answer (${res.status}). Check your credits before trying again.`
+        );
+        return;
+      }
+
       if (!res.ok || !d.ok) {
         if (d.code === "insufficient_credits") { openTopUp(); return; }
         if (d.code === "signin_required") { onSignInNeeded?.(); return; }
@@ -153,7 +181,13 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
       setImages(d.images);
       if (d.user) { setUser(d.user); onCredits?.(); }
     } catch (e) {
-      setError(e.name === "AbortError" ? "That took too long. Try again — you weren't charged." : "Something went wrong.");
+      // Only a genuine network failure or the abort reaches here now.
+      console.error("[pfp]", e);
+      setError(
+        e.name === "AbortError"
+          ? "That took too long. Try again — you weren't charged."
+          : "Couldn't reach the server. Check your connection and try again."
+      );
     } finally {
       setBusy(false);
     }
