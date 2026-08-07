@@ -40,6 +40,24 @@ console.log("\n1. NOBODY IS TOLD HOW A WALLET WORKS");
   ok(read("app/credits/page.jsx").includes(ALLOWED), "and the ONE reassurance that answers a real worry survives");
 }
 
+console.log("\n1b. NO INTERNALS ON A CUSTOMER'S SCREEN");
+{
+  // A raw HTTP status went on screen while a 413 was being chased —
+  // useful for ten minutes, and exactly the internal detail
+  // lib/errors.js exists to keep off a paying customer's screen. It
+  // belongs in the console, which is ours.
+  for (const f of ["components/PfpMaker.jsx", "app/create/page.jsx", "components/Lightbox.jsx"]) {
+    const src = bare(read(f));
+    const shown = src.match(/setError\((?:[^()]|\([^()]*\))*\)/g) || [];
+    ok(shown.every((s) => !/res\.status|\bstatus\b|err\.message|e\.message/.test(s)),
+       `${f} never puts a status code or a raw message in front of the user`);
+  }
+  // The provider is never named anywhere the browser can read.
+  const client = ["components/PfpMaker.jsx", "app/create/page.jsx", "components/Lightbox.jsx"]
+    .map((f) => bare(read(f))).join("\n");
+  ok(!/OpenAI|gpt-image|DALL|Anthropic/i.test(client), "and never names who renders the images");
+}
+
 console.log("\n2. THE CREDITS PAGE");
 {
   const raw = read("app/credits/page.jsx");
