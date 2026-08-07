@@ -4307,3 +4307,26 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 /* PFP rows, so the three surfaces are distinguishable at a glance. */
 .admin-kind.pfp { background: rgba(47, 217, 139, 0.18); color: #12855a; }
 [data-theme="dark"] .admin-kind.pfp { color: #2FD98B; }
+
+/* ---- the buyback nudge ----
+   A standing obligation rather than something to review, so it sits
+   above whatever tab you arrived on and links straight to the one
+   place you can act on it. */
+.admin-due {
+  display: flex; flex-direction: column; gap: 2px;
+  width: 100%; text-align: left;
+  margin-bottom: 16px; padding: 13px 16px;
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.admin-due b { font-size: 15px; color: var(--accent); }
+.admin-due span { font-size: 12.5px; color: var(--muted); }
+.admin-due:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+/* Red rather than the accent: the accent badge already means "there
+   are things here", and this one means "you owe money". */
+.admin-badge.due { background: var(--danger); color: #fff; }
+/* Owed AND past the threshold. The plain `short` ring means owed but
+   not yet worth swapping; this is the one that wants acting on. */
+.bb-owed.due { box-shadow: inset 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.bb-owed.due b { color: var(--accent); }

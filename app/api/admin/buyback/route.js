@@ -30,7 +30,7 @@ export async function GET(req) {
     const g = await getGate();
     return NextResponse.json({
       ...(await ledger(200)),
-      promise: g.buybackPct > 0 ? await commitment(g.buybackPct) : null,
+      promise: g.buybackPct > 0 ? await commitment(g.buybackPct, g.buybackEverySol) : null,
       buybackPct: g.buybackPct || 0,
     });
   }

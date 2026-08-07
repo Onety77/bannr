@@ -31,7 +31,14 @@ export async function GET() {
     // display was paginated. Only computed when a percentage has been
     // published — before that there is no promise to measure against
     // and a zeroed one would invent a claim nobody made.
-    const promise = t.buybackPct > 0 ? await commitment(t.buybackPct) : null;
+    // No threshold passed, ON PURPOSE. The commitment itself is public
+    // — the percentage, what it obliges, what has been spent and the
+    // gap. WHEN we act on it is a lever, like the daily ceiling:
+    // publishing "a buy fires once 0.3 SOL is owed" tells anyone
+    // watching the exact size and moment of the next market order.
+    // Passing 0 leaves `due` false and `nudgeAt` 0, so there is
+    // nothing to leak even if a field is added downstream.
+    const promise = t.buybackPct > 0 ? await commitment(t.buybackPct, 0) : null;
     const week = await lastSevenDays(entries);
     return NextResponse.json({
       // Real tokens using the product, and how much has been made

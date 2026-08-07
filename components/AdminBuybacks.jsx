@@ -137,17 +137,33 @@ export default function AdminBuybacks({ user }) {
           Absent until a percentage is published in the Token panel —
           before that there is no promise to be behind on. */}
       {p && (
-        <div className={`bb-owed ${p.outstandingSol > 0 ? "short" : "ok"}`}>
-          {p.outstandingSol > 0 ? (
+        <div className={`bb-owed ${p.due ? "due" : p.outstandingSol > 0 ? "short" : "ok"}`}>
+          {p.due ? (
+            // ══ THE NUDGE ══
+            //
+            // Loud only when there is enough owed to be worth swapping.
+            // The gap is almost always above zero — a sale an hour ago
+            // put it there — so lighting up on `outstanding > 0` would
+            // mean lighting up permanently, and a warning light that is
+            // always on is one nobody reads.
             <>
-              <b>{fmt(p.outstandingSol)} SOL to buy</b>
+              <b>Buy back now — {fmt(p.outstandingSol)} SOL owed</b>
               <em>
+                Past the {fmt(p.nudgeAt)} SOL mark ({p.everySol} SOL earned at {p.pct}%).
+                Swap, burn, then paste both signatures below.
+              </em>
+            </>
+          ) : p.outstandingSol > 0 ? (
+            <>
+              <b>{fmt(p.outstandingSol)} SOL owed</b>
+              <em>
+                {p.nudgeAt > 0 ? `Due at ${fmt(p.nudgeAt)}. ` : ""}
                 {p.pct}% of {fmt(p.revenueSol)} SOL earned is {fmt(p.owedSol)}; {fmt(p.spentSol)} spent.
               </em>
             </>
           ) : (
             <>
-              <b>Commitment met</b>
+              <b>Nothing owed</b>
               <em>
                 {p.pct}% of {fmt(p.revenueSol)} SOL earned is {fmt(p.owedSol)}; {fmt(p.spentSol)} spent
                 {p.aheadSol > 0 ? `, ${fmt(p.aheadSol)} ahead.` : "."}

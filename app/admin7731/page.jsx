@@ -32,6 +32,10 @@ export default function AdminPage() {
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("generations"); // generations | refusals | token | feed | money
   const [refusals, setRefusals] = useState(null);
+  // The commitment, but only when a buyback is actually due. Null the
+  // rest of the time, so every consumer is a plain truthiness check
+  // and there is no way to render the nudge when it is not owed.
+  const [due, setDue] = useState(null);
   // all = the 60 most recent. The rest ask "what is live right now",
   // which is a different question and the only one that can reach a
   // banner featured long enough ago to have fallen off the list.
@@ -98,6 +102,30 @@ export default function AdminPage() {
       }
     })();
   }, [status, user, tab, refusals]);
+
+  // ══ THE BUYBACK NUDGE, LOADED ON ARRIVAL ══
+  //
+  // Not lazily on the Money tab, unlike everything else here, and the
+  // difference is the whole point: a badge that only appears after you
+  // have opened the tab cannot tell you to open the tab. This is the
+  // one number on the page that is meant to bring you to it.
+  //
+  // Silent on failure. A nudge that cannot load should show nothing
+  // rather than an error on a page you came to for something else.
+  useEffect(() => {
+    if (status !== "authorized" || !user) return;
+    let live = true;
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch("/api/admin/buyback", { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) return;
+        const d = await res.json();
+        if (live) setDue(d?.promise?.due ? d.promise : null);
+      } catch {}
+    })();
+    return () => { live = false; };
+  }, [status, user]);
 
   async function signIn() {
     setError(null);
@@ -247,8 +275,20 @@ export default function AdminPage() {
         </button>
         <button className={tab === "money" ? "on" : ""} onClick={() => setTab("money")}>
           Money
+          {due ? <span className="admin-badge due">!</span> : null}
         </button>
       </div>
+
+      {/* Above the tabs' content and below the tabs themselves, so it
+          is on screen whichever tab you arrived on. It is the one
+          thing here that is a standing obligation rather than
+          something to review. */}
+      {due && tab !== "money" && (
+        <button className="admin-due" onClick={() => setTab("money")}>
+          <b>{due.outstandingSol} SOL of buybacks owed</b>
+          <span>Past the {due.nudgeAt} mark — open Money</span>
+        </button>
+      )}
 
       {error && <div className="notice error">{error}</div>}
 

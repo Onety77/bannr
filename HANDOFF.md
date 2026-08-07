@@ -270,11 +270,38 @@ revenue obliges, what has been spent, and the gap; `/token` publishes all three
 including when it is behind, and the admin Buybacks panel leads with what is
 still to buy.
 
-**No hot wallet, deliberately.** Auto-swapping needs signing keys on a server
-for the wallet holding the treasury, which is a drain risk larger than anything
-else in this codebase. The half that makes the pitch work is the provable half,
-and it is provable with a human executing the swap. Do not add an auto-swapper
-without treating it as its own security project.
+**No hot wallet, and this was Aminu's call after being shown the options.**
+Auto-swapping needs signing keys on a server for a wallet holding real money,
+and there is currently **no private key anywhere in this codebase** — every
+wallet action is a user approving in their own wallet. Do not add one without
+treating it as its own security project, and if you do, use a dedicated
+buyback wallet topped up by hand rather than the treasury, so the blast radius
+is bounded to what has been funded.
+
+Worth knowing before anyone reopens it: **automation solves the discipline
+problem, not the trader's trust problem.** Nobody can verify a cron job; they
+verify transactions. A visible regular on-chain cadence is what makes the pitch
+land, and a human doing it every time the nudge fires delivers that identically.
+"Unstoppable" would need an on-chain program nobody can switch off, which is a
+different project — a cron job you control is not that, and claiming otherwise
+is checkable.
+
+**The trigger is revenue, not a calendar.** `buybackEverySol` (default 1) means
+"flag it once 1 SOL has been earned", and at 30% that is 0.3 SOL owed. A weekly
+reminder fires on a quiet week with nothing to buy and stays silent through a
+busy Tuesday. It is never published — the size and moment of the next market
+order is front-runnable, so `/api/buybacks` passes 0 and leaves `due` false.
+
+**THE COMMITMENT HOLDS NO MARKER, AND MUST NOT GROW ONE.** The tempting
+implementation tracks "revenue since the last buyback" and takes a cut of that.
+It needs a marker moved on every buyback, and anything that puts the marker
+wrong — one logged late, two out of order, one deleted and re-added — silently
+re-taxes or skips a stretch of revenue with nothing on the page looking wrong.
+Both sides are recomputed from the totals instead (`owed = pct × all revenue`,
+`spent = all product buybacks`, `outstanding = owed − spent`), so each SOL is
+counted exactly once, order never matters, and overshooting banks a surplus
+that carries forward. There are tests running the real function against a fake
+Firestore for every one of those cases.
 
 Two rules that came out of building it: **fees never discharge a product
 promise** — fee buybacks are circular and traders discount them correctly, so

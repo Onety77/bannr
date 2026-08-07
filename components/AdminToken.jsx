@@ -278,6 +278,23 @@ export default function AdminToken({ user }) {
               {form.buybackPct > 0 && <> Trading fees do not count toward it.</>}
             </em>
           </label>
+          {form.buybackPct > 0 && (
+            <label className="tk-f">
+              <span>Buy back every N SOL earned</span>
+              <input
+                type="number" min={0.01} step={0.01}
+                value={form.buybackEverySol}
+                onChange={(e) => set("buybackEverySol", e.target.value)}
+              />
+              <em>
+                Flags a buyback as due once <b>{(Number(form.buybackEverySol || 0) * form.buybackPct / 100).toFixed(3)} SOL</b> is
+                owed — {form.buybackEverySol} SOL earned at {form.buybackPct}%. Not a calendar:
+                a weekly reminder fires on a quiet week with nothing to buy and stays
+                quiet through a busy Tuesday. Never published — it is the size and
+                timing of the next market order.
+              </em>
+            </label>
+          )}
           <label className="tk-f">
             <span>One line shown to holders (optional)</span>
             <input value={form.note} onChange={(e) => set("note", e.target.value)} maxLength={200} />

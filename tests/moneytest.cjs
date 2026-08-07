@@ -487,8 +487,85 @@ let weekly = Promise.resolve();
   })();
 
   ok(/export async function commitment/.test(B), "the promise is computed, not stated");
-  ok(/outstandingSol: Math\.max\(0/.test(B) && /aheadSol: Math\.max\(0/.test(B),
-     "the gap is a figure, in both directions");
+
+  // ══ THE SAME SOL MUST NEVER BE TAXED TWICE ══
+  //
+  // Run the real commitment() against a fake Firestore. The obvious
+  // implementation tracks "revenue since the last buyback" and needs a
+  // marker moved on every one; anything that puts the marker wrong —
+  // a buyback logged late, two out of order, one deleted — silently
+  // re-taxes or skips a stretch of revenue and nothing looks wrong.
+  // This holds no marker: both sides are recomputed from the totals,
+  // so the answer is a subtraction rather than a running tally.
+  const fakeDb = (payments, buybacks) => ({
+    collection: (name) => ({
+      limit: () => ({
+        get: async () => {
+          const rows = name === "payments" ? payments : buybacks;
+          return { docs: rows.map((r) => ({ data: () => r })), size: rows.length };
+        },
+      }),
+    }),
+  });
+  // Only getAdminDb is injected. SOURCES is declared by the module
+  // itself, and passing it as a parameter too collides with that
+  // declaration — the module has to be loaded as it is written.
+  const commitmentWith = (payments, buybacks) =>
+    new Function(
+      "getAdminDb",
+      B.replace(/^import[^\n]*$/gm, "").replace(/^export /gm, "") + "\nreturn commitment;"
+    )(() => fakeDb(payments, buybacks));
+
+  weekly = weekly.then(async () => {
+    const pay = (sol) => ({ sol, usd: 0 });
+    const buy = (sol, source = "product") => ({ sol, source });
+
+    {
+      const c = await commitmentWith([pay(10)], [])(30, 1);
+      ok(c.owedSol === 3, "30% of 10 SOL earned is 3 owed");
+      ok(c.outstandingSol === 3, "and all of it outstanding before any buyback");
+      ok(c.nudgeAt === 0.3, "the trigger is 1 SOL earned at 30% = 0.3 owed");
+      ok(c.due === true, "3 owed is past 0.3, so it is due");
+    }
+    {
+      // The exact worry: does more revenue re-tax what was already
+      // bought back? owed climbs to 30% of the NEW total and the
+      // buyback stays subtracted, so each SOL is counted once.
+      const c = await commitmentWith([pay(10), pay(10)], [buy(3)])(30, 1);
+      ok(c.owedSol === 6, "another 10 SOL earned takes owed to 6, not to 9");
+      ok(c.outstandingSol === 3, "AND THE 3 ALREADY BOUGHT STAYS SUBTRACTED — the first 10 is not taxed twice");
+    }
+    {
+      // Order must not matter, because a marker-based version is
+      // exactly where order starts mattering.
+      const a = await commitmentWith([pay(4), pay(6)], [buy(1), buy(2)])(30, 1);
+      const b = await commitmentWith([pay(6), pay(4)], [buy(2), buy(1)])(30, 1);
+      ok(a.outstandingSol === b.outstandingSol, "logging buybacks out of order changes nothing");
+      ok(a.outstandingSol === 0, "10 earned, 3 owed, 3 bought — square");
+      ok(a.due === false, "and nothing owed is not due");
+    }
+    {
+      // Overshooting carries forward and suppresses the nudge until
+      // new revenue catches up, rather than being lost.
+      const c = await commitmentWith([pay(10)], [buy(5)])(30, 1);
+      ok(c.aheadSol === 2 && c.outstandingSol === 0, "buying more than owed banks the surplus");
+      ok(c.due === false, "and does not ask for more");
+    }
+    {
+      // Fee buybacks are circular; letting one discharge a promise
+      // made about customer revenue is the specific dishonesty here.
+      const c = await commitmentWith([pay(10)], [buy(3, "fees")])(30, 1);
+      ok(c.outstandingSol === 3, "A FEE BUYBACK DOES NOT PAY OFF THE PRODUCT COMMITMENT");
+    }
+    {
+      const c = await commitmentWith([pay(0.5)], [])(30, 1);
+      ok(c.outstandingSol === 0.15 && c.due === false,
+         "under the threshold it is owed but not yet worth swapping");
+      // A threshold of 0 would mean permanently due, which is not a
+      // cadence — it is a warning light nobody reads.
+      ok((await commitmentWith([pay(0.5)], [])(30, 0)).due === false, "and no threshold set is never due");
+    }
+  });
   // A promise measured only by its running total rots quietly upward.
   ok(/spentBySource/.test(B), "spend is summed across the WHOLE ledger, not the page being displayed");
   // Everything from one export to the next. Crude, and enough to ask
