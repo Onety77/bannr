@@ -1125,7 +1125,7 @@ function CreateInner() {
           className={surface === "pfp" ? "on" : ""}
           onClick={() => setSurface("pfp")}
         >
-          Profile pictures
+          PFP maker
         </button>
         <button
           role="tab"

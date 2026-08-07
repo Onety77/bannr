@@ -23,7 +23,7 @@
 import sharp from "sharp";
 import { NextResponse } from "next/server";
 import { aiEnabled, generatePfp } from "@/lib/openai";
-import { buildPfpPrompt, PFP_SIZE, PFP_MAX, PFP_COST, PFP_TEXT_MAX, getPfpStyle } from "@/lib/pfp";
+import { buildPfpPrompt, PFP_SIZE, PFP_MAX, PFP_COST, PFP_TEXT_MAX, getPfpStyle, distributeStyles } from "@/lib/pfp";
 import { publicError } from "@/lib/errors";
 import { requireUser } from "@/lib/auth";
 import { spendCredits, refundCredits, getUser } from "@/lib/users";
@@ -64,15 +64,28 @@ export async function POST(req) {
 
     const form = await req.formData();
 
-    const style = getPfpStyle(String(form.get("style") || "default"));
     const text = String(form.get("text") || "").trim().slice(0, PFP_TEXT_MAX);
-    // Only ever a hex colour, and only on the one style that has one.
-    // Validated rather than trusted: this string lands inside a prompt,
-    // and an unbounded field there is somewhere to write instructions.
+    const keepBg = String(form.get("keepBg") || "") === "1";
+    // Only ever a hex colour. Validated rather than trusted: this
+    // string lands inside a prompt, and an unbounded field there is
+    // somewhere to write instructions.
     const rawColor = String(form.get("color") || "").trim();
-    const color = style.id === "solid" && /^#[0-9a-fA-F]{6}$/.test(rawColor) ? rawColor : "";
+    const color = /^#[0-9a-fA-F]{6}$/.test(rawColor) ? rawColor : "";
 
     const count = Math.min(Math.max(parseInt(form.get("count") || "2", 10) || 2, 1), PFP_MAX);
+
+    // SEVERAL STYLES, ONE PER OPTION. Same helper and same contract as
+    // the banner picker, so two styles across two options is one of
+    // each rather than two of whichever was clicked first. Unknown ids
+    // resolve to Default rather than failing the run — a stale draft
+    // should still make a picture.
+    const wanted = String(form.get("styles") || form.get("style") || "default")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => getPfpStyle(s).id);
+    const styleIds = [...new Set(wanted)].slice(0, PFP_MAX);
+    const perOption = distributeStyles(styleIds.length ? styleIds : ["default"], count);
 
     const file = form.get("image");
     if (!file || typeof file.arrayBuffer !== "function" || file.size === 0) {
@@ -114,18 +127,26 @@ export async function POST(req) {
     }
     charged = { accountId: session.accountId, amount: total };
 
-    const prompt = buildPfpPrompt(style.id, { text, color });
-
     // allSettled, so one failure does not discard the other image.
     const settled = await Promise.allSettled(
-      Array.from({ length: count }, async () => {
+      perOption.map(async (id) => {
+        const style = getPfpStyle(id);
+        const prompt = buildPfpPrompt(style.id, { text, color, keepBg });
         const buf = await generatePfp(prompt, { image: src, size: PFP_SIZE });
         const png = await sharp(buf)
           .resize(PFP_SIZE, PFP_SIZE, { fit: "cover", position: "center" })
           .png()
           .toBuffer();
         const { width, height } = await sharp(png).metadata();
-        return { dataUrl: `data:image/png;base64,${png.toString("base64")}`, w: width, h: height };
+        return {
+          dataUrl: `data:image/png;base64,${png.toString("base64")}`,
+          w: width,
+          h: height,
+          // Labelled per image, because with two styles in one run
+          // "which one is this" is no longer answerable from the form.
+          style: style.id,
+          styleName: style.name,
+        };
       })
     );
 
@@ -151,7 +172,6 @@ export async function POST(req) {
 
     return NextResponse.json({
       ok: true,
-      style: { id: style.id, name: style.name },
       images,
       // Stated rather than assumed by the client, so a partial run
       // shows the right number and the right balance.

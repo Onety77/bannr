@@ -3959,8 +3959,14 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
    real: the file is square, and every platform that matters crops it
    round. Judging one without the other is how a good square avatar
    ships with its subject clipped. */
+/* TWO UP ON DESKTOP, ONE FULL-WIDTH ON A PHONE.
+   This was `minmax(220px, 280px)`, which caps the track at 280px — so
+   on a 390px phone a 1024px square rendered into a 280px box with
+   dead space either side, and the one thing anyone checks on an
+   avatar (did the face survive) was thrown away before they could
+   look at it. */
 .pfp-out {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 280px));
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px; margin-top: 28px;
 }
 .pfp-shot {
@@ -3979,9 +3985,56 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 }
 .pfp-shot figcaption button { margin-left: auto; }
 
+.pfp-shot img.zoomable { cursor: zoom-in; }
+.pfp-nth {
+  display: inline-grid; place-items: center;
+  width: 15px; height: 15px; margin-right: 5px;
+  border-radius: 50%;
+  font-size: 9.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--on-accent); background: var(--sw);
+}
+
+/* A toggle, not a setting — a small yes/no about the picture rather
+   than a choice about what to make, so it sits with the text field
+   instead of up among the styles. */
+.pfp-toggle {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; margin-top: 16px; padding: 11px 13px;
+  border-radius: var(--r-md, 12px);
+  background: var(--bg-soft);
+  box-shadow: inset 0 0 0 1px var(--hairline-2);
+  text-align: left;
+  transition: box-shadow 0.15s;
+}
+.pfp-toggle:hover { box-shadow: inset 0 0 0 1px var(--hairline); }
+.pfp-track {
+  flex: none; position: relative;
+  width: 36px; height: 21px; border-radius: var(--pill);
+  background: var(--hairline-2);
+  transition: background 0.18s;
+}
+.pfp-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--bg);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s;
+}
+.pfp-toggle.on .pfp-track { background: var(--accent); }
+.pfp-toggle.on .pfp-knob { transform: translateX(15px); }
+.pfp-toggle-txt { display: grid; gap: 2px; }
+.pfp-toggle-txt b { font-size: 13px; }
+.pfp-toggle-txt span { font-size: 11.5px; color: var(--muted); }
+
 @media (max-width: 860px) {
   .pfp-grid { grid-template-columns: minmax(0, 1fr); }
   .pfp-drop { max-width: 340px; margin: 0 auto; }
+}
+@media (max-width: 560px) {
+  /* One per row, edge to edge. A square shown small is the one thing
+     this screen must never do. */
+  .pfp-out { grid-template-columns: minmax(0, 1fr); }
+  .pfp-styles { grid-template-columns: 1fr; }
 }
 
 /* ============================================================
