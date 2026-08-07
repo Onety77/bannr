@@ -4290,3 +4290,20 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 .bb-owed em { font-style: normal; font-size: 12.5px; color: var(--muted); }
 .bb-owed.short { box-shadow: inset 0 0 0 1px var(--accent); }
 .bb-owed.short b { color: var(--accent); }
+
+/* ---- why a run failed, on the row ----
+   A billing failure and a content refusal are opposite problems and
+   were two identical-looking lines. Only the non-policy ones are
+   tagged: content refusals are the norm in this list, and a tag on
+   every row is a tag on none. */
+.admin-why {
+  font-family: var(--mono, monospace); font-size: 10px; letter-spacing: 0.08em;
+  padding: 3px 8px; border-radius: 5px;
+  background: rgba(255, 92, 92, 0.16); color: #c62828;
+}
+[data-theme="dark"] .admin-why { color: #ff7b7b; }
+.admin-why.timeout { background: rgba(255, 176, 32, 0.18); color: #b97a06; }
+[data-theme="dark"] .admin-why.timeout { color: #FFB020; }
+/* PFP rows, so the three surfaces are distinguishable at a glance. */
+.admin-kind.pfp { background: rgba(47, 217, 139, 0.18); color: #12855a; }
+[data-theme="dark"] .admin-kind.pfp { color: #2FD98B; }

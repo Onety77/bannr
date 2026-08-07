@@ -25,6 +25,7 @@ import { NextResponse } from "next/server";
 import { aiEnabled, generatePfp } from "@/lib/openai";
 import { buildPfpPrompt, PFP_SIZE, PFP_MAX, PFP_COST, PFP_TEXT_MAX, PFP_WANTS_MAX, PFP_IMAGES_MAX, getPfpStyle, distributeStyles } from "@/lib/pfp";
 import { publicError } from "@/lib/errors";
+import { recordRefusal } from "@/lib/refusals";
 import { requireUser } from "@/lib/auth";
 import { spendCredits, refundCredits, getUser } from "@/lib/users";
 import { bump } from "@/lib/stats";
@@ -46,6 +47,12 @@ function rateLimited(id) {
 
 export async function POST(req) {
   let charged = null;
+  // Hoisted so the catch can record exactly what was asked for, the
+  // same reason /api/generate hoists its brief. Declared inside the
+  // try they are out of scope by the time anything has gone wrong,
+  // which is precisely when they matter.
+  let wants = "";
+  let styleIds = [];
 
   try {
     const session = requireUser(req);
@@ -70,7 +77,7 @@ export async function POST(req) {
     // to someone's picture is the safe default; replacing what is
     // behind their subject is a real edit and should be requested.
     const newBg = String(form.get("newBg") || "") === "1";
-    const wants = String(form.get("wants") || "").trim().slice(0, PFP_WANTS_MAX);
+    wants = String(form.get("wants") || "").trim().slice(0, PFP_WANTS_MAX);
     // Only ever a hex colour. Validated rather than trusted: this
     // string lands inside a prompt, and an unbounded field there is
     // somewhere to write instructions.
@@ -89,7 +96,7 @@ export async function POST(req) {
       .map((s) => s.trim())
       .filter(Boolean)
       .map((s) => getPfpStyle(s).id);
-    const styleIds = [...new Set(wanted)].slice(0, PFP_MAX);
+    styleIds = [...new Set(wanted)].slice(0, PFP_MAX);
     const perOption = distributeStyles(styleIds.length ? styleIds : ["default"], count);
 
     // SEVERAL VIEWS OF ONE SUBJECT. `image` stays accepted so a client
@@ -203,6 +210,24 @@ export async function POST(req) {
       }
     }
     const { error, status, reason } = publicError(err, "pfp");
+
+    // A FAILED PFP USED TO LEAVE NO TRACE. This route never called
+    // recordRefusal, so two failed runs on production showed as an
+    // empty admin panel — which reads as "nothing went wrong" and
+    // meant "nothing was written down". The user gets sanitised copy
+    // by design, so without this line the only evidence anywhere was
+    // the platform log.
+    //
+    // `wants` is the person's own words and is the PFP equivalent of a
+    // brief, so it goes in the field the admin panel already ranks.
+    await recordRefusal({
+      kind: "pfp",
+      reason,
+      vibe: wants || "",
+      templateId: (styleIds || []).join(","),
+      detail: err?.message,
+    });
+
     return NextResponse.json(
       {
         error,

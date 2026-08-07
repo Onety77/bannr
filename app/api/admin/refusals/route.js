@@ -35,17 +35,41 @@ export async function GET(req) {
 
   const now = Date.now();
   const DAY = 86_400_000;
+  // Rows written before `reason` existed are all content refusals,
+  // which is what this collection held at the time — so the default
+  // is "policy" rather than "unknown". Dating them as unknown would
+  // wrongly retire the entire existing word ranking.
+  const reasonOf = (i) => i.reason || "policy";
+
   const stats = {
     total: items.length,
     last24h: items.filter((i) => now - i.ts < DAY).length,
     last7d: items.filter((i) => now - i.ts < 7 * DAY).length,
-    generate: items.filter((i) => i.kind !== "edit").length,
+    generate: items.filter((i) => i.kind !== "edit" && i.kind !== "pfp").length,
     edit: items.filter((i) => i.kind === "edit").length,
+    pfp: items.filter((i) => i.kind === "pfp").length,
+    // ══ THE BREAKDOWN THAT ANSWERS "IS IT US OR THEM" ══
+    //
+    // Content refusals are a prompt problem and arrive gradually.
+    // `internal` is quota, billing, a dead key or a crash — an outage,
+    // and the number to look at first. Reading a total alone cannot
+    // tell those apart, which is how two failed runs on production
+    // looked identical to no runs at all.
+    policy: items.filter((i) => reasonOf(i) === "policy").length,
+    timeout: items.filter((i) => reasonOf(i) === "timeout").length,
+    internal: items.filter((i) => reasonOf(i) === "internal").length,
+    internal24h: items.filter((i) => reasonOf(i) === "internal" && now - i.ts < DAY).length,
   };
 
   // What do the refused briefs actually have in common?
+  //
+  // POLICY ROWS ONLY. An outage writes one row per attempt with the
+  // same cause, and letting those in would turn the ranking into a
+  // list of whatever words happened to be in the briefs people were
+  // trying when the billing failed — burying the real signal under
+  // noise at exactly the moment the log filled up.
   const counts = new Map();
-  for (const i of items) {
+  for (const i of items.filter((x) => reasonOf(x) === "policy")) {
     const text = `${i.name} ${i.tagline} ${i.vibe} ${i.instruction}`.toLowerCase();
     const seen = new Set(); // count each word once per brief, not per mention
     for (const w of text.match(/[a-z][a-z'-]{2,}/g) || []) {

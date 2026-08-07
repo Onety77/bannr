@@ -556,5 +556,46 @@ console.log("\n12. THE MEMES TEASER");
   ok(/useScrollFocus/.test(MC), "with the same scroll-driven entrance as the other stages");
 }
 
+console.log("\nX. A FAILED RUN IS WRITTEN DOWN");
+{
+  // Two PFP runs failed on production and /admin7731 showed nothing,
+  // which read as "no failures" and meant "failures we never recorded".
+  const P = fs.readFileSync(R + "app/api/pfp/route.js", "utf8").replace(/\r\n/g, "\n");
+  const G = fs.readFileSync(R + "app/api/generate/route.js", "utf8").replace(/\r\n/g, "\n");
+  const E = fs.readFileSync(R + "app/api/edit/route.js", "utf8").replace(/\r\n/g, "\n");
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  ok(/recordRefusal/.test(strip(P)), "the PFP route records its failures at all — it never did");
+  ok(/kind: "pfp"/.test(strip(P)), "tagged as pfp, so the three surfaces are separable");
+  // Declared inside the try they are out of scope in the catch, which
+  // is precisely when they are needed.
+  ok(/let wants = ""/.test(strip(P)) && /let styleIds = \[\]/.test(strip(P)),
+     "and what was asked for is hoisted so the catch can still see it");
+
+  // ══ THE BIGGER HALF ══
+  //
+  // recordRefusal used to sit inside `if (policy)`. Quota, billing, a
+  // dead key and a crash wrote nothing anywhere — so the one class of
+  // failure that is OUR fault was the one class guaranteed to be
+  // invisible on the screen you check when things break.
+  for (const [name, src] of [["generate", G], ["edit", E]]) {
+    const s = strip(src);
+    const calls = s.match(/recordRefusal\(\{[^}]*\}/g) || [];
+    ok(calls.length >= 1, `${name} still records refusals`);
+    ok(/reason,/.test(s), `${name} passes the REAL reason through, so an outage is distinguishable`);
+  }
+  ok(!/if \(reason === "policy" && instruction\)/.test(strip(E)),
+     "the edit route no longer throws away everything that is not a refusal");
+
+  const A = strip(fs.readFileSync(R + "app/api/admin/refusals/route.js", "utf8"));
+  ok(/internal: items\.filter/.test(A), "admin counts the our-fault ones separately");
+  // An outage writes one row per attempt with the same cause. Letting
+  // those into the ranking buries the real signal exactly when the log
+  // fills up.
+  ok(/items\.filter\(\(x\) => reasonOf\(x\) === "policy"\)/.test(A),
+     "AND THE WORD RANKING READS POLICY ROWS ONLY, so an outage cannot pollute it");
+  ok(/i\.reason \|\| "policy"/.test(A), "rows written before `reason` existed still count as refusals");
+}
+
 console.log(bad ? "\n" + bad + " FAILED" : "\nall green");
 process.exit(bad ? 1 : 0);

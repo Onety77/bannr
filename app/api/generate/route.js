@@ -757,7 +757,21 @@ export async function POST(req) {
       // A refused brief is invisible to us otherwise — the user just
       // sees friendly copy and may quietly give up. Record it so the
       // pattern is reviewable at /admin7731.
-      await recordRefusal({ kind: "generate", ...brief, templateId, diagnosis, violations, detail: err?.message });
+      await recordRefusal({ kind: "generate", reason: "policy", ...brief, templateId, diagnosis, violations, detail: err?.message });
+    } else {
+      // ══ AND EVERY OTHER FAILURE, WHICH USED TO GO NOWHERE ══
+      //
+      // This else did not exist. Quota, billing, a dead key, a timeout
+      // and an outright crash all sent sanitised copy to the user and
+      // wrote nothing down, so the admin panel read "no refusals" while
+      // every run on the site was failing. That is the reverse of what
+      // a monitoring surface is for: the class of failure that is OUR
+      // fault was the one class guaranteed to be invisible.
+      //
+      // Tagged by reason so the word-ranking can still ignore it — a
+      // hundred identical quota errors must not become "what refused
+      // briefs have in common".
+      await recordRefusal({ kind: "generate", reason, ...brief, templateId, detail: err?.message });
     }
     return NextResponse.json({ error, code, refunded: Boolean(charged) }, { status });
   }

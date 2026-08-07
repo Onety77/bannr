@@ -178,8 +178,13 @@ export async function POST(req) {
       catch (e) { console.error("[edit] REFUND FAILED", charged, e); }
     }
     const { error, status, reason } = publicError(err, "edit");
-    if (reason === "policy" && instruction) {
-      await recordRefusal({ kind: "edit", instruction, detail: err?.message });
+    // Every failure, not just the refusals. The `reason === "policy"`
+    // guard meant a billing outage here wrote nothing down, so the
+    // admin panel showed no problem while nothing worked. The
+    // instruction check stays: a failure before the form was read has
+    // nothing to record.
+    if (instruction) {
+      await recordRefusal({ kind: "edit", reason, instruction, detail: err?.message });
     }
     return NextResponse.json({ error }, { status });
   }

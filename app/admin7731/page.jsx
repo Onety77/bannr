@@ -378,15 +378,36 @@ export default function AdminPage() {
         </div>
       ) : (
         <>
+          {/* ══ OUR FAULT, FIRST AND ON ITS OWN ══
+
+              An outage and a run of content refusals are opposite
+              problems, and a single total cannot tell them apart —
+              which is exactly how two failed PFP runs on production
+              read as an empty panel. `internal` is quota, billing, a
+              dead key or a crash: the number to look at before any of
+              the tuning signal below. Absent when it is zero, so a
+              healthy day says nothing rather than reassuring. */}
+          {refusals.stats.internal > 0 && (
+            <div className="notice error">
+              <b>{refusals.stats.internal24h || refusals.stats.internal} failures on our side</b>
+              {refusals.stats.internal24h ? " in the last 24h" : ""} — quota, billing or a
+              dead key, not the brief. Check the platform log and the image provider&apos;s
+              billing page.
+            </div>
+          )}
+
           <div className="admin-stats">
             {[
               ["Last 24h", refusals.stats.last24h],
-              ["Last 7 days", refusals.stats.last7d],
+              ["Content refusals", refusals.stats.policy],
+              ["Our fault", refusals.stats.internal],
+              ["Timed out", refusals.stats.timeout],
               ["From generating", refusals.stats.generate],
               ["From editing", refusals.stats.edit],
+              ["From PFPs", refusals.stats.pfp],
             ].map(([label, n]) => (
               <div className="admin-stat" key={label}>
-                <b>{n}</b>
+                <b>{n ?? 0}</b>
                 <span>{label}</span>
               </div>
             ))}
@@ -413,7 +434,17 @@ export default function AdminPage() {
             {refusals.items.map((r) => (
               <div className="admin-refusal" key={r.id}>
                 <div className="admin-refusal-head">
-                  <span className={`admin-kind ${r.kind}`}>{r.kind === "edit" ? "EDIT" : "GENERATE"}</span>
+                  <span className={`admin-kind ${r.kind}`}>{(r.kind || "generate").toUpperCase()}</span>
+                  {/* Why, on the row. Without it a billing failure and
+                      a content refusal are two identical-looking lines
+                      and the list cannot be read at a glance. Content
+                      refusals stay unlabelled — they are the norm here
+                      and a tag on every row is a tag on none. */}
+                  {r.reason && r.reason !== "policy" ? (
+                    <span className={`admin-why ${r.reason}`}>
+                      {r.reason === "internal" ? "OUR FAULT" : "TIMED OUT"}
+                    </span>
+                  ) : null}
                   <b>{r.name || "—"}</b>
                   {r.ticker ? <span className="admin-tick">{r.ticker}</span> : null}
                   {/* what the probe blamed + what the image API itself
