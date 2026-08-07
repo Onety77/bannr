@@ -109,6 +109,26 @@ two bugs it exists to make impossible. The server reaches it through
 `lib/entitlements.js`, the browser through `lib/useEntitlements.js`, and both
 reduce to `entitlementsOf()`.
 
+**Banners are stored, and only the ones somebody kept.** `lib/archive.js`
+writes the full 1500×500 PNG to Firebase Storage at the moment of DOWNLOAD —
+the same instant history has always been written. Four options render, one gets
+kept, three are never uploaded at all. That is a privacy rule before it is a
+cost one.
+
+Three properties hold it together, and none is optional. The object name is
+random *and* every read re-checks ownership — unguessable names leak through
+any log that sees one, and an ownership check on a predictable path is one
+enumeration away. Reads go through `/api/archive/{id}` on our own origin rather
+than a signed URL, because a signed URL is cross-origin and the download
+`fetch` — the whole point — is refused by CORS unless the bucket is configured
+for it on every environment. And a card that is deleted *or evicted by the 50
+cap* takes its file with it, or the bucket fills with objects nothing points at.
+
+**The whole thing degrades to nothing.** No bucket configured, or an upload that
+fails, and the product behaves exactly as it did before: the banner lives in the
+tab and the card keeps its thumbnail. An archive that could break a download
+would be worse than no archive.
+
 **No composite Firestore indexes anywhere.** A `where` on one field plus an
 `orderBy` on another throws at runtime, not at build. Over-fetch and filter in
 memory. `lib/directory.js` and `lib/stats.js` both do this deliberately.

@@ -13,9 +13,12 @@
 // single-field index and cannot silently break the way the spotlight
 // query once did.
 //
-// What is stored is the CARD, not the banner: the brief, the style,
-// and a ~75KB image — comfortably inside Firestore's 1MiB
-// document limit. The full-resolution archive (Storage) remains G5b.
+// What is stored HERE is the CARD: the brief, the style, and a ~75KB
+// thumbnail, comfortably inside Firestore's 1MiB document limit.
+//
+// The banner itself lives in Storage and is reached through
+// /api/archive/{id} — see lib/archive.js. This document holds the
+// `path` to it, which is never sent to a browser.
 //
 // Firestore rules stay deny-all: every read and write here goes
 // through the Admin SDK. No rule change is needed for any of this.
@@ -23,11 +26,17 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { removeBanner } from "@/lib/archive";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_ITEMS = 24;
+// 50, up from 24. The old number was set by what a card COSTS: each
+// one carries a ~100KB base64 thumbnail inline, so the collection was
+// the size of the pictures in it. That is still true, and the reason
+// this can move is that the expensive half — the full-resolution file
+// — now lives in Storage rather than being impossible.
+const MAX_ITEMS = 50;
 const MAX_THUMB = 200_000;   // base64 chars — a 900x300 jpeg is ~75-110k
 const str = (v, n) => String(v ?? "").slice(0, n);
 
@@ -74,10 +83,25 @@ export async function GET(req) {
     .limit(MAX_ITEMS)
     .get();
 
-  return NextResponse.json({
-    ok: true,
-    items: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+  // ══ A FLAG, NOT A URL ══
+  //
+  // This returned a signed Storage URL at first. Two things were wrong
+  // with it: a signed URL is cross-origin, so the download `fetch`
+  // that is the entire point of the feature is refused by CORS; and it
+  // is a world-reachable handle to somebody's banner sitting in the
+  // browser where any log or referrer can pick it up.
+  //
+  // The browser gets a boolean and asks /api/archive/{id} when it
+  // wants the file, which is same-origin and re-checks ownership on
+  // every request rather than once when this list was drawn.
+  //
+  // `path` is never returned for the same reason it never was.
+  const items = snap.docs.map((d) => {
+    const { path, ...rest } = d.data();
+    return { id: d.id, ...rest, hasFile: Boolean(path) };
   });
+
+  return NextResponse.json({ ok: true, items });
 }
 
 export async function POST(req) {
@@ -104,22 +128,32 @@ export async function POST(req) {
   // from two devices still makes one card.
   if (entry.sig) {
     const dup = await col.where("sig", "==", entry.sig).limit(1).get();
-    if (!dup.empty) return NextResponse.json({ ok: true, deduped: true });
+    // The id travels even on a dedupe. Re-downloading the same banner
+    // is exactly when a first archive attempt that failed — offline,
+    // a dropped connection — gets a second chance, and returning
+    // nothing here would make that impossible.
+    if (!dup.empty) return NextResponse.json({ ok: true, deduped: true, id: dup.docs[0].id });
   }
 
-  await col.add(entry);
+  const ref = await col.add(entry);
 
   // Cap enforced at write time so the collection can never grow
   // unboundedly — the oldest cards fall off, like the localStorage
   // version before it.
   const all = await col.orderBy("ts", "desc").get();
   if (all.size > MAX_ITEMS) {
+    const stale = all.docs.slice(MAX_ITEMS);
     const batch = db.batch();
-    all.docs.slice(MAX_ITEMS).forEach((d) => batch.delete(d.ref));
+    stale.forEach((d) => batch.delete(d.ref));
     await batch.commit();
+    // The stored file goes with the card. Without this, every banner
+    // that ever fell off the end of the list would stay in the bucket
+    // forever with nothing left pointing at it — a bill that only ever
+    // grows, made of objects nobody can find.
+    await Promise.all(stale.map((d) => removeBanner(d.data().path).catch(() => {})));
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, id: ref.id });
 }
 
 export async function DELETE(req) {
@@ -137,6 +171,16 @@ export async function DELETE(req) {
 
   // The path itself scopes the delete to this account — there is no
   // way to name another account's document from here.
-  await db.collection("users").doc(session.accountId).collection("history").doc(id).delete();
+  const ref = db.collection("users").doc(session.accountId).collection("history").doc(id);
+  // Read before deleting, because after it there is nothing left
+  // saying which object belonged to this card.
+  const snap = await ref.get().catch(() => null);
+  await ref.delete();
+  // Deliberately AFTER the document is gone, and deliberately not
+  // awaited into the response's success. A card the user asked to
+  // remove staying on screen is a visible broken promise; an orphaned
+  // object is a cost nobody can see, and it is logged loudly enough to
+  // be found later.
+  if (snap?.exists) await removeBanner(snap.data().path).catch(() => {});
   return NextResponse.json({ ok: true });
 }

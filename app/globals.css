@@ -4384,3 +4384,56 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
    unanswerable rather than guessed at — a green tick on something
    nobody verified is worse than an open question. */
 .lx.unknown .lx-mark { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+
+/* ---- My banners: the card opens ----
+   The picture was the one thing everyone tried to tap and the one
+   thing that did nothing. Only cards with a stored file become
+   buttons — anything downloaded before the archive existed has a
+   thumbnail and nothing behind it, and a viewer that could only show
+   a blurry copy is a worse answer than none. */
+.history-open {
+  display: block; position: relative; width: 100%;
+  padding: 0; border: 0; background: none; cursor: zoom-in;
+  border-radius: inherit; overflow: hidden;
+}
+.history-open img { display: block; width: 100%; }
+.history-open-hint {
+  position: absolute; right: 9px; bottom: 9px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  padding: 4px 10px; border-radius: var(--pill);
+  background: rgba(0, 0, 0, 0.62); color: #fff;
+  backdrop-filter: blur(4px);
+  opacity: 0; transition: opacity 0.18s;
+}
+.history-open:hover .history-open-hint,
+.history-open:focus-visible .history-open-hint { opacity: 1; }
+/* Touch has no hover, and the affordance is the whole point there. */
+@media (hover: none) {
+  .history-open-hint { opacity: 1; }
+}
+
+/* The viewer. Two jobs only — see it properly, and get the file. */
+.hview {
+  position: fixed; inset: 0; z-index: 90;
+  display: grid; place-items: center; padding: 18px;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(6px);
+}
+.hview-inner { width: min(1100px, 100%); display: grid; gap: 12px; }
+.hview-inner img {
+  display: block; width: 100%; height: auto;
+  border-radius: var(--r-lg);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+.hview-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.hview-name { display: flex; align-items: baseline; gap: 9px; margin-right: auto; color: #fff; }
+.hview-name b { font-size: 15px; }
+/* The dimensions, stated. It is the whole reason this file was kept
+   rather than the thumbnail beside it. */
+.hview-name em { font-style: normal; font-family: var(--mono, monospace); font-size: 12px; opacity: 0.7; }
+@media (max-width: 560px) {
+  .hview { padding: 12px; }
+  .hview-name { width: 100%; margin-right: 0; }
+}

@@ -47,7 +47,14 @@ version before it.
       wallet popup leaves one behind forever.
 - [ ] **Confirm `firestore.rules` and `storage.rules` are deployed.**
       The rule is a wildcard deny, so it covers every collection added
-      since — but it has to actually be live.
+      since — but it has to actually be live. **Storage matters now**:
+      banners are stored under `banners/{accountId}/`, every read goes
+      through the Admin SDK via `/api/archive/{id}`, and a deny-all
+      rule is exactly right. No client ever touches the bucket.
+- [ ] **Check `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` is set in
+      production.** Without it the archive is simply off — downloads
+      still work, banners just stop being re-downloadable later, with
+      no error anywhere.
 - [ ] **Do the first buyback before announcing `/token`.**
 - [ ] **Announce the contract address last.** It is the switch that
       makes everything above visible to strangers.
@@ -85,21 +92,15 @@ these — they are all "does it look right".
 
 Real, not urgent.
 
-- **No full-resolution archive, and it is the one worth fixing first.**
-  A banner exists at full quality only as long as that browser tab.
-  History keeps a 900×300 shrink, the feed keeps a 760px JPEG — both
-  because localStorage caps at ~5MB and a Firestore document at 1MB.
-  Close the tab and the real file is gone; re-running gives a
-  *different* banner.
-  **It pays for itself four times over:** permanent re-download from
-  any device, an end to the ~12% edit softening (edits could re-render
-  from the stored original instead of the downscaled copy), a much
-  smaller JSON response on every run, and feed-at-scale.
-  `firebase-admin` is already a dependency and the bucket is already
-  in the env config.
-- **Edits soften ~12% per pass.** They re-render from the downscaled
-  1500×500 and upscale back. Invisible, and a craft bug in a product
-  selling craft. Fixed by the above.
+- **Edits still soften per pass.** They upscale the 1500×500 back to
+  1536×512, JPEG-encode it, and the model re-renders — so some loss is
+  resampling and most of it is the re-render itself, which no amount of
+  source fidelity removes. The archive stores the delivered 1500×500,
+  so this is improved but not cured. Storing the 1536×512 pre-downscale
+  original would remove the upscale; it would also mean uploading every
+  option rather than only the kept one, which breaks the rule that
+  nothing you rejected is ever stored. Not obviously worth it.
+
 - **Rate limiting is an in-memory `Map`.** Each invocation can be a
   fresh instance, so it barely exists in production. Server-side credit
   debiting covers most of the money risk.
@@ -121,8 +122,6 @@ Real, not urgent.
 
 Roughly in the order I'd build them.
 
-- **Full-resolution archive.** See above. Infrastructure that pays for
-  itself four times.
 - **Daily most-liked coin.** The reason Share exists. Needs a
   once-a-day ranking and somewhere to show it.
 - **X headers, properly.** Already promised in the UI, and it would

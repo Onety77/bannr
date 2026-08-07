@@ -14,6 +14,7 @@ import { readHistory, writeHistory, patchHistory, STALE_MS } from "@/lib/history
 import { useRestoreScroll } from "@/lib/useRestoreScroll";
 import { useEffect, useState } from "react";
 import { loadHistory, deleteFromHistory } from "@/lib/credits";
+import { saveImage, bannerFilename } from "@/lib/download";
 
 // The page promises "re-run any brief with one click", so the link has
 // to carry the ENTIRE brief — not just the style, which was all it used
@@ -36,6 +37,11 @@ export default function HistoryPage() {
   const cached = typeof window === "undefined" ? null : readHistory();
   const [items, setItems] = useState(cached?.items ?? null); // null = still loading
   const [confirming, setConfirming] = useState(null);
+  // The card being looked at full size, or null. Holds the whole item
+  // rather than an id so the viewer can name the banner and save it
+  // under the right filename without looking anything up.
+  const [viewing, setViewing] = useState(null);
+  const [saving, setSaving] = useState(false);
   // Only so the post button knows whether to ask for sign-in first.
   // The page itself already requires a session to have any history.
   const auth = useAuth();
@@ -93,7 +99,32 @@ export default function HistoryPage() {
         <div className="history-grid">
           {items.map((it) => (
             <div className="history-card" key={it.id}>
-              {it.thumb && <img src={it.thumb} alt={`${it.brief?.ticker || it.brief?.name || "Banner"} preview`} />}
+              {/* ══ THE PICTURE IS THE CONTROL ══
+
+                  It was an <img> and nothing else, which on a page
+                  full of banners is the one thing everybody tries to
+                  tap. It opens the full-resolution file now — the real
+                  one out of the archive, not the 900×300 card thumb —
+                  and that is where re-downloading lives.
+
+                  A card with no stored file is still just a picture:
+                  anything downloaded before the archive existed has a
+                  thumbnail and nothing behind it, and offering a view
+                  that could only show a blurry copy would be a worse
+                  answer than offering none. */}
+              {it.thumb && (it.hasFile ? (
+                <button
+                  type="button"
+                  className="history-open"
+                  onClick={() => setViewing(it)}
+                  aria-label={`View ${it.brief?.ticker || it.brief?.name || "banner"} full size`}
+                >
+                  <img src={it.thumb} alt="" />
+                  <span className="history-open-hint">View</span>
+                </button>
+              ) : (
+                <img src={it.thumb} alt={`${it.brief?.ticker || it.brief?.name || "Banner"} preview`} />
+              ))}
               <div className="meta">
                 <b>{it.brief?.ticker || it.brief?.name || "Untitled"}</b>
                 <span>
@@ -154,6 +185,59 @@ export default function HistoryPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ══ THE VIEWER ══
+
+          Deliberately not the create page's Lightbox. That one carries
+          editing, undo, redo, hold-to-compare and the X conversion,
+          all of which need a live run behind them — a saved banner has
+          no variants to compare against and no session to charge. Two
+          things belong here: see it properly, and get the file.
+
+          The image is the signed archive URL, so this is the first
+          place in the product where a banner is genuinely re-served at
+          full resolution. */}
+      {viewing && (
+        <div
+          className="hview"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${viewing.brief?.ticker || viewing.brief?.name || "Banner"} full size`}
+          onPointerDown={(e) => { if (e.target === e.currentTarget) setViewing(null); }}
+        >
+          <div className="hview-inner">
+            {/* Same-origin, so no CORS and no signed URL in the page.
+                Ownership is re-checked on this request rather than
+                trusted from when the list was drawn. */}
+            <img src={`/api/archive/${viewing.id}`} alt="" />
+            <div className="hview-bar">
+              <span className="hview-name">
+                <b>{viewing.brief?.ticker || viewing.brief?.name || "Untitled"}</b>
+                <em>1500 × 500</em>
+              </span>
+              <button
+                className="btn small primary"
+                disabled={saving}
+                onClick={async () => {
+                  setSaving(true);
+                  // Fetched and saved rather than linked. A signed URL
+                  // opened in a tab is a picture to long-press, not a
+                  // download — and on iOS that is the difference
+                  // between getting the file and getting a screenshot.
+                  const label = viewing.brief?.ticker || viewing.brief?.name || "banner";
+                  const res = await saveImage(`/api/archive/${viewing.id}`, bannerFilename(label, 0, ""));
+                  setSaving(false);
+                  if (res?.error) setViewing((v) => ({ ...v, err: res.error }));
+                }}
+              >
+                {saving ? <span className="spinner" /> : "Download PNG"}
+              </button>
+              <button className="btn small" onClick={() => setViewing(null)}>Close</button>
+            </div>
+            {viewing.err && <div className="notice error">{viewing.err}</div>}
+          </div>
         </div>
       )}
     </main>
