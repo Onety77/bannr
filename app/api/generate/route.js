@@ -48,7 +48,12 @@ import { buildDirection, spreadSettings, sharedSettings, optionDirection } from 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const MAX_LOGO_BYTES = 8 * 1024 * 1024;
+// Per file. Same reason as the PFP route: the platform refuses a
+// request body over ~4.5MB with a 413 before this function runs, so
+// 8MB was a number we could advertise and never honour — accepted by
+// the copy, rejected by the host, with no log line and nothing on
+// screen to explain it. The client shrinks first; see lib/downscale.js.
+const MAX_LOGO_BYTES = 4 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 // Supporting images. Raised from 3 — gpt-image-2 takes the whole set
@@ -224,7 +229,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "A logo or pfp image is required — every banner is built around it." }, { status: 400 });
     }
     if (logoFile.size > MAX_LOGO_BYTES)
-      return NextResponse.json({ error: "Logo file too large (8MB max)." }, { status: 400 });
+      return NextResponse.json({ error: "That logo is too large — try a smaller one." }, { status: 400 });
     if (!ALLOWED_TYPES.includes(logoFile.type))
       return NextResponse.json({ error: "Logo must be PNG, JPG or WEBP." }, { status: 400 });
     const raw = Buffer.from(await logoFile.arrayBuffer());

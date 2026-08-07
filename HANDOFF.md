@@ -330,6 +330,24 @@ announcing `/token`, Firestore TTL on `nonces.expires`, seeding the feed.
   shadow, barely readable" was refused; the same lighting described as studio
   product photography passed.
 
+- **THE PLATFORM REFUSES A REQUEST BODY OVER ~4.5MB BEFORE THE FUNCTION RUNS.**
+  A 413, no server log, no charge, and a bare "Something went wrong" on screen —
+  which is indistinguishable from the product being broken. The PFP maker was
+  uploading up to five untouched phone photos. Banners survived on luck: a logo
+  is usually small, and the same failure was one big upload away.
+  `lib/downscale.js` shrinks in the browser on every upload path now. Two
+  things in it are load-bearing: the canvas is **painted white first**, because
+  a transparent PNG encoded to JPEG goes black and on a knocked-out logo that
+  is the whole logo; and it **fails open**, returning the original when a
+  browser cannot decode the file, because a helper that made an upload
+  impossible would be worse than the size it was written to fix.
+- **A size limit the host will not honour is a lie, not a limit.** Both routes
+  advertised 8MB per file and could never receive it. They say 4MB now.
+- **`res.json()` on a dead function throws, and takes the status with it.**
+  That is how the above surfaced as five words. Read the body as text, parse if
+  it parses, and report the status — and do not say "you weren't charged" in
+  that branch, because the route's refund lives in a `catch` that never ran.
+
 ### From the tier rework, all found by reasoning rather than by shipping
 
 - **A discount silently underpays unless the matcher knows about it.** The page

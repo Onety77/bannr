@@ -33,7 +33,13 @@ import { bump } from "@/lib/stats";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const MAX_BYTES = 8 * 1024 * 1024;
+// PER FILE, and it can only ever fire for a client that did not
+// shrink. The platform rejects a whole request body over ~4.5MB with
+// a 413 before this function runs, so the old 8MB was a limit that
+// could not be reached and a promise that could not be kept — a
+// 6MB photo was accepted by the copy and refused by the host, with no
+// log line and nothing on screen to explain it. See lib/downscale.js.
+const MAX_BYTES = 4 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 const hits = new Map();
@@ -109,7 +115,7 @@ export async function POST(req) {
     }
     for (const f of files) {
       if (f.size > MAX_BYTES) {
-        return NextResponse.json({ error: "Image too large (8MB max)." }, { status: 400 });
+        return NextResponse.json({ error: "That image is too large — try a smaller one." }, { status: 400 });
       }
       if (!ALLOWED_TYPES.includes(f.type)) {
         return NextResponse.json({ error: "Images must be PNG, JPG or WEBP." }, { status: 400 });

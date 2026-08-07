@@ -24,6 +24,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PFP_STYLES, PFP_MAX, PFP_COST, PFP_TEXT_MAX, PFP_WANTS_MAX, PFP_IMAGES_MAX, getPfpStyle, distributeStyles } from "@/lib/pfpStyles";
 import { saveImage } from "@/lib/download";
+import { downscaleAll, totalBytes, REQUEST_BUDGET_BYTES } from "@/lib/downscale";
 import { useProgress } from "@/lib/useProgress";
 import { openTopUp } from "@/lib/modals";
 import { setUser } from "@/lib/credits";
@@ -98,8 +99,13 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
   function add(list) {
     const picked = Array.from(list || []).filter((f) => f && f.size > 0);
     if (!picked.length) return;
-    if (picked.some((f) => f.size > 8 * 1024 * 1024))
-      return setError("One of those is over 8MB — try a smaller one.");
+    // Raised from 8MB, because the file is downscaled in the browser
+    // before it is uploaded now — so the source size only has to be
+    // something this device can decode, not something that fits in a
+    // request. Rejecting a 12MB phone photo we can handle perfectly
+    // well was the check doing harm.
+    if (picked.some((f) => f.size > 25 * 1024 * 1024))
+      return setError("That one's enormous — try a smaller file.");
     if (picked.some((f) => !["image/png", "image/jpeg", "image/webp"].includes(f.type)))
       return setError("Images only — PNG, JPG or WEBP.");
     setError(null);
@@ -131,8 +137,22 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
     setBusy(true);
     setError(null);
     try {
+      // ══ SHRINK BEFORE SENDING, OR THE REQUEST NEVER ARRIVES ══
+      //
+      // Five untouched phone photos is comfortably past the platform's
+      // ~4.5MB request limit, and it rejects the body with a 413
+      // before the route runs — no server log, no charge, and a
+      // failure the user cannot tell from a broken product. The server
+      // resizes to 1024 the moment it lands anyway, so everything
+      // above that was uploaded and thrown away.
+      const shrunk = await downscaleAll(files.map((f) => f.file));
+      if (totalBytes(shrunk) > REQUEST_BUDGET_BYTES) {
+        setError("Those images are too big even after shrinking. Try fewer, or smaller ones.");
+        return;
+      }
+
       const fd = new FormData();
-      files.forEach((f) => fd.append("images", f.file));
+      shrunk.forEach((f) => fd.append("images", f));
       fd.set("styles", styleIds.join(","));
       fd.set("count", String(Math.max(count, styleIds.length)));
       if (text.trim()) fd.set("text", text.trim());

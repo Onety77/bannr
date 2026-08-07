@@ -597,5 +597,46 @@ console.log("\nX. A FAILED RUN IS WRITTEN DOWN");
   ok(/i\.reason \|\| "policy"/.test(A), "rows written before `reason` existed still count as refusals");
 }
 
+console.log("\nY. NOTHING LEAVES THE BROWSER AT FULL SIZE");
+{
+  // A PFP run failed with a 413: the platform rejects a request body
+  // over ~4.5MB BEFORE the function runs, so there was no server log,
+  // no charge, and a bare "Something went wrong" on screen. Five
+  // untouched phone photos is comfortably past it.
+  const D = fs.readFileSync(R + "lib/downscale.js", "utf8").replace(/\r\n/g, "\n");
+  const M = fs.readFileSync(R + "components/PfpMaker.jsx", "utf8").replace(/\r\n/g, "\n");
+  const C = fs.readFileSync(R + "app/create/page.jsx", "utf8").replace(/\r\n/g, "\n");
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  ok(/fillStyle = "#ffffff"/.test(strip(D)),
+     "the canvas is painted white first — a transparent PNG encoded to JPEG goes BLACK, which on a knocked-out logo is the whole logo");
+  ok(/catch \{\s*return file;/.test(strip(D)), "and it FAILS OPEN: an undecodable file uploads untouched rather than becoming impossible to send");
+  ok(/blob\.size >= file\.size/.test(strip(D)), "a re-encode that made it bigger is discarded");
+  ok(/SKIP_UNDER_BYTES/.test(strip(D)), "and a small clean logo is not touched at all");
+
+  ok(/downscaleAll\(files\.map/.test(strip(M)), "the PFP maker shrinks before it builds the form");
+  ok(/REQUEST_BUDGET_BYTES/.test(strip(M)), "and refuses a set still too big afterwards, in words, rather than letting it 413");
+
+  // Every upload path, not just the one that was reported. The banner
+  // form carries a logo plus five references and was one big file from
+  // the identical failure.
+  const raw = strip(C).match(/fd\.(set|append)\("(logo|refs)"[^)]*\)/g) || [];
+  ok(raw.length > 0, "the create page still uploads images");
+  // A raw identifier is only a problem when it is NOT wrapped in a
+  // shrink — one path does it inline, which is fine and which the
+  // first version of this assertion wrongly flagged.
+  ok(raw.every((l) => /downscale/.test(l) || !/logoFile|r\.file|refFiles/.test(l)),
+     "AND NO PATH SENDS THE ORIGINAL FILE — logo, refs, reroll and convert all shrink first");
+  // The banner being edited is the thing under edit; degrading it
+  // would lose detail on every pass.
+  ok(/fd\.set\("image", results\.variants\[idx\]\.dataUrl\)/.test(strip(C)),
+     "except the banner being edited, which is deliberately left alone");
+
+  const P = strip(fs.readFileSync(R + "app/api/pfp/route.js", "utf8"));
+  const G = strip(fs.readFileSync(R + "app/api/generate/route.js", "utf8"));
+  ok(!/8 \* 1024 \* 1024/.test(P) && !/8 \* 1024 \* 1024/.test(G),
+     "and the routes no longer advertise an 8MB limit the host refuses at 4.5MB");
+}
+
 console.log(bad ? "\n" + bad + " FAILED" : "\nall green");
 process.exit(bad ? 1 : 0);

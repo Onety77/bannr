@@ -8,6 +8,7 @@ import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles, slotsFor, op
 import { loadDraft, saveDraft, setInFlight, getInFlight } from "@/lib/draft";
 import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_COST, EDIT_COST, REROLL_COST, MAX_REFS } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";
+import { downscaleFile, downscaleAll, totalBytes, REQUEST_BUDGET_BYTES } from "@/lib/downscale";
 import { useAuth } from "@/lib/useAuth";
 import { useEntitlements } from "@/lib/useEntitlements";
 import { useProgress } from "@/lib/useProgress";
@@ -550,9 +551,24 @@ function CreateInner() {
       );
       if (Object.keys(advForRun).length) fd.set("advanced", JSON.stringify(advForRun));
       fd.set("variants", String(variants));
-      fd.set("logo", logoFile); // always present — checked above
+      // Shrunk here, for the same reason the PFP maker does it: the
+      // platform rejects a request body over ~4.5MB with a 413 before
+      // the route runs, and the route resizes everything to 1024 the
+      // moment it lands anyway. A logo plus five reference images is
+      // one big upload away from a failure with no server log, no
+      // charge and nothing to read.
+      const [logoSmall, refsSmall] = await Promise.all([
+        downscaleFile(logoFile),
+        downscaleAll(refImages.map((r) => r.file)),
+      ]);
+      if (totalBytes([logoSmall, ...refsSmall]) > REQUEST_BUDGET_BYTES) {
+        setError("Those images are too big even after shrinking. Try fewer references, or smaller files.");
+        setBusy(false);
+        return;
+      }
+      fd.set("logo", logoSmall); // always present — checked above
       if (assist) fd.set("assist", assist);
-      refImages.forEach((r) => fd.append("refs", r.file));
+      refsSmall.forEach((f) => fd.append("refs", f));
 
       const res = await fetchWithTimeout("/api/generate", { method: "POST", body: fd }, TIMEOUTS.generate);
       const data = await res.json();
@@ -647,7 +663,7 @@ function CreateInner() {
       fd.set("name", formRef.current.name);
       fd.set("ticker", formRef.current.ticker);
       fd.set("tagline", formRef.current.tagline);
-      if (logoFile) fd.set("logo", logoFile);
+      if (logoFile) fd.set("logo", await downscaleFile(logoFile));
       const res = await fetchWithTimeout("/api/convert", { method: "POST", body: fd }, TIMEOUTS.convert);
       const data = await res.json();
       if (!res.ok || !data.ok) {
@@ -805,9 +821,14 @@ function CreateInner() {
 
     try {
       const fd = new FormData();
+      // The banner itself is NOT shrunk — it is the thing being
+      // edited, and handing the model a degraded copy of its own
+      // output is how an edit quietly loses detail every time it is
+      // used. The references attached to the instruction are shrunk,
+      // for the same reason as everywhere else.
       fd.set("image", results.variants[idx].dataUrl);
       fd.set("instruction", instruction);
-      refFiles.forEach((f) => fd.append("refs", f));
+      (await downscaleAll(refFiles)).forEach((f) => fd.append("refs", f));
 
       const res = await fetchWithTimeout("/api/edit", { method: "POST", body: fd }, TIMEOUTS.edit);
       const data = await res.json();
@@ -925,8 +946,14 @@ function CreateInner() {
         : null;
       if (adv && Object.keys(adv).length)
         fd.set("advanced", JSON.stringify({ [v.templateId]: adv }));
-      fd.set("logo", logoFile);
-      refImages.forEach((r) => fd.append("refs", r.file));
+      // A reroll carries the same logo and the same five references as
+      // the run it is refining, so it carries the same 413.
+      const [rerollLogo, rerollRefs] = await Promise.all([
+        downscaleFile(logoFile),
+        downscaleAll(refImages.map((r) => r.file)),
+      ]);
+      fd.set("logo", rerollLogo);
+      rerollRefs.forEach((f) => fd.append("refs", f));
 
       const res = await fetchWithTimeout("/api/generate", { method: "POST", body: fd }, TIMEOUTS.generate);
       const data = await res.json();
