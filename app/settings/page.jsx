@@ -308,7 +308,16 @@ export default function SettingsPage() {
           <div className="set-bills">
             {payments.map((p) => (
               <div className="set-bill" key={p.signature}>
-                <b>{p.amountSol != null ? `${p.amountSol} SOL` : "—"}</b>
+                {/* Dollars lead, because dollars are what the pack was
+                    priced in and what the page quoted. The SOL is what
+                    left the wallet and is the figure that matches the
+                    transaction, so it stays — just second. Payments
+                    from before the move have no `usd` and show the SOL
+                    alone rather than a fabricated conversion. */}
+                <b>{p.usd != null ? `$${p.usd}` : p.amountSol != null ? `${p.amountSol} SOL` : "—"}</b>
+                {p.usd != null && p.amountSol != null && (
+                  <span className="set-bill-sol">{p.amountSol} SOL</span>
+                )}
                 <span>+{p.credits} credits</span>
                 <span className="set-when">{p.ts ? new Date(p.ts).toLocaleDateString() : ""}</span>
                 {p.status !== "credited" && <span className="set-flag">{p.status}</span>}

@@ -39,7 +39,13 @@ export default function TopUpModal() {
   }
 
   return (
-    <Modal title={offer ? "Get free generations" : "You need credits"} onClose={closeModal}>
+    // "Get free generations" was the title, and it stopped being true
+    // when everyone started getting one a day: the offer underneath is
+    // now whatever holding ADDS, which is often the style picker and a
+    // discount rather than more runs. A title promising free
+    // generations above a line that offers something else reads as a
+    // bait. This one states the situation and lets the offer speak.
+    <Modal title={offer ? "Out of runs" : "You need credits"} onClose={closeModal}>
       {offer ? (
         <>
           <p className="modal-lead">{offer}</p>

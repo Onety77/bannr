@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePrice } from "@/lib/usePrice";
+import { offerLine } from "@/lib/offer";
 
 // $312K, not $312,481 — the precision anyone actually reads.
 const usd = (n) => {
@@ -35,6 +36,10 @@ export default function TokenBar({ compact = false, hideMore = false }) {
   const [t, setT] = useState(null);
   const [copied, setCopied] = useState(false);
   const price = usePrice();
+  // Below `t`, which it reads. Null until the gate loads and null
+  // again whenever there is nothing to offer — offerLine owns that
+  // decision so every surface makes it the same way.
+  const offer = offerLine(t);
 
   useEffect(() => {
     let live = true;
@@ -148,13 +153,18 @@ export default function TokenBar({ compact = false, hideMore = false }) {
         )}
       </div>
 
-      {/* Only when the gate is actually live. Announcing the token and
-          switching on free generations are separate decisions, and the
-          promise must never appear before it can be kept. */}
-      {t.live && t.dailyRuns > 0 && (
+      {/* Only when the tiers are actually live. Announcing the token
+          and switching on the ladder are separate decisions, and the
+          promise must never appear before it can be kept.
+
+          THE SENTENCE COMES FROM offerLine, not from these two fields.
+          It used to be built here out of `minTokens` and `dailyRuns`,
+          which are the ENTRY threshold and the TOP tier's allowance —
+          two different rungs read as one offer, so the bar advertised
+          the cheapest price for the best benefit. */}
+      {offer && (
         <p className="tbar-perk">
-          Hold <b>{Number(t.minTokens).toLocaleString("en-US")} ${t.symbol}</b> and get{" "}
-          <b>{t.dailyRuns} free banners a day</b>.
+          {offer}
           {t.maturityHours > 0 ? ` Counts after ${t.maturityHours}h of holding.` : ""}
           {t.note ? ` ${t.note}` : ""}
         </p>

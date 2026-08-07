@@ -33,6 +33,11 @@ async function billingHistory(accountId) {
       .map((d) => ({
         signature: d.id,
         amountSol: d.data().amountSol ?? null,
+        // Recorded at the moment of grading, never recomputed here. A
+        // payment shown at today's rate rather than the one it was
+        // priced at is a support conversation nobody can win. Absent
+        // on anything bought before packs moved to dollars.
+        usd: d.data().usd ?? null,
         credits: d.data().creditsGranted ?? 0,
         status: d.data().status || "credited",
         ts: d.data().ts || 0,

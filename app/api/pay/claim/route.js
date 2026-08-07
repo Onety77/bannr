@@ -28,7 +28,9 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { grantCredits, getUser, publicUser, addPayingWallet } from "@/lib/users";
 import { identitiesFor } from "@/lib/identities";
-import { creditsForSol } from "@/lib/packs";
+import { creditsForPayment } from "@/lib/packs";
+import { solUsd } from "@/lib/solPrice";
+import { resolveEntitlements } from "@/lib/entitlements";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
@@ -173,7 +175,34 @@ export async function POST(req) {
     }
   }
 
-  const pack = { ...creditsForSol(sol), sol };
+  // ══ WHAT THAT SOL WAS WORTH ══
+  //
+  // The packs are priced in dollars, so grading a payment means
+  // converting what arrived. Two things have to be true at once:
+  //
+  //   the rate must be one we trust — see lib/solPrice.js, which
+  //   returns null rather than a fallback, because the failure mode of
+  //   a wrong rate is not an error page, it is quietly selling $79 of
+  //   credits for whatever the bad number came to;
+  //
+  //   the discount must be the SAME one the page quoted. The payer
+  //   sent the exact SOL we asked for. If we graded it against the
+  //   undiscounted price it would land outside its own pack's
+  //   tolerance band and be credited at the tier below — a holder
+  //   getting fewer credits per dollar than a stranger, silently.
+  const rate = await solUsd();
+  if (rate === null) {
+    // Nothing is lost by waiting: the transaction is on chain and the
+    // client polls this endpoint. 202 is the "not yet" status it
+    // already understands.
+    console.error("[pay/claim] no SOL price — holding", signature.slice(0, 12));
+    return NextResponse.json(
+      { ok: false, pending: true, error: "Confirming — this is taking a moment." },
+      { status: 202 }
+    );
+  }
+  const { ent } = await resolveEntitlements(session.accountId).catch(() => ({ ent: { discount: 0 } }));
+  const pack = { ...creditsForPayment(sol, rate, ent.discount), sol };
 
   // create() rather than set(): if the webhook wrote this signature
   // between our read above and here, this throws instead of granting a
@@ -182,6 +211,13 @@ export async function POST(req) {
     await payRef.create({
       accountId: session.accountId,
       sol,
+      // The dollar figures are recorded, not recomputed later. A
+      // payment graded at one rate and displayed at another is a
+      // support conversation nobody can win, and the rate at the
+      // moment of grading is the only honest record of the deal.
+      usd: +(pack.usd || 0).toFixed(2),
+      solUsdRate: rate,
+      discount: ent.discount || 0,
       // The SAME number under the webhook's name for it. These two
       // paths write the same document and had drifted: the webhook
       // writes `amountSol`, this writes `sol`, and /settings reads

@@ -9,6 +9,7 @@ import { loadDraft, saveDraft, setInFlight, getInFlight } from "@/lib/draft";
 import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_COST, EDIT_COST, REROLL_COST, MAX_REFS } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
+import { useEntitlements } from "@/lib/useEntitlements";
 import { useProgress } from "@/lib/useProgress";
 import ConnectButton from "@/components/ConnectButton";
 import Lightbox from "@/components/Lightbox";
@@ -142,6 +143,12 @@ function CreateInner() {
   // but it has to be SAID. Without it the run just looks like it
   // produced less, with no way to tell a fault from the product.
   const [shortfall, setShortfall] = useState(null);
+  // Parts of the brief the account's tier does not include, which the
+  // server dropped rather than refused. Should never fire — the page
+  // does not offer what it cannot use — so this is here for the stale
+  // tab and the shared link, where the alternative is shipping a
+  // banner that is not what was on screen and never saying so.
+  const [locked, setLocked] = useState(null);
   // Index of the option currently being rerolled, or null.
   const [rerollBusy, setRerollBusy] = useState(null);
   // The post that sent us here, if any. Shown so the promise on the
@@ -281,6 +288,24 @@ function CreateInner() {
   // credit count here and in the nav are the same number, not two
   // guesses that can drift apart.
   const auth = useAuth();
+
+  // ══ WHAT THIS ACCOUNT CAN REACH FOR ══
+  //
+  // The same table the API enforces — see lib/useEntitlements.js. It
+  // sits here, directly under the auth it is derived from, because
+  // things far below read it: the pre-flight check inside generate(),
+  // the free-run count on the button, and the locked rows in the form.
+  //
+  // Two rules for everything that reads it:
+  //
+  //   NEVER DISABLE A CONTROL AND LEAVE IT LOOKING NORMAL. A style
+  //   card that does nothing when tapped is indistinguishable from a
+  //   broken one, and the second guess is always that the site is
+  //   broken rather than that a tier exists.
+  //
+  //   SAY WHAT UNLOCKS IT, ONCE, WHERE THE THING IS. Not a banner at
+  //   the top of the page about tiers in general.
+  const ent = useEntitlements();
 
   // Saved preferences from /settings — style defaults, and which
   // styles/count to start on. Applied ONCE and never over a URL param,
@@ -469,7 +494,22 @@ function CreateInner() {
     // Nothing to spend. A sentence pointing at another page is a
     // dead end at the exact moment of intent; the dialog carries the
     // two things they can actually do about it.
-    if ((auth.user.holderRunsLeft || 0) <= 0 && auth.user.credits < GENERATION_COST) {
+    //
+    // ══ AND A BRAND-NEW ACCOUNT HAS SPENT NOTHING ══
+    //
+    // holderRunsLeft is derived from the last balance check the server
+    // did, and on a first visit there has never been one — so it reads
+    // 0, which alongside 0 credits would have shown the top-up dialog
+    // to the exact person the free tier exists for. `maybeFree` says
+    // the ladder owes this account runs today even though nothing has
+    // been recorded yet. The server remains the authority; this check
+    // exists only to stop an obviously-doomed request.
+    const maybeFree = auth.user.tierId === null && ent.dailyRuns > 0 && !auth.user.holderDailyRuns;
+    if (
+      (auth.user.holderRunsLeft || 0) <= 0 &&
+      !maybeFree &&
+      auth.user.credits < GENERATION_COST
+    ) {
       openTopUp();
       return;
     }
@@ -552,6 +592,7 @@ function CreateInner() {
       setDemoMode(data.demoMode);
       setResults(data);
       setShortfall(data.shortfall || null);
+      setLocked(data.locked || null);
       if (data.user) setUser(data.user);
 
       // NOT saved to history here. A run used to auto-save one entry
@@ -983,10 +1024,17 @@ function CreateInner() {
   }
 
   // Free runs available right now, from the last balance check the
-  // server did. Zero when the gate is off, when nothing is linked, or
-  // when today's allowance is spent — every one of which correctly
+  // server did. Zero when today's allowance is spent, which correctly
   // means "this run costs credits".
-  const freeRuns = auth.user?.holderRunsLeft || 0;
+  //
+  // The fallback is for a first visit: nothing has been recorded yet,
+  // so holderRunsLeft is 0 while the ladder in fact owes this account
+  // its free run. Showing 0 there would tell the free tier's whole
+  // audience they have nothing on the one visit that decides whether
+  // they come back.
+  const freeRuns =
+    auth.user?.holderRunsLeft ||
+    (auth.user && !auth.user.holderDailyRuns ? ent.dailyRuns : 0);
 
   // A run is about 45s. The button fills as it goes, which answers
   // the one thing a spinner cannot: how far in am I. It fills the
@@ -1030,6 +1078,17 @@ function CreateInner() {
     // a panel someone deliberately opened.
     if (!isDefaultOnly) setStylesOpen(true);
   }, [isDefaultOnly]);
+
+  // A locked account is forced back to Default, and it has to happen
+  // in state rather than only at submit: a restored draft or a
+  // ?style= link can put a style in here that this account may no
+  // longer pick, and leaving it selected would show a chosen style
+  // that the server then silently drops.
+  useEffect(() => {
+    if (ent.styles) return;
+    setStyleIds((prev) => (prev.length === 1 && prev[0] === AUTO_ID ? prev : [AUTO_ID]));
+    setStylesOpen(false);
+  }, [ent.styles]);
 
   function toggleStyle(id) {
     setStyleIds((prev) => {
@@ -1369,7 +1428,19 @@ function CreateInner() {
                 never rendered; this is an INSTRUCTION about the banner
                 and is obeyed. The labels and hints carry that. */}
             <div className="field field-accent">
-              {!wantOpen ? (
+              {!ent.direction ? (
+                // Locked. Shown rather than hidden, because a field
+                // nobody knows exists cannot be a reason to hold the
+                // token — and the offer is the whole point of the
+                // lock. One line, and it names the thing.
+                <div className="want-locked">
+                  <span>
+                    What do you want?
+                    <span className="tag-opt">for holders</span>
+                  </span>
+                  <a className="want-reveal-cta" href="/credits">Hold $BANNR</a>
+                </div>
+              ) : !wantOpen ? (
                 <button className="want-reveal" onClick={() => setWantOpen(true)}>
                   <span>
                     What do you want?
@@ -1428,7 +1499,17 @@ function CreateInner() {
           </div>
 
           <div className="panel">
-            {!stylesOpen ? (
+            {!ent.styles ? (
+              // Same shape as the unlocked row, so the page does not
+              // rearrange itself when someone crosses the threshold —
+              // only the right-hand side changes what it offers.
+              <div className="style-locked">
+                <span className="style-reveal-now">
+                  <b>{AUTO_NAME}</b> — chosen for you.
+                </span>
+                <a className="style-reveal-cta" href="/credits">Hold $BANNR for every style</a>
+              </div>
+            ) : !stylesOpen ? (
               <button className="style-reveal" onClick={() => setStylesOpen(true)}>
                 <span className="style-reveal-now">
                   <b>{AUTO_NAME}</b> — chosen for you.
@@ -1462,6 +1543,12 @@ function CreateInner() {
                     <span>full creative freedom, no fixed category</span>
                   </div>
                 </button>
+                {/* Hidden rather than locked, unlike the two rows
+                    above. Advanced is a refinement of a style you have
+                    already chosen, so anyone seeing this grid at all
+                    is past the interesting threshold — a second lock
+                    inside an unlocked panel is nagging. */}
+                {ent.advanced && (
                 <button
                   type="button"
                   className="adv-toggle"
@@ -1474,6 +1561,7 @@ function CreateInner() {
                   )}
                   <span className="adv-caret" aria-hidden="true">›</span>
                 </button>
+                )}
                 {expanded === AUTO_ID && (
                   <AdvancedPanel
                     styleId={AUTO_ID}
@@ -1524,6 +1612,7 @@ function CreateInner() {
 
                     {/* Sibling, not a child — the card itself is a
                         <button> and buttons can't nest. */}
+                    {ent.advanced && (
                     <button
                       type="button"
                       className="adv-toggle"
@@ -1534,6 +1623,7 @@ function CreateInner() {
                       {touched > 0 && <span className="adv-count">{touched}</span>}
                       <span className="adv-caret" aria-hidden="true">›</span>
                     </button>
+                    )}
 
                     {expanded === t.id && (
                       <AdvancedPanel
@@ -1597,6 +1687,18 @@ function CreateInner() {
                 {shortfall.refunded > 0
                   ? ` You've been refunded ${shortfall.refunded} credit${shortfall.refunded === 1 ? "" : "s"} for the ${shortfall.asked - shortfall.made === 1 ? "one" : "ones"} that didn't.`
                   : " Usually a busy moment on our side — try again in a minute for the full set."}
+              </div>
+            )}
+            {locked && (
+              <div className="notice">
+                {locked.includes("styles") && locked.includes("direction")
+                  ? "Made on Default, without your direction."
+                  : locked.includes("styles")
+                  ? "Made on Default."
+                  : locked.includes("direction")
+                  ? "Made without your direction."
+                  : "Made without the advanced settings."}{" "}
+                <a href="/credits">Hold $BANNR</a> for the rest.
               </div>
             )}
             {/* Escalation ladder, one rung per failure. Each stage

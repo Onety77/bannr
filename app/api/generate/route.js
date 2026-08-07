@@ -38,11 +38,9 @@ import { bump } from "@/lib/stats";
 import { requireUser } from "@/lib/auth";
 import {
   refundGeneration, consumeGeneration, refundCredits, partialRefundCredits,
-  spendCredits, gateStateOf, setGateVerdict,
-  getUser, publicUser, getSettings, GENERATION_COST, REROLL_COST,
+  spendCredits, getUser, publicUser, getSettings, GENERATION_COST, REROLL_COST,
 } from "@/lib/users";
-import { getGate, evaluate } from "@/lib/tokenGate";
-import { linkedWallets } from "@/lib/identities";
+import { resolveEntitlements } from "@/lib/entitlements";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { styleReferences } from "@/lib/references";
 import { buildDirection, spreadSettings, sharedSettings, optionDirection } from "@/lib/advanced";
@@ -103,6 +101,20 @@ export async function POST(req) {
       return NextResponse.json({ error: "Slow down — too many generations in one minute." }, { status: 429 });
     }
 
+    // ══ WHAT THIS ACCOUNT IS ENTITLED TO ══
+    //
+    // Resolved HERE, before the form is read, because it decides two
+    // separate things and they used to be one: how the run is paid for
+    // (further down) and which parts of the brief are even allowed
+    // (immediately below). Working it out inside the charge block, as
+    // the allowance once was, would mean the style picker and the
+    // direction note had already been parsed and acted on by the time
+    // anyone asked whether this account may use them.
+    //
+    // The RPC behind this fires at most once per account per day — see
+    // gateStateOf — and never at all when the gate is off.
+    const { gate, ent } = await resolveEntitlements(session.accountId);
+
     const form = await req.formData();
     brief = {
       name: String(form.get("name") || "").slice(0, 60),
@@ -113,10 +125,23 @@ export async function POST(req) {
       // is a steer on top of a chosen style, not a competing brief,
       // and a wall of text here would drown the style it is meant to
       // be adjusting.
-      direction: String(form.get("direction") || "").slice(0, 240),
+      //
+      // DROPPED, NOT REFUSED, when the tier does not include it. The
+      // create page does not show the field to anyone who cannot use
+      // it, so a request carrying one is a stale tab or somebody
+      // poking the endpoint — and failing a paid run over a field the
+      // sender may not know they sent is the wrong trade. What comes
+      // back says what was dropped.
+      direction: ent.direction ? String(form.get("direction") || "").slice(0, 240) : "",
     };
     if (!brief.name.trim()) return NextResponse.json({ error: "A coin name is required." }, { status: 400 });
     if (brief.ticker && !brief.ticker.startsWith("$")) brief.ticker = "$" + brief.ticker;
+
+    // What the brief asked for and did not get. Reported back so the
+    // UI can be honest rather than silently producing something other
+    // than what was on screen.
+    const locked = [];
+    if (!ent.direction && String(form.get("direction") || "").trim()) locked.push("direction");
 
     // One or more styles. `templateId` is still accepted so old links
     // and /create?style= keep working; `styles` is the multi-select
@@ -126,7 +151,15 @@ export async function POST(req) {
       ...String(form.get("styles") || "").split(",").map((s) => s.trim()).filter(Boolean),
       ...(form.get("templateId") ? [String(form.get("templateId"))] : []),
     ];
-    const styleIds = [...new Set(requested)].filter((id) => id === AUTO_ID || getTemplate(id));
+    let styleIds = [...new Set(requested)].filter((id) => id === AUTO_ID || getTemplate(id));
+    // Without the styles capability there is exactly one style, and it
+    // is Default. Not an error — Default is the mode most people use
+    // anyway, and it is the one that carries the promise of being
+    // trustworthy blind.
+    if (!ent.styles) {
+      if (styleIds.some((id) => id !== AUTO_ID)) locked.push("styles");
+      styleIds = [];
+    }
     if (styleIds.length === 0) styleIds.push(AUTO_ID);
     templateId = styleIds.join(",");
 
@@ -161,6 +194,10 @@ export async function POST(req) {
       const parsed = JSON.parse(String(form.get("advanced") || "{}"));
       if (parsed && typeof parsed === "object") advanced = parsed;
     } catch {}
+    if (!ent.advanced && Object.keys(advanced).length) {
+      locked.push("advanced");
+      advanced = {};
+    }
 
     // The account-level "never include" rule, read from the ACCOUNT
     // rather than the request — a saved rule the client could omit
@@ -269,52 +306,25 @@ export async function POST(req) {
       }
       charged = { accountId: session.accountId, amount: REROLL_COST, paidWith: "credits" };
     } else if (!demoMode) {
-      const gate = await getGate();
-      let allowance = 0;
-
-      if (gate.enabled) {
-        const u = await getUser(session.accountId);
-        const st = gateStateOf(u, gate);
-        if (st.needsCheck) {
-          // The balance read is the ONLY place a wallet is consulted,
-          // and it reads every wallet LINKED to this account. Linked,
-          // not merely connected in the browser: the link is signature
-          // -verified and exclusive, which is what stops one bag of
-          // tokens claiming an allowance on fifty Google accounts.
-          //
-          // Never fatal. An RPC that is down, slow or lying resolves to
-          // "not qualified", which falls through to credits — the site
-          // keeps working and nobody is given free runs on the strength
-          // of a failed lookup.
-          // linkedWallets, NOT u.wallets. The two look
-          // interchangeable and are not. u.wallets means "payments
-          // from here are mine", and /api/pay/claim appends a sender
-          // to it with no signature and no exclusivity check — so
-          // paying one wallet into two accounts lands the same
-          // address in both. Summing balances over that list would
-          // let a single bag of tokens earn an allowance on every
-          // account it had ever paid for. linkedWallets reads the
-          // identities collection instead, where the link is
-          // signature-verified and cannot be re-pointed.
-          const proven = await linkedWallets(session.accountId).catch(() => []);
-          const verdict = await evaluate(session.accountId, proven, gate)
-            .catch(() => ({ qualified: false, reason: "unknown" }));
-          allowance = verdict.qualified ? gate.dailyRuns : 0;
-          await setGateVerdict(session.accountId, allowance, verdict).catch(() => {});
-        } else {
-          allowance = st.allowance;
-        }
-      }
-
+      // The ladder was resolved at the top of the request, because the
+      // same answer decides which fields are allowed. All that is left
+      // here is spending it. The free tier is the floor of
+      // entitlementsOf(), so a signed-in non-holder arrives with one
+      // run to spend and a gate that is entirely switched off changes
+      // nothing about that.
       const paid = await consumeGeneration(session.accountId, {
-        allowance,
+        allowance: ent.dailyRuns,
         globalCap: gate.dailyGlobalRuns,
       });
       if (!paid?.ok) {
         return NextResponse.json(
           {
             error: paid?.capped
-              ? "Today's free holder runs are all used up across the site. Credits still work, or try again tomorrow."
+              // Says the promotion, not "holder runs" — the free daily
+              // run comes out of the same ceiling now, so someone who
+              // has never held a token can hit this and being told the
+              // holder allowance ran out would be nonsense to them.
+              ? "Today's free runs are all used up across the site. Credits still work, or try again tomorrow."
               : `Not enough credits — a run costs ${GENERATION_COST}. Top up on the credits page.`,
             code: "insufficient_credits",
           },
@@ -643,6 +653,11 @@ export async function POST(req) {
       // that was the product or a fault. Absent when nothing was
       // lost, so the happy path is untouched.
       shortfall: missing > 0 ? { asked: attempted, made: results.length, refunded } : null,
+      // Parts of the brief this account's tier does not include, which
+      // were dropped rather than refused. Absent on the normal path.
+      // Silently ignoring them would mean shipping a banner that is
+      // not what was on screen and never saying so.
+      locked: locked.length ? [...new Set(locked)] : null,
       demoMode,
       engine: demoMode ? "demo" : "gpt-image-2",
       styles: styleIds,

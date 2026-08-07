@@ -25,10 +25,15 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-// Cost per run at three options, from the measured figure in
-// NEXT-ACTIONS.md. Shown next to the ceiling so the number being typed
-// has a currency attached to it rather than being an abstract count.
-const COST_PER_RUN = 0.073;
+// Cost per run at three options. $0.024 an image measured (README),
+// times three, plus $0.008 for the art-director text call that steers
+// them. The director used to be left out and the panel under-reported
+// every projection by about 10% — a rounding error on one run and a
+// real number across a launch week.
+//
+// Shown next to every allowance field so the number being typed has a
+// currency attached to it rather than being an abstract count.
+const COST_PER_RUN = 0.081;
 
 // Live price, best effort, ADMIN-ONLY and never in the generation
 // path. It exists so the threshold can be typed in dollars and STORED
@@ -98,12 +103,12 @@ export async function POST(req) {
   const current = await getGate({ fresh: true });
   const next = cleanGate({ ...current, ...body });
 
-  // cleanGate refuses to leave `enabled` true without a mint, a
-  // threshold and an allowance. Saying so beats saving a config that
+  // cleanGate refuses to leave `enabled` true without a mint and a
+  // ladder that grants something. Saying so beats saving a config that
   // reads as on and behaves as off.
   if (body?.enabled && !next.enabled) {
     return NextResponse.json(
-      { error: "Can't switch the gate on yet — it needs a valid contract address, a minimum holding above 0, and a daily allowance above 0." },
+      { error: "Can't switch the tiers on yet — they need a valid contract address, a holding above 0 on the first tier, and at least one tier granting runs or a discount." },
       { status: 400 }
     );
   }

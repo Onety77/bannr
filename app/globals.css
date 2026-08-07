@@ -4101,3 +4101,126 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 .pfp-drop.small { aspect-ratio: 1 / 1; }
 .pfp-plus { font-size: 24px; font-weight: 300; color: var(--muted); line-height: 1; }
 .pfp-wants { resize: vertical; min-height: 62px; line-height: 1.5; font-family: inherit; }
+
+/* ============================================================
+   THE LADDER, AND PRICES IN TWO CURRENCIES
+
+   The packs are priced in dollars and paid in SOL, so every card
+   carries both. The dollar figure is the price and gets the size;
+   the SOL is the amount that will actually leave the wallet and
+   sits under it, quiet and exact.
+   ============================================================ */
+
+/* Struck-through list price, only present when a discount applies.
+   Inline with the real price rather than above it — two stacked
+   numbers read as a range, which is the wrong idea entirely. */
+.price-was {
+  font-size: 20px; font-weight: 500; color: var(--muted);
+  text-decoration-thickness: 2px; margin-right: 10px;
+  vertical-align: 2px;
+}
+.price-sol {
+  font-family: var(--mono); font-size: 13px; color: var(--muted);
+  margin-top: 4px; letter-spacing: -0.01em;
+}
+/* Holds the card's height while /api/pricing answers, so the row of
+   packs does not jump into place under the cursor. */
+.pack-skel { min-height: 188px; }
+.wallet-free { color: var(--accent); font-size: 13.5px; font-weight: 500; }
+
+.ladder { margin-top: 34px; }
+.ladder-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+.lad {
+  border-radius: var(--r-lg); padding: 20px 20px 22px;
+  background: var(--bg-soft);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+[data-theme="dark"] .lad { background: var(--card-soft); }
+/* The rung you are on. Ringed rather than filled: the ladder is a
+   price list, and colouring one row in would read as it being the
+   recommended purchase rather than the one you already hold. */
+.lad.mine { box-shadow: 0 0 0 2px var(--accent); }
+.lad-h { display: flex; align-items: center; gap: 9px; margin-bottom: 3px; }
+.lad-h b { font-size: 16px; letter-spacing: -0.01em; }
+.lad-you {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  background: var(--accent); color: var(--on-accent);
+  padding: 2px 8px; border-radius: var(--pill);
+}
+.lad-hold {
+  font-family: var(--mono); font-size: 12.5px; color: var(--muted);
+  margin-bottom: 13px;
+}
+.lad-perks { list-style: none; display: grid; gap: 6px; }
+.lad-perks li { font-size: 13.5px; line-height: 1.45; }
+.lad-perks li::before { content: "· "; color: var(--accent); font-weight: 700; }
+
+/* The one place holding and buying are the same sentence. Full width
+   under the three cards, because it is a call to action and putting
+   it inside one of them would tie it to that rung. */
+.lad-next {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  margin-top: 14px; padding: 14px 18px;
+  border-radius: var(--r-lg); background: var(--panel-soft, var(--bg-soft));
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 14px;
+}
+[data-theme="dark"] .lad-next { background: var(--card-soft); }
+
+@media (max-width: 700px) {
+  .ladder-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- locked rows on /create ----
+   Deliberately the same geometry as .style-reveal / .want-reveal, so
+   crossing a threshold changes what the row offers and not where
+   anything sits. */
+.style-locked,
+.want-locked {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; width: 100%; text-align: left;
+  font-size: 13px; color: var(--muted); line-height: 1.5;
+}
+.want-locked > span:first-child {
+  display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-weight: 600; color: var(--text);
+}
+.want-locked .tag-opt { font-weight: 500; white-space: nowrap; }
+@media (max-width: 560px) {
+  .style-locked,
+  .want-locked { flex-direction: column; align-items: flex-start; gap: 8px; }
+}
+
+/* ---- admin: the free tier and the three rungs ---- */
+.tk-free { margin-bottom: 18px; }
+.tk-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 18px; }
+.tk-tier-h { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.tk-tier-name {
+  flex: 1; min-width: 0;
+  font-size: 16px; font-weight: 650; letter-spacing: -0.01em;
+  background: transparent; border: 0; border-bottom: 1px solid var(--hairline);
+  padding: 4px 0; color: var(--text);
+}
+.tk-tier-name:focus { outline: none; border-bottom-color: var(--accent); }
+.tk-tier-id {
+  font-family: var(--mono); font-size: 10.5px; color: var(--faint);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+/* The top rung, marked so the three are not read as interchangeable
+   while you are setting numbers on them. */
+.tk-tier.top { box-shadow: inset 0 0 0 1px var(--accent); }
+.tk-caps { display: grid; gap: 7px; margin-top: 4px; }
+.tk-caps-h {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--faint);
+}
+.tk-perks { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+
+@media (max-width: 900px) {
+  .tk-tiers { grid-template-columns: 1fr; }
+}
+
+/* The SOL a purchase actually cost, beside the dollar price it was
+   quoted at. Quiet — the dollars are the price, this is the receipt. */
+.set-bill-sol { font-family: var(--mono); font-size: 12px; color: var(--faint); }

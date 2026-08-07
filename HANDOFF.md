@@ -101,6 +101,14 @@ client bundle and readable in devtools. A private repo would not have helped;
 the leak was the bundle. Never import the prompt file from a client component.
 There is a dev-time assertion that the two files agree on every style.
 
+**`lib/tiers.js` belongs to neither side, and that is load-bearing.** It has no
+imports and is neither `server-only` nor `"use client"`, because the API and
+the create page have to reach the same answer about what an account may do. A
+locked field that still works, and an unlocked field the server strips, are the
+two bugs it exists to make impossible. The server reaches it through
+`lib/entitlements.js`, the browser through `lib/useEntitlements.js`, and both
+reduce to `entitlementsOf()`.
+
 **No composite Firestore indexes anywhere.** A `where` on one field plus an
 `orderBy` on another throws at runtime, not at build. Over-fetch and filter in
 memory. `lib/directory.js` and `lib/stats.js` both do this deliberately.
@@ -111,7 +119,7 @@ memory. `lib/directory.js` and `lib/stats.js` both do this deliberately.
   that renders it. Keep hooks below the state they read.
 - `check-css` and `check-nav` guard class-name drift and unreachable tabs.
 
-**`npm test` runs `tests/*.cjs`** — 25 files, ~1500 assertions. Every block is
+**`npm test` runs `tests/*.cjs`** — 26 files, ~1600 assertions. Every block is
 a regression with a comment saying what broke. They read real source and, for
 prompts, build the real prompt through the real module. Run `npm test pfp glow`
 to filter.
@@ -184,34 +192,79 @@ it: *thin, crisp and even is a sticker; soft, gathered and uneven is light.*
 - **Google sign-in and wallet sign-in are both offered**, from one "Sign in"
   button that opens a modal, reachable from every tab.
 - **/token opens on Buybacks & burns**, with Performing tokens as a second tab.
+- **One free run a day for everyone signed in**, and it does NOT live behind
+  `gate.enabled` — it is the trial, it has to work before the token exists, and
+  `entitlementsOf()` returns it with a null tier for that reason. It is also
+  the floor: a tier can never grant fewer runs than free does.
+- **What the free tier does not get is the style picker and the "What do you
+  want?" note.** Not About, not the tagline, not reference images — those are
+  how you describe your project, and charging for them would make the free tier
+  a demo of a worse product rather than a smaller amount of the real one.
+- **Early access and a bespoke style are tier-3 perks, honoured by hand.**
+  Neither is a switch: one is a decision about when a surface ships, the other
+  is somebody sitting down and writing a director. They are stored and
+  displayed, never enforced in the pipeline. A bespoke style is kept if the
+  holder later sells down — a perk you can repossess is a hostage situation.
+- **Featured-feed placement is NOT for sale at any tier.** The feed and the
+  performing-tokens list are the proof that stands in for a trial; the moment
+  placement is purchasable they stop being evidence and become advertising. A
+  badge on the card is fine, a tiebreak is fine, changing what is shown is not.
+- **No "priority generation" perk.** There is no queue — a generation is a
+  direct call. Building one so holders could skip it would mean manufacturing a
+  delay in order to sell the removal of it.
 
 ---
 
-## 6. Open, with my recommendation
+## 6. Pricing and the ladder — built 7 Aug 2026
 
-**Pricing — agreed in principle, not built.** Aminu wants prices raised so
-buybacks are funded from the start rather than eating margin, positioning
-premium against the $299 DexScreener fee. Proposed and accepted in discussion:
+**Packs are priced in USD and paid in SOL.** $9/15 credits, $29/60 (featured),
+$79/200. `lib/packs.js` carries dollars only; `lib/solPrice.js` converts.
 
-| | Price | Credits | Runs |
-|---|---|---|---|
-| Starter | $9 | 15 | 5 |
-| Launch ★ | $29 | 60 | 20 |
-| Studio | $79 | 200 | 66 |
+The defect this fixed: packs were hard-coded SOL amounts set when SOL was
+~$150 and never touched. SOL fell to ~$72 and they had quietly become
+$3.63 / $8.71 / $25.42 — half what was intended, with nobody having edited a
+price. A product priced in a volatile asset re-prices itself daily and tells
+nobody.
 
-~30% of product revenue to buyback, published on `/token`.
+**Four standings, one table** (`lib/tiers.js`, imported by both sides):
 
-**USD anchoring is a live defect and the first thing to build.**
-`lib/packs.js` hard-codes SOL amounts and the Helius webhook credits off SOL
-received. SOL fell to ~$72 and the packs are now $3.63 / $8.71 / $25.42 —
-roughly half what they were meant to be, with nobody touching a price. Needs
-conversion at checkout on USD value with a tolerance band for drift between
-quote and confirmation.
+| | Holding | Runs/day | Discount | Styles | Direction |
+|---|---|---|---|---|---|
+| Free | — | 1 | — | no | no |
+| t1 Holder | set in admin | 1 | 10% | yes | yes |
+| t2 Insider | set in admin | 2 | 25% | yes | yes |
+| t3 Founder | set in admin | 3 | 40% | yes | yes |
 
-**Two risks worth watching if the ladder ships:** it is 2.5–3× the current
-per-credit price arriving at the same time as no free trial. The mitigation
-already exists — the feed and the performing-tokens list are proof standing in
-for a trial — but they have to be loud on the homepage for it to work.
+Every number is admin-editable at `/admin7731`. The defaults above are the
+shape, not a decision — thresholds are 0 until someone sets them, and the gate
+refuses to arm until they are.
+
+**Free compute climbs slowly, the discount climbs fast**, and that asymmetry is
+the whole design. A free run costs real money whether or not it leads anywhere
+and is a run somebody did not buy; a discount costs nothing until a purchase
+happens and is worth nothing unless one does. Big allowances at the top
+recreate the problem the ladder exists to escape — the best holders stop being
+customers, and the people most invested in the token generate the least revenue
+to buy it back.
+
+**Thresholds are in tokens and must stay that way.** A dollar threshold means
+the tokens required shrink as the price rises, which weakens buy pressure
+exactly as it starts working, and hands every holder a free sell into every
+pump — they become over-qualified and can trim the excess with nothing lost.
+Tokens ratchet: the position that qualified you still qualifies you. Set them
+FROM a dollar figure with the calculator in the admin panel, at admin time,
+where a dead price feed is a blank field rather than an outage.
+
+**Still open:** ~30% of product revenue to buyback, published on `/token`.
+Agreed, not built — deliberately deferred, and it is the next thing. Note what
+the numbers actually say: 30% of 100 buyers a month is ~$660 of buying, which
+is a visible bid at a small market cap and noise at a large one. Publish the
+weekly dollar figure, not the percentage — a percentage with no denominator
+invites people to imagine a big number and then feel lied to.
+
+**Two risks worth watching:** the new prices are 2.5–3× the old per-credit
+rate. The mitigation is the free run plus the feed and the performing-tokens
+list as proof, and they have to be loud on the homepage for it to work.
 
 **Known unfixed:** X Communities conversion is a centre crop (1500→1300 removes
 100px a side, more than the 80px text margin). Flagged, needs its own decision.
@@ -249,6 +302,51 @@ announcing `/token`, Firestore TTL on `nonces.expires`, seeding the feed.
 - **OpenAI output moderation refuses ominous framing.** "A creature in deep
   shadow, barely readable" was refused; the same lighting described as studio
   product photography passed.
+
+### From the tier rework, all found by reasoning rather than by shipping
+
+- **A discount silently underpays unless the matcher knows about it.** The page
+  quotes the discounted price and the payer sends exactly it; graded at list
+  price that amount falls outside its own pack's tolerance band, drops to the
+  "best pack it clears" rule and is credited at the tier below. A holder would
+  get fewer credits per dollar than a stranger, with no error anywhere. Both
+  `/api/pricing` and `/api/pay/claim` go through `resolveEntitlements` for this
+  one reason.
+- **The tolerance band had to widen from 2% to 8%.** 2% was right when the
+  price was a fixed SOL amount and the only drift was fee dust. The drift now
+  is SOL moving between the quote and the confirmation, which is real market
+  movement. The two failure directions are not symmetric: too tight grades a
+  correct payment into the tier below, too loose costs a few percent of credits.
+- **`publicGate` publishes `minTokens` and `dailyRuns` as flat numbers and they
+  are DIFFERENT RUNGS** — the entry bar and the top tier's grant. Pairing them
+  advertises the cheapest price for the best benefit. `offerLine` reads the
+  array; `TokenBar` used to build the sentence itself and was wrong.
+- **`offerLine` must describe what a tier ADDS, not what it has.** With one
+  free run a day for everyone and one on the first rung, listing the tier's
+  benefits advertises something the reader already has.
+- **The free tier nearly broke the balance recheck.** `gateStateOf` used to
+  treat "has an allowance" as "gate satisfied". Every signed-in account has one
+  now, so a non-holder's free run would have read as satisfied and their
+  balance would never be re-read — someone buying at noon would not get their
+  tier until the next day. It tests the stored tier id instead.
+- **A brand-new account has no gate record, so `holderRunsLeft` is 0** — which
+  alongside 0 credits showed the top-up dialog to exactly the person the free
+  run exists for, on the visit that decides whether they come back. The create
+  page tells "never checked" apart from "checked, and you have none".
+- **The Helius webhook grades at list price and that is correct.** It is the
+  backstop, with no session and therefore no tier; guessing one from the
+  sending wallet would mean a balance read inside a Firestore transaction and a
+  weaker trust model than the signature-verified link the ladder rests on. The
+  error is bounded and in the right direction — a holder credited as a
+  non-holder is refundable, a stranger credited at a founder's discount is not.
+- **There is no safe default SOL price.** `lib/solPrice.js` returns null rather
+  than falling back, because a wrong rate does not break anything visible — it
+  sells $79 of credits for whatever the bad number came to, and the first
+  symptom is the treasury. It also refuses reads outside $1–$10,000 as a broken
+  feed rather than a moved market. A brief outage reuses the last good price
+  for ten minutes; past that, buying is disabled and payments are held at 202.
+- **Three tests in a row matched my own comment instead of the code** while
+  writing this. `bare()` before every negative assertion.
 
 ---
 

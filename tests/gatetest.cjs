@@ -73,45 +73,117 @@ function build(db) {
   );
 }
 
-const cleanGate = new Function("DEFAULT_GATE", "NUMERIC", "isAddress", strip(grab(G, "export function cleanGate")) + "\nreturn cleanGate;")(
-  eval("(" + grab(G, "export const DEFAULT_GATE").replace(/^export const DEFAULT_GATE =/, "").replace(/;$/, "") + ")"),
+// lib/tiers.js is pure and import-free, so the whole module loads by
+// stripping its exports — no stubs, no fakes. Everything the gate does
+// with a ladder is really that file doing it.
+const T = fs.readFileSync(R + "lib/tiers.js", "utf8").replace(/\r\n/g, "\n");
+const TIERS = new Function(
+  T.replace(/^export /gm, "") +
+  "\nreturn { DEFAULT_TIERS, DEFAULT_FREE, CAPS, PERKS, TIER_IDS, cleanTier, cleanTiers, cleanFree, tierFor, tierById, entitlementsOf, nextTier };"
+)();
+
+const DEFAULT_GATE = new Function(
+  "DEFAULT_TIERS", "DEFAULT_FREE",
+  "return (" + grab(G, "export const DEFAULT_GATE").replace(/^export const DEFAULT_GATE =/, "").replace(/;$/, "") + ")"
+)(TIERS.DEFAULT_TIERS, TIERS.DEFAULT_FREE);
+
+const entryBar = new Function(strip(grab(G, "export function entryBar")) + "\nreturn entryBar;")();
+
+const cleanGate = new Function(
+  "DEFAULT_GATE", "NUMERIC", "isAddress", "cleanTiers", "cleanFree", "entryBar",
+  strip(grab(G, "export function cleanGate")) + "\nreturn cleanGate;"
+)(
+  DEFAULT_GATE,
   eval("(" + grab(G, "const NUMERIC =").replace(/^const NUMERIC =/, "").replace(/;$/, "") + ")"),
-  (s) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(s || "").trim())
+  (s) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(s || "").trim()),
+  TIERS.cleanTiers, TIERS.cleanFree, entryBar
 );
-const publicGate = new Function(strip(grab(G, "export function publicGate")) + "\nreturn publicGate;")();
+const publicGate = new Function("cleanFree", "entryBar", strip(grab(G, "export function publicGate")) + "\nreturn publicGate;")(
+  TIERS.cleanFree, entryBar
+);
 
 const MINT = "So11111111111111111111111111111111111111112";
+// A three-rung ladder, the shape the admin panel saves.
+const LADDER = [
+  { id: "t1", minTokens: 1000,   dailyRuns: 1, discount: 10 },
+  { id: "t2", minTokens: 50_000, dailyRuns: 2, discount: 25 },
+  { id: "t3", minTokens: 250_000, dailyRuns: 3, discount: 40 },
+];
 
 (async () => {
 console.log("\n=== 1. CONFIG CANNOT BE ARMED WITHOUT MEANING SOMETHING ===");
-ok(cleanGate({ enabled: true }).enabled === false, "enabled with no mint -> off");
-ok(cleanGate({ enabled: true, mint: MINT, minTokens: 0, dailyRuns: 20 }).enabled === false, "no threshold -> off");
-ok(cleanGate({ enabled: true, mint: MINT, minTokens: 100, dailyRuns: 0 }).enabled === false, "no allowance -> off");
-ok(cleanGate({ enabled: true, mint: MINT, minTokens: 100, dailyRuns: 20 }).enabled === true, "all three present -> on");
+ok(cleanGate({ enabled: true, tiers: LADDER }).enabled === false, "enabled with no mint -> off");
+ok(cleanGate({ enabled: true, mint: MINT, tiers: LADDER.map((t) => ({ ...t, minTokens: 0 })) }).enabled === false,
+   "no threshold on any rung -> off");
+ok(cleanGate({ enabled: true, mint: MINT, tiers: LADDER.map((t) => ({ ...t, dailyRuns: 0, discount: 0 })) }).enabled === false,
+   "a ladder granting nothing -> off");
+ok(cleanGate({ enabled: true, mint: MINT, tiers: LADDER }).enabled === true, "mint + threshold + a benefit -> on");
+// A discount-only ladder is a perfectly good ladder, and refusing to
+// arm one was the old rule's mistake: it required dailyRuns > 0.
+ok(cleanGate({ enabled: true, mint: MINT, tiers: LADDER.map((t) => ({ ...t, dailyRuns: 0 })) }).enabled === true,
+   "DISCOUNTS ALONE ARE ENOUGH to arm it");
 ok(cleanGate({ mint: "not-an-address" }).mint === "", "junk address rejected");
 ok(cleanGate({ mint: MINT }).mint === MINT, "real address kept");
-ok(cleanGate({ dailyRuns: 99999 }).dailyRuns === 500, "allowance clamped (got " + cleanGate({ dailyRuns: 99999 }).dailyRuns + ")");
-ok(cleanGate({ dailyRuns: -5 }).dailyRuns === 0, "negative allowance clamped to 0");
+ok(cleanGate({ tiers: [{ id: "t1", dailyRuns: 99999 }] }).tiers[0].dailyRuns === 500, "allowance clamped");
+ok(cleanGate({ tiers: [{ id: "t1", dailyRuns: -5 }] }).tiers[0].dailyRuns === 0, "negative allowance clamped to 0");
+ok(cleanGate({ tiers: [{ id: "t1", discount: 400 }] }).tiers[0].discount === 90, "discount cannot reach 100% by mashing a key");
 ok(cleanGate({ recheckMinutes: 0 }).recheckMinutes >= 1, "recheck cannot be 0 (would hammer the RPC)");
+ok(cleanGate({}).free.dailyRuns === 1, "the free tier defaults to one run a day");
+ok(cleanGate({ free: { dailyRuns: 2, styles: true } }).free.styles === true, "and its capabilities are editable");
+
+console.log("\n=== 1b. THE LADDER ONLY EVER GOES UP ===");
+{
+  // Three fields edited independently in a form; each of these is a
+  // ladder that punishes climbing it. Raised rather than refused, so
+  // a half-typed threshold does not throw the whole save away.
+  const g = cleanGate({ tiers: [
+    { id: "t1", minTokens: 90_000, dailyRuns: 9, discount: 50 },
+    { id: "t2", minTokens: 1000,   dailyRuns: 1, discount: 5 },
+    { id: "t3", minTokens: 500,    dailyRuns: 0, discount: 1 },
+  ] });
+  ok(g.tiers[1].minTokens === 90_000 && g.tiers[2].minTokens === 90_000, "a cheaper rung above is raised, never left cheaper");
+  ok(g.tiers[1].dailyRuns === 9 && g.tiers[2].dailyRuns === 9, "same for the allowance");
+  ok(g.tiers[1].discount === 50 && g.tiers[2].discount === 50, "and the discount");
+}
+{
+  const g = cleanGate({ tiers: LADDER });
+  ok(entryBar(g) === 1000, "the entry bar is the cheapest rung that is actually set");
+  ok(entryBar({ tiers: [{ minTokens: 0 }, { minTokens: 5000 }] }) === 5000, "and an UNSET rung is skipped, not treated as free");
+}
 
 console.log("\n=== 2. THE PUBLIC ENDPOINT LEAKS NOTHING ===");
-const armed = cleanGate({ enabled: true, announced: false, mint: MINT, minTokens: 100, dailyRuns: 20, dailyGlobalRuns: 500, recheckMinutes: 7 });
+const armed = cleanGate({ enabled: true, announced: false, mint: MINT, tiers: LADDER, dailyGlobalRuns: 500, recheckMinutes: 7 });
 const pub = publicGate(armed);
 ok(pub.mint === "", "CA withheld until announced");
 ok(!("dailyGlobalRuns" in pub), "daily ceiling never sent to the browser");
 ok(!("recheckMinutes" in pub), "recheck window never sent to the browser");
 ok(publicGate({ ...armed, announced: true }).mint === MINT, "CA published once announced");
-ok(publicGate({ ...armed, enabled: false, announced: true }).dailyRuns === 0, "gate off -> promises nothing");
+ok(publicGate({ ...armed, enabled: false, announced: true }).dailyRuns === 0, "tiers off -> promises nothing");
+ok(publicGate({ ...armed, enabled: false }).tiers.length === 0, "and the ladder is empty rather than stale");
+// The thresholds ARE public. "Hold this much for this" is the offer,
+// and an offer you cannot read before signing in is not an offer.
+ok(pub.tiers.length === 3 && pub.tiers[0].minTokens === 1000, "the ladder itself is published in full");
+ok(pub.minTokens === 1000, "minTokens is the ENTRY bar");
+ok(pub.dailyRuns === 3, "and dailyRuns is the TOP grant — two different rungs, which is why offerLine reads the array");
+// The free tier is not part of the promotion and does not vanish with it.
+ok(publicGate({ ...armed, enabled: false }).free.dailyRuns === 1, "the free tier survives the tiers being switched off");
 
 console.log("\n=== 3. WHEN TO RE-READ A BALANCE ===");
 const { gateStateOf } = build(fakeDb());
 const gate = { recheckMinutes: 10 };
 ok(gateStateOf(null, gate).needsCheck === true, "no account -> check");
-ok(gateStateOf({ gateDate: "2026-08-03", gateAllowance: 20 }, gate).needsCheck === true, "yesterday's grant -> check");
-ok(gateStateOf({ gateDate: TODAY, gateAllowance: 20, gateUsed: 5 }, gate).needsCheck === false, "qualifying today -> no RPC");
-ok(gateStateOf({ gateDate: TODAY, gateAllowance: 20, gateUsed: 20 }, gate).allowance === 20, "spent out, allowance still reported");
+ok(gateStateOf({ gateDate: "2026-08-03", gateAllowance: 20, gateTier: "t1" }, gate).needsCheck === true, "yesterday's grant -> check");
+ok(gateStateOf({ gateDate: TODAY, gateAllowance: 20, gateUsed: 5, gateTier: "t2" }, gate).needsCheck === false, "on a tier today -> no RPC");
+ok(gateStateOf({ gateDate: TODAY, gateAllowance: 20, gateUsed: 20, gateTier: "t2" }, gate).allowance === 20, "spent out, allowance still reported");
 ok(gateStateOf({ gateDate: TODAY, gateAllowance: 0, gateCheckedAt: Date.now() }, gate).needsCheck === false, "non-holder just checked -> wait");
 ok(gateStateOf({ gateDate: TODAY, gateAllowance: 0, gateCheckedAt: Date.now() - 11 * 60_000 }, gate).needsCheck === true, "non-holder after 11min -> re-check (bought at noon, works at noon)");
+// ══ THE FREE TIER NEARLY BROKE THE RECHECK ══
+// The test used to be "do they have an allowance". Every signed-in
+// account has one now, so a non-holder's free run would have read as a
+// satisfied gate and their balance would never be re-read — someone
+// buying $BANNR at noon would not get their tier until tomorrow.
+ok(gateStateOf({ gateDate: TODAY, gateAllowance: 1, gateTier: "", gateCheckedAt: Date.now() - 11 * 60_000 }, gate).needsCheck === true,
+   "A FREE ALLOWANCE IS NOT A SATISFIED GATE — still re-checked");
 
 console.log("\n=== 4. WHO PAYS, AND IN WHAT ORDER ===");
 {

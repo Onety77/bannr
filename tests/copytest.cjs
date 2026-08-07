@@ -47,9 +47,17 @@ console.log("\n2. THE CREDITS PAGE");
   // line was wrong, and it quotes it to do so.
   const C = bare(raw);
   ok(!/get 3 free runs every day/.test(C), "the hardcoded '3 free runs' is gone");
-  ok(raw.includes("{offer && <div className=\"notice page-gap\">{offer}</div>}"),
-     "the offer is read live, so an admin edit cannot make it a lie");
-  ok(raw.includes("const offer = offerLine(useToken());"), "from the same place as everywhere else");
+  // The page used to render one live offer line. It renders the whole
+  // ladder now, and the rule underneath is unchanged and is what this
+  // guards: NOT ONE NUMBER ON THIS PAGE IS WRITTEN HERE. Prices,
+  // thresholds, allowances and discounts all arrive from /api/pricing,
+  // which is the same source the payment matcher grades against — a
+  // number typed into this file is a number that can disagree with
+  // what someone is actually charged.
+  ok(/fetch\(`\/api\/pricing/.test(C), "every number comes from /api/pricing");
+  ok(!/\$\s?\d+|0\.\d+\s*SOL/.test(C.replace(/\/api\/pricing/g, "")),
+     "no price is written into the page");
+  ok(!/tiers\s*=\s*\[|minTokens:\s*\d/.test(C), "and no threshold is either");
   ok(!/COMING WITH \$BANNR/.test(C), "and the shouted teaser with it");
   // Gone entirely, not softened.
   ok(!/Pick a pack and your wallet/.test(C), "no line explaining what buying does");

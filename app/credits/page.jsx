@@ -1,26 +1,54 @@
-// CREDITS — packs, wallet connect, SOL payment (Phase 2 wiring
-// already live; falls back to demo top-up until env configured).
+// ============================================================
+// CREDITS — packs, the ladder, and paying in SOL.
+//
+// ══ PRICED IN DOLLARS ══
+//
+// The packs used to be SOL amounts written into lib/packs.js. They
+// were set when SOL was about $150 and never touched; SOL fell to
+// around $72 and the three packs quietly became $3.63, $8.71 and
+// $25.42 — half what anyone intended, with nobody having edited a
+// price. So the price is nine dollars and the SOL underneath it is
+// today's conversion, struck when the page loaded.
+//
+// EVERY NUMBER ON THIS PAGE COMES FROM /api/pricing. Not because
+// fetching is tidier, but because the discount applied here has to be
+// the same one the payment matcher applies at claim time — computed
+// separately they would drift, and a holder would pay the price we
+// showed and be credited at the tier below it. One source, one answer.
+//
+// ══ AND IT CAN REFUSE TO QUOTE ══
+//
+// `solUsd` comes back null when the rate is not trustworthy. The page
+// then shows dollars and disables buying rather than falling back to a
+// number, because a wrong rate does not break anything visible — it
+// sells $79 of credits for whatever the bad number worked out to.
+// ============================================================
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { setUser } from "@/lib/credits";
-import { PACKS } from "@/lib/packs";
-import TokenBar from "@/components/TokenBar";
-import { useToken } from "@/lib/useToken";
-import { offerLine } from "@/lib/offer";
 import { useAuth } from "@/lib/useAuth";
 import { useWallet, short, buildTreasuryTx } from "@/lib/wallet";
 
+const NUM = (n) => (Number(n) || 0).toLocaleString("en-US");
+// Whole tokens, written the way people say them.
+const tokens = (n) => {
+  const v = Number(n) || 0;
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(v % 1_000_000 ? 1 : 0).replace(/\.0$/, "") + "M";
+  if (v >= 1_000) return (v / 1_000).toFixed(v % 1_000 ? 1 : 0).replace(/\.0$/, "") + "K";
+  return NUM(v);
+};
 
 export default function CreditsPage() {
   const [msg, setMsg] = useState(null);
   const [err, setErr] = useState(null);
+  const [pricing, setPricing] = useState(null);
+  const [checking, setChecking] = useState(false);
   // A transaction built and waiting for the tap that carries it to
   // the wallet app, and whether a broadcast one is being confirmed.
   const [tx, setTx] = useState(null);
   const [claiming, setClaiming] = useState(false);
   const auth = useAuth();
   const wallet = useWallet();
-  const offer = offerLine(useToken());
   // No test mode any more. It existed so credits could be topped up
   // before payments worked, and it did that by calling /api/dev/grant
   // — a route gated by an environment flag and a hardcoded list of
@@ -32,10 +60,37 @@ export default function CreditsPage() {
   const treasuryConfigured = Boolean(process.env.NEXT_PUBLIC_TREASURY_WALLET);
   const credits = auth.user?.credits ?? 0;
 
+  const loadPricing = useCallback(async (refresh = false) => {
+    try {
+      const r = await fetch(`/api/pricing${refresh ? "?refresh=1" : ""}`);
+      const d = await r.json();
+      if (r.ok) setPricing(d);
+    } catch {
+      // Leaves whatever was already on screen. A failed refresh should
+      // not blank a page that was rendering fine a second ago.
+    }
+  }, []);
+
+  // Re-read when the account changes: the discount is per account, so
+  // signing in has to re-price the page rather than leave list prices
+  // sitting there.
+  useEffect(() => { loadPricing(); }, [loadPricing, auth.user?.accountId]);
+
+  async function recheck() {
+    setChecking(true);
+    await loadPricing(true);
+    setChecking(false);
+  }
+
+  const packs = pricing?.packs || [];
+  const quotable = pricing ? pricing.solUsd !== null : true;
+  const you = pricing?.you || null;
+
   async function buy(pack) {
     setErr(null); setMsg(null);
     if (!auth.user) return setErr("Sign in first.");
     if (!treasuryConfigured) return setErr("Payments aren't switched on yet.");
+    if (!pack?.sol) return setErr("Can't quote a price right now. Try again in a moment.");
 
     // A phone browser cannot see a wallet, so it asks the app by
     // deeplink instead. The pack goes with the request, because this
@@ -80,20 +135,26 @@ export default function CreditsPage() {
   // load, where an await costs nothing. It has to be ready before the
   // tap, because fetching a blockhash inside the tap would spend the
   // gesture and land the user on phantom.app instead of in Phantom.
+  //
+  // WAITS FOR PRICING. The amount is no longer a constant that came
+  // with the bundle — it is today's conversion, and building a
+  // transaction before it arrives would send whatever `undefined`
+  // rounds to.
   useEffect(() => {
     const p = auth.pendingPay;
-    if (!p || tx) return;
+    if (!p || tx || !packs.length) return;
     let live = true;
     (async () => {
-      const pack = PACKS.find((x) => x.id === p.payload?.packId);
+      const pack = packs.find((x) => x.id === p.payload?.packId);
       if (!pack) { setErr("Couldn't tell which pack that was — pick it again."); return; }
+      if (!pack.sol) { setErr("Can't quote a price right now. Try again in a moment."); return; }
       const built = await buildTreasuryTx(pack.sol, auth.user?.accountId, p.address);
       if (!live) return;
       if (built.error) { setErr(built.error); return; }
       setTx({ transaction: built.transaction, pack });
     })();
     return () => { live = false; };
-  }, [auth.pendingPay, auth.user?.accountId, tx]);
+  }, [auth.pendingPay, auth.user?.accountId, tx, packs]);
 
   // The wallet broadcast it. All that is left is waiting for the
   // chain, which the existing claim poll already does.
@@ -142,11 +203,14 @@ export default function CreditsPage() {
     };
   }
 
+  const sym = pricing?.symbol ? `$${pricing.symbol}` : "$BANNR";
+  const ladder = pricing?.tiers || [];
+
   return (
     <main className="wrap">
       <div className="page-head">
         <h1>Credits</h1>
-        <p>1 run = 3 credits = up to 4 banner options. Pay in SOL.</p>
+        <p>1 run = {pricing?.generationCost ?? 3} credits = up to 4 banner options.</p>
       </div>
 
       {/* This used to lead with "Connect wallet", which is now both
@@ -160,6 +224,11 @@ export default function CreditsPage() {
           <span className="wallet-balance">
             <b>{credits}</b> credits
           </span>
+          {you && you.dailyRuns > 0 && (
+            <span className="wallet-free">
+              +{you.dailyRuns} free {you.dailyRuns === 1 ? "run" : "runs"} a day
+            </span>
+          )}
           {wallet.address && (
             <>
               <span className="addr">{short(wallet.address)}</span>
@@ -167,17 +236,7 @@ export default function CreditsPage() {
             </>
           )}
         </div>
-        {/* No sentence here. It used to narrate the mechanic — "pick a
-            pack and your wallet opens for approval" — to people who
-            have approved a thousand transactions. Explaining a wallet
-            to someone holding one reads as talking down, and the only
-            genuinely non-obvious fact (any wallet can pay, it need not
-            be the linked one) is not worth raising the question. */}
       </div>
-
-      {/* Above the packs on purpose: for anyone holding enough, this
-          IS the pricing, and finding it under the packs would mean
-          finding it after deciding to pay. */}
 
       {msg && <div className="notice money page-gap-top">{msg}</div>}
       {err && <div className="notice error page-gap-top">{err}</div>}
@@ -220,27 +279,108 @@ export default function CreditsPage() {
         </div>
       )}
 
-      <div className="packs">
-        {PACKS.map((p) => (
-          <div key={p.id} className={`pack ${p.featured ? "featured" : ""}`}>
-            <div className="name">{p.name}</div>
-            <div className="price">{p.sol} <small>SOL</small></div>
-            <div className="gens">{p.credits} credits · ~{p.gens} runs</div>
-            <button className="btn primary small block" onClick={() => buy(p)}>
-              Buy {p.name}
-            </button>
+      {/* One line, and only when there is one. A discount nobody has
+          is not worth a row of chrome. */}
+      {pricing?.discount > 0 && (
+        <div className="notice money page-gap-top">
+          {pricing.discount}% off, as {you?.tierName || "a holder"}.
+        </div>
+      )}
+
+      <div className="packs page-gap-top">
+        {(packs.length ? packs : [null, null, null]).map((p, i) => (
+          <div key={p?.id || i} className={`pack ${p?.featured ? "featured" : ""}`}>
+            {p ? (
+              <>
+                <div className="name">{p.name}</div>
+                <div className="price">
+                  {p.usd < p.listUsd && <s className="price-was">${p.listUsd}</s>}
+                  ${p.usd}
+                </div>
+                {/* The SOL is the amount that will actually leave the
+                    wallet, so it is stated exactly rather than
+                    rounded for looks. Absent when we cannot quote. */}
+                <div className="price-sol">{p.sol ? `${p.sol} SOL` : "—"}</div>
+                <div className="gens">{p.credits} credits · ~{p.gens} runs</div>
+                <button
+                  className="btn primary small block"
+                  disabled={!quotable || !p.sol}
+                  onClick={() => buy(p)}
+                >
+                  Buy {p.name}
+                </button>
+              </>
+            ) : (
+              <div className="pack-skel" />
+            )}
           </div>
         ))}
       </div>
 
-      {/* The offer, read live, or nothing at all.
-          It used to be hardcoded — "get 3 free runs every day" — while
-          the real number is a config an admin can change, so it was
-          one edit away from being a lie. And it ended "holder checks
-          run live via Helius at generation time", which is a sentence
-          about our infrastructure that nobody buying credits has any
-          use for. */}
-      {offer && <div className="notice page-gap">{offer}</div>}
+      {!quotable && (
+        <div className="notice page-gap-top">
+          Can't quote SOL right now. Prices are in dollars; try again in a minute.
+        </div>
+      )}
+
+      {/* ---- THE LADDER ----
+          Under the packs, not above them. Above, it reads as a reason
+          not to buy the thing you came here for; under, it is the
+          answer to "and what if I hold". Absent entirely until the
+          tiers are armed. */}
+      {ladder.length > 0 && (
+        <section className="ladder page-gap">
+          <div className="panel-head">
+            <h3>Hold {sym}</h3>
+          </div>
+          <div className="ladder-grid">
+            {ladder.map((t) => {
+              const mine = you?.tierId === t.id;
+              return (
+                <div className={`lad ${mine ? "mine" : ""}`} key={t.id}>
+                  <div className="lad-h">
+                    <b>{t.name}</b>
+                    {mine && <span className="lad-you">You</span>}
+                  </div>
+                  <div className="lad-hold">{tokens(t.minTokens)} {sym}</div>
+                  <ul className="lad-perks">
+                    {t.dailyRuns > 0 && <li>{t.dailyRuns} free {t.dailyRuns === 1 ? "run" : "runs"} a day</li>}
+                    {t.discount > 0 && <li>{t.discount}% off credits</li>}
+                    {t.styles && <li>Every style</li>}
+                    {t.earlyAccess && <li>New surfaces first</li>}
+                    {t.customStyle && <li>A style of your own</li>}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ══ THE ONE PLACE HOLDING AND BUYING ARE THE SAME SENTENCE ══
+              It sits directly under the ladder and directly above
+              nothing else, because it is a call to action and putting
+              it beside the packs would have it compete with them.
+              Absent at the top of the ladder, and absent when we do
+              not know the balance. */}
+          {you?.next && (
+            <div className="lad-next">
+              <span>
+                <b>{tokens(you.next.away)} {sym}</b> from {you.next.name}
+              </span>
+              <button className="btn small" onClick={recheck} disabled={checking}>
+                {checking ? <span className="spinner" /> : "Check again"}
+              </button>
+            </div>
+          )}
+          {you && !you.next && you.tierId && (
+            <div className="lad-next">
+              <span>Top of the ladder.</span>
+              <button className="btn small" onClick={recheck} disabled={checking}>
+                {checking ? <span className="spinner" /> : "Check again"}
+              </button>
+            </div>
+          )}
+        </section>
+      )}
     </main>
   );
 }

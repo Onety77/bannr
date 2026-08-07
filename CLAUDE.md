@@ -9,7 +9,7 @@ built. This file is only the part that must never be got wrong.
 
 ```
 npm run check    # TDZ, CSS and nav guards — also runs on prebuild
-npm test         # 25 regression files, ~1500 assertions
+npm test         # 26 regression files, ~1600 assertions
 npm test pfp     # filtered by filename
 ```
 
