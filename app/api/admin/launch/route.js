@@ -21,7 +21,7 @@
 // Admin-verified on every call, like every other /api/admin route.
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
-import { getAdminDb } from "@/lib/firebaseAdmin";
+import { getAdminDb, getAdminBucket } from "@/lib/firebaseAdmin";
 import { getGate, entryBar } from "@/lib/tokenGate";
 import { commitment } from "@/lib/buybacks";
 
@@ -119,6 +119,19 @@ export async function GET(req) {
       ok: Boolean(db),
       detail: db ? "Connected." : "Not configured. Accounts, credits and history are all in memory.",
       fix: "Vercel → FIREBASE_SERVICE_ACCOUNT_JSON, pasted as one line",
+    },
+    {
+      id: "storage",
+      severity: LAUNCH,
+      label: "Banner archive",
+      ok: Boolean(getAdminBucket()),
+      // Off, downloads still work perfectly — the banner just stops
+      // being re-downloadable later, and nothing anywhere says so.
+      // Exactly the kind of silent absence this panel exists for.
+      detail: getAdminBucket()
+        ? "On. Downloaded banners are kept and can be re-downloaded from My banners."
+        : "Off. Downloads work, but a banner stops existing once the tab closes — and nothing errors.",
+      fix: "Firebase → Storage → Get started, then Vercel → NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
     },
     {
       id: "site",
