@@ -4,6 +4,16 @@
 
 Next.js · OpenAI `gpt-image-2` · Solana wallet auth · Firestore accounts · SOL payments via Helius.
 
+> **Working on this?** Read [HANDOFF.md](HANDOFF.md) first. It carries the
+> decisions, the house rules for copy and prompts, and the things that have
+> already been tried and failed — none of which the code can tell you.
+
+```
+npm run check    # TDZ, CSS and nav guards (also runs on prebuild)
+npm test         # 25 regression files, ~1500 assertions
+npm test pfp     # …filtered by filename
+```
+
 ---
 
 ## What it does
