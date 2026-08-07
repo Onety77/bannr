@@ -107,6 +107,13 @@ export default function AdminToken({ user }) {
   const ceilingSpend = form.dailyGlobalRuns > 0 ? form.dailyGlobalRuns * cost : null;
   const price = data?.price?.usd || 0;
   const tokensFor = (v) => (price > 0 ? Math.ceil((Number(v) || 0) / price) : 0);
+  // The other direction, which is the one that was missing: what a
+  // threshold already saved is worth today. Two decimals under $10,
+  // whole dollars above — nobody is setting a tier to $247.31.
+  const usdOf = (tokens) => {
+    const v = (Number(tokens) || 0) * price;
+    return v < 10 ? v.toFixed(2) : NUM(Math.round(v));
+  };
   // What one account on this rung costs a month if they take every run
   // they are owed. Full use, not average use, because the average is a
   // guess and the ceiling is set against the worst case.
@@ -302,7 +309,18 @@ export default function AdminToken({ user }) {
         </section>
       </div>
 
-      {/* ---- the three rungs ---- */}
+      {/* ---- the three rungs ----
+          The note sits once above all three rather than inside each
+          card. It is the same sentence three times otherwise, and a
+          rule repeated on every card reads as boilerplate nobody
+          finishes. */}
+      <p className="tk-ladder-note">
+        Thresholds are stored in <b>tokens</b>, never dollars — set from a dollar value,
+        then fixed. A dollar threshold shrinks the tokens needed as the price rises, so
+        every holder becomes over-qualified on a pump and can sell the excess for
+        nothing. Lower them by hand if entry gets expensive; lowering never costs
+        anyone their tier.
+      </p>
       <div className="tk-tiers">
         {form.tiers.map((t, i) => (
           <section className={`tk-card tk-tier ${i === form.tiers.length - 1 ? "top" : ""}`} key={t.id}>
@@ -323,9 +341,24 @@ export default function AdminToken({ user }) {
                 value={t.minTokens}
                 onChange={(e) => setTier(i, "minTokens", e.target.value)}
               />
+              {/* WHAT THE SAVED NUMBER IS ACTUALLY WORTH.
+                  This did not exist, and its absence is why the box
+                  below looked like nonsense: a threshold in tokens and
+                  a calculator in dollars, with nothing connecting
+                  them. You cannot tell whether 250,000 is a $2 tier or
+                  a $200 one by looking at it, and that is the only
+                  question anyone is asking. */}
+              {price > 0 && t.minTokens > 0 && (
+                <em>≈ ${usdOf(t.minTokens)} at today&apos;s price</em>
+              )}
             </label>
             {price > 0 && (
               <div className="tk-calc">
+                {/* The label was here and I dropped it rebuilding this
+                    for three tiers, leaving an unlabelled number box
+                    next to a button. It is a scratch pad, not a field:
+                    nothing is applied until the button is pressed. */}
+                <span>Set it from a dollar value</span>
                 <div className="tk-row">
                   <input
                     className="tk-usd" type="number" min={0}
@@ -339,6 +372,7 @@ export default function AdminToken({ user }) {
                     = {NUM(tokensFor(usd[t.id]))} tokens
                   </button>
                 </div>
+                <em>Press it to use that number above.</em>
               </div>
             )}
 
