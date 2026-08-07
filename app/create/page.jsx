@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 // would ship every prompt in the product to the browser.
 import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME, distributeStyles, slotsFor, optionsForSlots } from "@/lib/styles";
 import { loadDraft, saveDraft, setInFlight, getInFlight } from "@/lib/draft";
-import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_COST, EDIT_COST, REROLL_COST } from "@/lib/credits";
+import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_COST, EDIT_COST, REROLL_COST, MAX_REFS } from "@/lib/credits";
 import { saveImage, bannerFilename } from "@/lib/download";
 import { useAuth } from "@/lib/useAuth";
 import { useProgress } from "@/lib/useProgress";
@@ -346,7 +346,7 @@ function CreateInner() {
     const list = Array.from(files || []).filter((f) => f.type.startsWith("image/"));
     if (!list.length) return;
     setRefImages((prev) =>
-      [...prev, ...list.map((f) => ({ file: f, url: URL.createObjectURL(f) }))].slice(0, 3)
+      [...prev, ...list.map((f) => ({ file: f, url: URL.createObjectURL(f) }))].slice(0, MAX_REFS)
     );
   }
 
@@ -1293,7 +1293,7 @@ function CreateInner() {
             </div>
 
             <span className="refs-label">
-              Supporting images <span>· optional, up to 3</span>
+              Supporting images <span>· optional, up to {MAX_REFS}</span>
             </span>
             <div className="hint">
               More art of your character, background shots, mood references —
@@ -1306,7 +1306,7 @@ function CreateInner() {
                   <button onClick={() => removeRef(i)} aria-label={`Remove reference ${i + 1}`}>✕</button>
                 </div>
               ))}
-              {refImages.length < 3 && (
+              {refImages.length < MAX_REFS && (
                 <button className="ref-add" onClick={() => refsRef.current?.click()} aria-label="Add supporting image">
                   +
                 </button>

@@ -30,6 +30,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useProgress } from "@/lib/useProgress";
+import { MAX_REFS } from "@/lib/credits";
 import DexPreview from "@/components/DexPreview";
 
 const SUGGESTIONS = [
@@ -67,7 +68,7 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
     const list = Array.from(files || []).filter((f) => f.type.startsWith("image/"));
     if (!list.length) return;
     setRefs((prev) =>
-      [...prev, ...list.map((f) => ({ file: f, url: URL.createObjectURL(f) }))].slice(0, 3)
+      [...prev, ...list.map((f) => ({ file: f, url: URL.createObjectURL(f) }))].slice(0, MAX_REFS)
     );
   }
 
@@ -279,7 +280,7 @@ export default function Lightbox({ item, onClose, onDownload, onEdit, onUndo, on
                 <button type="button" onClick={() => dropRef(i)} aria-label={`Remove reference ${i + 1}`}>✕</button>
               </div>
             ))}
-            {refs.length < 3 && (
+            {refs.length < MAX_REFS && (
               <button
                 type="button"
                 className="lb-ref-add"

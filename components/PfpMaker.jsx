@@ -22,7 +22,7 @@
 // ============================================================
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { PFP_STYLES, PFP_MAX, PFP_COST, PFP_TEXT_MAX, getPfpStyle, distributeStyles } from "@/lib/pfpStyles";
+import { PFP_STYLES, PFP_MAX, PFP_COST, PFP_TEXT_MAX, PFP_WANTS_MAX, PFP_IMAGES_MAX, getPfpStyle, distributeStyles } from "@/lib/pfpStyles";
 import { saveImage } from "@/lib/download";
 import { useProgress } from "@/lib/useProgress";
 import { openTopUp } from "@/lib/modals";
@@ -43,15 +43,21 @@ async function post(url, body, ms) {
 }
 
 export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
+  // [{ file, url }] — several views of ONE subject, not references.
+  // Object URLs are revoked on removal and on unmount; each one pins
+  // the whole file in memory until it is.
+  const [files, setFiles] = useState([]);
   // Several styles, one per option — the same contract the banner
   // picker has. Never empty: deselecting the last one would leave a
   // run with no style at all, so the last selection holds.
   const [styleIds, setStyleIds] = useState(["default"]);
   const [color, setColor] = useState("");
   const [text, setText] = useState("");
-  const [keepBg, setKeepBg] = useState(false);
+  // OFF by default, and that is the point: keeping what was behind the
+  // subject is the standing behaviour now, so the toggle asks for the
+  // change rather than for the absence of one.
+  const [newBg, setNewBg] = useState(false);
+  const [wants, setWants] = useState("");
   const [count, setCount] = useState(PFP_MAX);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -70,7 +76,8 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
 
   const plan = distributeStyles(styleIds, Math.max(count, styleIds.length));
   const showSwatches = styleIds.includes("solid");
-  const showKeepBg = styleIds.some((id) => getPfpStyle(id).keepBg);
+  const showBgToggle = styleIds.some((id) => getPfpStyle(id).keepBg);
+  const showWants = styleIds.some((id) => getPfpStyle(id).wants);
 
   function toggleStyle(id) {
     setStyleIds((prev) => {
@@ -83,37 +90,56 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
     });
   }
 
-  // Object URLs are a real leak if the person swaps images a few
-  // times — each one pins the whole file in memory until revoked.
-  useEffect(() => {
-    if (!file) { setPreview(null); return; }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+  // Revoked on unmount only — removal revokes its own, and a cleanup
+  // keyed on `files` would revoke a URL that is still on screen the
+  // moment another is added.
+  useEffect(() => () => files.forEach((f) => URL.revokeObjectURL(f.url)), []);
 
-  function pick(f) {
-    if (!f) return;
-    if (f.size > 8 * 1024 * 1024) return setError("That image is over 8MB — try a smaller one.");
-    if (!["image/png", "image/jpeg", "image/webp"].includes(f.type))
+  function add(list) {
+    const picked = Array.from(list || []).filter((f) => f && f.size > 0);
+    if (!picked.length) return;
+    if (picked.some((f) => f.size > 8 * 1024 * 1024))
+      return setError("One of those is over 8MB — try a smaller one.");
+    if (picked.some((f) => !["image/png", "image/jpeg", "image/webp"].includes(f.type)))
       return setError("Images only — PNG, JPG or WEBP.");
     setError(null);
     setImages(null);
-    setFile(f);
+    setFiles((prev) => {
+      // Sliced BEFORE the object URLs are made, so a sixth file does
+      // not leak a URL that is created and then thrown away.
+      const room = PFP_IMAGES_MAX - prev.length;
+      return [...prev, ...picked.slice(0, room).map((f) => ({ file: f, url: URL.createObjectURL(f) }))];
+    });
+  }
+
+  function removeAt(i) {
+    setFiles((prev) => {
+      URL.revokeObjectURL(prev[i]?.url);
+      return prev.filter((_, k) => k !== i);
+    });
+    setImages(null);
+  }
+
+  function clearAll() {
+    setFiles((prev) => { prev.forEach((f) => URL.revokeObjectURL(f.url)); return []; });
+    setImages(null);
   }
 
   async function run() {
-    if (!file) return setError("Add an image first.");
+    if (!files.length) return setError("Add an image first.");
     if (!signedIn) return onSignInNeeded?.();
     setBusy(true);
     setError(null);
     try {
       const fd = new FormData();
-      fd.set("image", file);
+      files.forEach((f) => fd.append("images", f.file));
       fd.set("styles", styleIds.join(","));
       fd.set("count", String(Math.max(count, styleIds.length)));
       if (text.trim()) fd.set("text", text.trim());
-      if (keepBg && showKeepBg) fd.set("keepBg", "1");
+      // The flag now asks for the CHANGE. Keeping what was already
+      // behind the subject is the standing behaviour.
+      if (newBg && showBgToggle) fd.set("newBg", "1");
+      if (wants.trim() && showWants) fd.set("wants", wants.trim());
       if (showSwatches && color) fd.set("color", color);
 
       const res = await post("/api/pfp", fd, TIMEOUT);
@@ -147,35 +173,58 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
       </div>
 
       <div className="pfp-grid">
-        {/* ---------- the image ---------- */}
+        {/* ---------- the images ---------- */}
         <div className="pfp-panel">
-          <label className="pfp-label">Your image</label>
-          <button
-            type="button"
-            className={`pfp-drop${preview ? " has" : ""}`}
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files?.[0]); }}
-          >
-            {preview ? (
-              <img src={preview} alt="" />
-            ) : (
-              <span className="pfp-drop-txt">
-                <b>Drop an image</b>
-                <span>or tap to choose · PNG, JPG, WEBP</span>
-              </span>
+          <label className="pfp-label">
+            Your subject
+            {/* Not "supporting images" — that is the banner's field and
+                it means something else. These are all the SAME thing,
+                and saying so is what stops someone attaching a mood
+                board and getting a collage. */}
+            <span className="pfp-help">
+              Up to {PFP_IMAGES_MAX}, all of the same subject. More views means a better read of it.
+            </span>
+          </label>
+
+          <div className="pfp-shots">
+            {files.map((f, i) => (
+              <div className="pfp-thumb" key={f.url}>
+                <img src={f.url} alt={`Image ${i + 1}`} />
+                <button type="button" onClick={() => removeAt(i)} aria-label={`Remove image ${i + 1}`}>✕</button>
+              </div>
+            ))}
+            {files.length < PFP_IMAGES_MAX && (
+              <button
+                type="button"
+                className={`pfp-drop${files.length ? " small" : ""}`}
+                onClick={() => inputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); add(e.dataTransfer.files); }}
+                aria-label="Add an image"
+              >
+                {files.length ? (
+                  <span className="pfp-plus" aria-hidden="true">+</span>
+                ) : (
+                  <span className="pfp-drop-txt">
+                    <b>Drop an image</b>
+                    <span>or tap to choose · PNG, JPG, WEBP</span>
+                  </span>
+                )}
+              </button>
             )}
-          </button>
+          </div>
+
           <input
             ref={inputRef}
             type="file"
+            multiple
             accept="image/png,image/jpeg,image/webp"
             hidden
-            onChange={(e) => pick(e.target.files?.[0])}
+            onChange={(e) => { add(e.target.files); e.target.value = ""; }}
           />
-          {preview && (
-            <button type="button" className="pfp-clear" onClick={() => { setFile(null); setImages(null); }}>
-              Remove
+          {files.length > 1 && (
+            <button type="button" className="pfp-clear" onClick={clearAll}>
+              Remove all
             </button>
           )}
         </div>
@@ -256,20 +305,40 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
               offering to keep the original there is offering to switch
               the style off, and that is what picking a different style
               is for. */}
-          {showKeepBg && (
+          {showBgToggle && (
             <button
               type="button"
               role="switch"
-              aria-checked={keepBg}
-              className={`pfp-toggle${keepBg ? " on" : ""}`}
-              onClick={() => setKeepBg((v) => !v)}
+              aria-checked={newBg}
+              className={`pfp-toggle${newBg ? " on" : ""}`}
+              onClick={() => setNewBg((v) => !v)}
             >
               <span className="pfp-track" aria-hidden="true"><span className="pfp-knob" /></span>
               <span className="pfp-toggle-txt">
-                <b>Keep the background</b>
-                <span>{keepBg ? "Whatever it was shot in stays." : "A new one is made for it."}</span>
+                <b>Make a new background</b>
+                <span>{newBg ? "The original setting is replaced." : "Whatever it was shot in stays."}</span>
               </span>
             </button>
+          )}
+
+          {/* Default only. The other three styles ARE the instruction,
+              and inviting a second brief on top of "make it anime"
+              produces two directions arguing inside one prompt. */}
+          {showWants && (
+            <>
+              <label className="pfp-label">
+                Anything you want
+                <span className="pfp-help">Optional. Say it plainly — "make him look left", "give it a hoodie".</span>
+              </label>
+              <textarea
+                className="pfp-text pfp-wants"
+                rows={2}
+                maxLength={PFP_WANTS_MAX}
+                placeholder="Leave empty and it decides for you."
+                value={wants}
+                onChange={(e) => setWants(e.target.value)}
+              />
+            </>
           )}
 
           <label className="pfp-label">Options</label>
@@ -297,7 +366,7 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
               median — one square lands sooner than four banners. */}
           <button
             className={`btn primary block pfp-go gen-btn${busy ? " is-running" : ""}`}
-            disabled={busy || !file}
+            disabled={busy || !files.length}
             aria-busy={busy}
             style={{ "--p": progress }}
             onClick={run}

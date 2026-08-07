@@ -23,7 +23,7 @@
 import sharp from "sharp";
 import { NextResponse } from "next/server";
 import { aiEnabled, generatePfp } from "@/lib/openai";
-import { buildPfpPrompt, PFP_SIZE, PFP_MAX, PFP_COST, PFP_TEXT_MAX, getPfpStyle, distributeStyles } from "@/lib/pfp";
+import { buildPfpPrompt, PFP_SIZE, PFP_MAX, PFP_COST, PFP_TEXT_MAX, PFP_WANTS_MAX, PFP_IMAGES_MAX, getPfpStyle, distributeStyles } from "@/lib/pfp";
 import { publicError } from "@/lib/errors";
 import { requireUser } from "@/lib/auth";
 import { spendCredits, refundCredits, getUser } from "@/lib/users";
@@ -65,7 +65,12 @@ export async function POST(req) {
     const form = await req.formData();
 
     const text = String(form.get("text") || "").trim().slice(0, PFP_TEXT_MAX);
-    const keepBg = String(form.get("keepBg") || "") === "1";
+    // KEEPING THE BACKGROUND IS THE DEFAULT — the flag now asks for
+    // the change rather than for the absence of one. Doing the least
+    // to someone's picture is the safe default; replacing what is
+    // behind their subject is a real edit and should be requested.
+    const newBg = String(form.get("newBg") || "") === "1";
+    const wants = String(form.get("wants") || "").trim().slice(0, PFP_WANTS_MAX);
     // Only ever a hex colour. Validated rather than trusted: this
     // string lands inside a prompt, and an unbounded field there is
     // somewhere to write instructions.
@@ -87,15 +92,21 @@ export async function POST(req) {
     const styleIds = [...new Set(wanted)].slice(0, PFP_MAX);
     const perOption = distributeStyles(styleIds.length ? styleIds : ["default"], count);
 
-    const file = form.get("image");
-    if (!file || typeof file.arrayBuffer !== "function" || file.size === 0) {
+    // SEVERAL VIEWS OF ONE SUBJECT. `image` stays accepted so a client
+    // on the previous build still works.
+    const files = [...form.getAll("images"), ...form.getAll("image")]
+      .filter((f) => f && typeof f.arrayBuffer === "function" && f.size > 0)
+      .slice(0, PFP_IMAGES_MAX);
+    if (!files.length) {
       return NextResponse.json({ error: "Upload an image to make a profile picture from." }, { status: 400 });
     }
-    if (file.size > MAX_BYTES) {
-      return NextResponse.json({ error: "Image too large (8MB max)." }, { status: 400 });
-    }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json({ error: "Image must be PNG, JPG or WEBP." }, { status: 400 });
+    for (const f of files) {
+      if (f.size > MAX_BYTES) {
+        return NextResponse.json({ error: "Image too large (8MB max)." }, { status: 400 });
+      }
+      if (!ALLOWED_TYPES.includes(f.type)) {
+        return NextResponse.json({ error: "Images must be PNG, JPG or WEBP." }, { status: 400 });
+      }
     }
 
     // `fit: inside` and nothing else. The source is usually a PORTRAIT
@@ -104,14 +115,18 @@ export async function POST(req) {
     // asked to fix. It has to see the real frame, interface and all,
     // to know what to throw away. No withoutEnlargement, because the
     // edits API rejects very small inputs outright.
-    const src = (
-      await sharp(Buffer.from(await file.arrayBuffer()))
-        .rotate()
-        .resize(1024, 1024, { fit: "inside" })
-        .flatten({ background: "#ffffff" })
-        .jpeg({ quality: 88 })
-        .toBuffer()
-    ).toString("base64");
+    const srcs = await Promise.all(
+      files.map(async (f) =>
+        (
+          await sharp(Buffer.from(await f.arrayBuffer()))
+            .rotate()
+            .resize(1024, 1024, { fit: "inside" })
+            .flatten({ background: "#ffffff" })
+            .jpeg({ quality: 88 })
+            .toBuffer()
+        ).toString("base64")
+      )
+    );
 
     // -------- charge, before any paid call --------
     const total = count * PFP_COST;
@@ -131,8 +146,8 @@ export async function POST(req) {
     const settled = await Promise.allSettled(
       perOption.map(async (id) => {
         const style = getPfpStyle(id);
-        const prompt = buildPfpPrompt(style.id, { text, color, keepBg });
-        const buf = await generatePfp(prompt, { image: src, size: PFP_SIZE });
+        const prompt = buildPfpPrompt(style.id, { text, color, newBg, wants, images: srcs.length });
+        const buf = await generatePfp(prompt, { images: srcs, size: PFP_SIZE });
         const png = await sharp(buf)
           .resize(PFP_SIZE, PFP_SIZE, { fit: "cover", position: "center" })
           .png()

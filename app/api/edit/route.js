@@ -31,6 +31,14 @@ const MAX_INSTRUCTION = 400;
 const MAX_REF_BYTES = 8 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
+// Supporting images. Raised from 3 — gpt-image-2 takes the whole set
+// in one edits call, so the only real cost is payload size, and each
+// is already downscaled to 1024 and re-encoded as JPEG before it is
+// sent. Someone with five pieces of art for their character should
+// not have to pick which two to drop.
+const MAX_REFS = 5;
+
+
 const hits = new Map();
 function rateLimited(ip) {
   const now = Date.now();
@@ -100,7 +108,7 @@ export async function POST(req) {
     // Optional reference images (up to 3) showing what the user wants
     // added — same handling as the generate route's supporting images.
     const refs = [];
-    for (const f of form.getAll("refs").slice(0, 3)) {
+    for (const f of form.getAll("refs").slice(0, MAX_REFS)) {
       if (!f || typeof f.arrayBuffer !== "function" || f.size === 0) continue;
       if (f.size > MAX_REF_BYTES) continue;
       if (!ALLOWED_TYPES.includes(f.type)) continue;

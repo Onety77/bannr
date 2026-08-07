@@ -4076,3 +4076,28 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
   }
   .surface-tabs::-webkit-scrollbar { display: none; }
 }
+
+/* Several views of one subject. The first sits large — it is usually
+   the only one — and the rest tile beside it, so adding a second does
+   not shrink the first into a row of postage stamps. */
+.pfp-shots { display: flex; flex-wrap: wrap; gap: 8px; }
+.pfp-shots > * { flex: 1 1 100%; }
+.pfp-shots > * ~ * { flex: 0 0 calc(33.333% - 6px); }
+.pfp-thumb {
+  position: relative; aspect-ratio: 1 / 1;
+  border-radius: var(--r-md, 12px); overflow: hidden;
+  background: var(--bg-soft); border: 1px solid var(--hairline-2);
+}
+.pfp-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.pfp-thumb button {
+  position: absolute; top: 5px; right: 5px;
+  width: 21px; height: 21px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; line-height: 1;
+  color: #fff; background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(4px);
+}
+.pfp-thumb button:hover { background: var(--danger); }
+.pfp-drop.small { aspect-ratio: 1 / 1; }
+.pfp-plus { font-size: 24px; font-weight: 300; color: var(--muted); line-height: 1; }
+.pfp-wants { resize: vertical; min-height: 62px; line-height: 1.5; font-family: inherit; }
