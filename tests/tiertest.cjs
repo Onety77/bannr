@@ -75,6 +75,77 @@ console.log("\n=== 2. THE FREE TIER IS A STANDING, NOT AN ABSENCE ===");
   ok(T.entitlementsOf(g, g.tiers[0]).dailyRuns === 2, "FREE IS THE FLOOR — a tier never grants fewer runs than nothing does");
 }
 
+console.log("\n=== 2b. A TIER GIVEN RATHER THAN EARNED ===");
+{
+  const G = load("lib/tiers.js", "activeGrant, cleanGrant");
+  const now = Date.now();
+  ok(G.activeGrant({ tierGrant: { tier: "t3", until: now + 1000 } }, now).tier === "t3", "a live grant is returned");
+  ok(G.activeGrant({ tierGrant: { tier: "t3", until: now - 1 } }, now) === null, "an expired one is not");
+  // A partner or a teammate is a permanent arrangement, and a date
+  // invented to satisfy a required field surprises somebody later.
+  ok(G.activeGrant({ tierGrant: { tier: "t3", until: 0 } }, now).tier === "t3", "0 means no expiry, not expired");
+  ok(G.activeGrant({}, now) === null && G.activeGrant(null, now) === null, "no grant, no tier");
+  ok(G.activeGrant({ tierGrant: { until: 0 } }, now) === null, "a grant with no tier is not a grant");
+
+  ok(G.cleanGrant({ tier: "nope" }) === null, "an unknown tier id is refused, never stored");
+  ok(G.cleanGrant({ tier: "t2", days: 0 }).until === 0, "0 days stores no expiry");
+  {
+    const g = G.cleanGrant({ tier: "t2", days: 30 }, "me@x");
+    // Stored as a MOMENT, not a duration: "granted 30 days ago for 30
+    // days" is a subtraction somebody gets wrong at midnight.
+    ok(g.until > Date.now() + 29 * 86400000, "days become an absolute expiry");
+    ok(g.by === "me@x", "and who did it is recorded");
+  }
+  ok(G.cleanGrant({ tier: "t1", days: 99999 }).days === 3650, "an absurd duration is clamped");
+}
+
+console.log("\n=== 2c. A GRANT IS A FLOOR, NEVER A CEILING ===");
+{
+  // The whole risk of this feature in one block. Handing a t1 prize to
+  // somebody already holding t3 must not demote them — it would be
+  // silent, and it would hit the biggest holders first.
+  const E = bare(read("lib/entitlements.js"));
+  ok(/const best = \(a, b\) =>/.test(E), "the resolver takes the better of the two");
+  ok(/gate\.tiers\.indexOf\(a\) >= gate\.tiers\.indexOf\(b\)/.test(E), "compared by position on the ladder");
+  // Exactly two: the cached verdict and the fresh balance read. The
+  // third path — tiers switched off — has no earned tier to compare
+  // against, so it uses the grant directly and correctly.
+  ok(/best\(earned, granted\)/.test(E), "on the cached path");
+  ok(/best\(verdict\.tier \|\| null, granted\)/.test(E), "and on the fresh balance read");
+  ok(/tier: granted,/.test(E), "with the tiers off it stands alone, having nothing to beat");
+  // Checked ABOVE the enabled test: "give them access before we
+  // launch" is the main reason to grant a tier at all.
+  ok(E.indexOf("activeGrant(u)") < E.indexOf("if (!gate.enabled)"),
+     "AND THE GRANT IS READ BEFORE THE GATE-OFF EARLY RETURN, or it would be useless before launch");
+  // A granted tier never depended on the chain, so a dead RPC cannot
+  // take it away.
+  ok(/const tier = best\(verdict\.tier \|\| null, granted\)/.test(E), "a failed balance read cannot revoke a grant");
+
+  const U = bare(read("lib/users.js"));
+  // Revoking and granting both have to bite now. An account that has
+  // already generated today would otherwise keep its old standing
+  // until tomorrow — the day somebody is most likely to be watching.
+  ok(/gateDate: "", gateAllowance: 0, gateTier: "", gateEnt: null/.test(U), "granting clears today's verdict");
+  ok((U.match(/gateDate: "", gateAllowance: 0/g) || []).length === 2, "and so does revoking");
+}
+
+console.log("\n=== 2d. THE PAGE AGREES WITH THE SERVER ===");
+{
+  // The failure this prevents: an admin grants a tier BEFORE launch,
+  // the server allows everything, and the browser locks the fields —
+  // because it resolves tierId against the public table, which is
+  // empty while the tiers are off.
+  const H = bare(read("lib/useEntitlements.js"));
+  ok(/auth\.user\?\.entitlements/.test(H), "the client prefers the server's cached answer");
+  ok(/\.\.\.base,/.test(H), "merged over the shared table rather than replacing it");
+  const U = bare(read("lib/users.js"));
+  ok(/gateEnt: \{/.test(U), "which the verdict writes");
+  ok(/entitlements: gateToday && u\.gateEnt \? u\.gateEnt : null/.test(U), "and publicUser returns, expiring with the day");
+  // The reason and who granted it are ours, not theirs.
+  ok(/grant: activeGrant\(u\) \? \{ until/.test(U), "the browser learns when it ends and nothing else");
+  ok(!/reason: g\.reason/.test(U), "not why, and not who");
+}
+
 console.log("\n=== 3. HOW FAR TO THE NEXT RUNG ===");
 ok(T.nextTier(0, LADDER).id === "t1" && T.nextTier(0, LADDER).away === 1000, "from nothing, the first rung and the whole distance");
 ok(T.nextTier(40_000, LADDER).away === 10_000, "part way up, only what is left");

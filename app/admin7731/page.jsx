@@ -12,6 +12,7 @@ import AdminFeed from "@/components/AdminFeed";
 import AdminFunnel from "@/components/AdminFunnel";
 import AdminBuybacks from "@/components/AdminBuybacks";
 import AdminGrant from "@/components/AdminGrant";
+import AdminTierGrant from "@/components/AdminTierGrant";
 import AttachCa from "@/components/AttachCa";
 
 const FLAGS = [
@@ -366,6 +367,11 @@ export default function AdminPage() {
         <div className="swap" key="money">
           <AdminBuybacks user={user} />
           <AdminGrant user={user} />
+          {/* Below Give credits, and separate from it. A balance and a
+              standing are two different ladders, and one form that
+              could change both in a single submit is a form somebody
+              uses wrong at speed. */}
+          <AdminTierGrant user={user} />
         </div>
       )}
 

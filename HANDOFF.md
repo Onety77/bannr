@@ -267,6 +267,26 @@ Every number is admin-editable at `/admin7731`. The defaults above are the
 shape, not a decision — thresholds are 0 until someone sets them, and the gate
 refuses to arm until they are.
 
+**A tier can also be GIVEN.** `/admin7731` → Money → *Give a tier*: a handle, a
+rung, a number of days (0 never expires), a reason. Competition winners,
+partners, anyone owed a favour. Every grant and revocation is written to
+`tierGrants`, like credit grants next door.
+
+Three rules hold it together. **A grant is a floor, never a ceiling** — the
+resolver takes the better of given and earned, because handing a t1 prize to
+somebody already holding t3 would be a silent demotion of your biggest holders.
+**It is read before the `gate.enabled` check**, since "give them access before
+we launch" is the main reason to grant one at all — which also means it
+survives a dead RPC, having never depended on the chain. And **granting or
+revoking clears the day's verdict**, or the change would not bite until
+tomorrow, the day somebody is most likely to be watching.
+
+The browser agrees because the verdict caches the resolved capabilities on the
+account (`gateEnt`) and `useEntitlements` prefers them. Without it, a tier
+granted before launch would be honoured by the server and locked by the page:
+the public tier table is empty while the tiers are off, so there is nothing for
+the client to resolve a tier id against.
+
 **Free compute climbs slowly, the discount climbs fast**, and that asymmetry is
 the whole design. A free run costs real money whether or not it leads anywhere
 and is a run somebody did not buy; a discount costs nothing until a purchase
