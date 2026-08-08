@@ -10,7 +10,7 @@ import BannerField from "@/components/BannerField";
 import TokenBar from "@/components/TokenBar";
 import HeroStart from "@/components/HeroStart";
 import { getGate, publicGate } from "@/lib/tokenGate";
-import { offerLine } from "@/lib/offer";
+import { freeLine, offerLine } from "@/lib/offer";
 // Metadata only. This page is a server component, but it renders
 // client components that pull the same module into their bundle.
 import { STYLES as TEMPLATES } from "@/lib/styles";
@@ -102,6 +102,14 @@ export default async function Landing() {
   // component, so the right offer is in the HTML instead of arriving
   // a moment later and replacing the wrong one.
   const token = publicGate(await getGate().catch(() => ({})));
+  // TWO DIFFERENT SENTENCES, and keeping them apart is the point.
+  //
+  //   free   what anyone gets, true today, independent of the token
+  //   offer  what HOLDING adds, null until the tiers are armed
+  //
+  // The hero says the first. The feature card and the closing band say
+  // the second, and both already drop themselves when it is null.
+  const free = freeLine(token);
   const offer = offerLine(token);
 
   return (
@@ -124,12 +132,20 @@ export default async function Landing() {
               inside it as text, so nothing competes with the one
               obvious move. */}
           <HeroStart />
-          {/* The offer, or NOTHING. Before the token is announced
-              there is no free tier to describe, and the line that used
-              to sit here — "pay per banner in SOL, no subscription, no
-              seats" — was answering a pricing objection nobody had
-              reached yet, three seconds into the page. */}
-          {offer && <p className="hero-note reveal d2">{offer}</p>}
+          {/* ══ IT IS FREE, AND THE SITE NEVER SAID SO ══
+
+              This was {offer && …}, and offerLine returns null until
+              the tiers are armed — so until the token launched, the
+              homepage made no mention of cost at all. Everyone gets a
+              banner a day for nothing, that has been true since the
+              free tier shipped, and it was the strongest sentence the
+              product owns sitting entirely unsaid.
+
+              The TOKEN offer is not duplicated here. It lives in the
+              bar below, which appears on announcement — two sentences
+              under one paste box, one about free and one about
+              holding, is a hero arguing with itself. */}
+          {free && <p className="hero-note reveal d2">{free}</p>}
           {/* Renders nothing until the token is announced, so the hero
               is unchanged until the day it isn't. */}
           <div className="reveal d2"><TokenBar /></div>
@@ -265,8 +281,12 @@ export default async function Landing() {
         <div className="wrap">
           <div className="band">
             <h2>Ready when you are.</h2>
+            {/* The FREE line here, not the holder offer. This is the
+                last thing read before the button, and at that moment
+                the useful fact is that pressing it costs nothing —
+                not what a token they do not own would add. */}
             <p>
-              {offer ? offer + " " : ""}Your first banner is three fields
+              {free ? free + " " : ""}Your first banner is three fields
               and thirty seconds away.
             </p>
             <Link href="/create" className="btn primary large">Create your banner</Link>

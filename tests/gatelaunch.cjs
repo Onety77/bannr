@@ -145,24 +145,54 @@ console.log("\n6. NOTHING TO SPEND OPENS A DIALOG, NOT A DEAD END");
   ok(!/Not enough credits \(need/.test(CREATE), "the old error string is gone");
   ok(!fs.existsSync(R + "components/NothingToSpend.jsx"), "and the inline notice with it");
 
-  ok(TOP.includes("const offer = offerLine(useToken());"), "the dialog reads the live gate");
-  // The title must not promise something the offer under it does not
-  // deliver. It used to say "Get free generations", which stopped
-  // being true when everyone started getting one a day and the offer
-  // became whatever holding ADDS — often the style picker, not runs.
-  ok(TOP.includes('offer ? "Out of runs" : "You need credits"'), "and titles itself accordingly");
-  // bare(), because the code above this line explains the old title by
-  // quoting it. Matching that comment instead of the code is the
-  // failure mode this whole suite keeps rediscovering.
+  ok(TOP.includes("const offer = offerLine(token);"), "the dialog reads the live gate");
+  // bare(), because the code explains the old titles by quoting them.
   ok(!/Get free generations/.test(bare(TOP)), "without promising free generations above an offer that may not include any");
-  ok(TOP.includes("Connect your wallet"), "promo running: connect a wallet");
-  ok(TOP.includes("Buy credits instead"), "  …with buying as the alternative");
+
+  // ══ THIS ONE SCREEN IS THE WHOLE CONVERSION FUNNEL ══
+  //
+  // Somebody made a banner, liked it, asked for another. Three things
+  // were wrong and each is worth a line here.
+  const t = bare(TOP);
+  // 1. The free run comes back. True, costs a sale nobody was making
+  //    today, and is the difference between a wall and a wait.
+  ok(/Your free run is back tomorrow\./.test(t), "it says the free run returns");
+  // 2. An unpriced button asks you to navigate to find out what you
+  //    are agreeing to.
+  ok(/Buy credits — from \$\{PACKS\[0\]\.usd\}/.test(t), "the buy button carries a price");
+  ok(/from "@\/lib\/packs"/.test(t), "read from the price list, so it cannot drift from what /credits charges");
+  // 3. "Connect your wallet" was PRIMARY. Connecting gives you nothing
+  //    unless you already hold, so the loudest control on the screen
+  //    did nothing for the people most likely to be reading it.
+  const buyAt = t.indexOf("Buy credits —");
+  const holdAt = t.indexOf("Hold ${sym} instead");
+  ok(buyAt > -1 && holdAt > buyAt, "BUYING LEADS, holding is the second option");
+  ok(/btn primary block" onClick=\{toCredits\}/.test(t), "and buying is the primary button");
+  ok(!/btn primary[^\n]*connect/.test(t), "connecting a wallet is never the primary action");
+  // hasWallet was computed and never used. Connecting a wallet that is
+  // already linked does nothing at all.
+  ok(/hasWallet \?/.test(t), "a wallet already linked is sent to the ladder rather than asked to connect again");
   {
-    // Promo over: one button to credits, and nothing left over that
-    // mentions a token. That is the whole reason it reads the config.
-    const off = TOP.slice(TOP.indexOf(") : ("));
-    ok(/Buy credits/.test(off), "promo over: one button");
-    ok(!/wallet|hold|token|BANNR/i.test(bare(off)), "and no trace of a token anywhere in that branch");
+    // The token route is entirely behind the offer. Before the tiers
+    // are armed there is nothing to hold, and a button pointing at an
+    // offer that does not exist is a dead end.
+    ok((t.match(/\{offer && /g) || []).length >= 2, "every mention of the token is behind `offer &&`");
+    // Only what is RENDERED, which is what the original assertion
+    // scoped to as well. Imports, the useToken hook and the separate
+    // pendingSign resume flow all legitimately name a wallet; the
+    // question is whether a person with the tiers off sees one.
+    // The closing tag AFTER the opening one. There is an earlier
+    // </Modal> — the pendingSign resume branch returns its own — so a
+    // bare indexOf found it, produced end < start, and sliced to an
+    // empty string that passes every test put to it. Verified by
+    // injecting a leak and watching it pass.
+    const start = t.indexOf('<Modal title="Out of runs"');
+    const body = t.slice(start, t.indexOf("</Modal>", start));
+    ok(body.length > 100, "the modal body was actually found");
+    const noOffer = body
+      .replace(/\{offer && \([\s\S]*?\n\s*\)\}/g, "")
+      .replace(/\{offer && <[^>]*>\{offer\}<\/[^>]*>\}/g, "");
+    ok(!/wallet|hold|token|BANNR/i.test(noOffer), "so with the tiers off, no trace of a token is rendered");
   }
   ok(TOP.includes("if (auth.pendingSign)"), "it carries the wallet flow when one is mid-way");
 }

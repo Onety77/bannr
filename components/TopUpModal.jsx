@@ -16,12 +16,19 @@ import WalletContinue from "@/components/WalletContinue";
 import { useAuth } from "@/lib/useAuth";
 import { useToken } from "@/lib/useToken";
 import { offerLine } from "@/lib/offer";
+// The list price of the cheapest pack, so the button carries a number.
+// lib/packs.js is client-safe by design — it holds dollars and no rate.
+import { PACKS } from "@/lib/packs";
 import { closeModal } from "@/lib/modals";
 
 export default function TopUpModal() {
   const auth = useAuth();
   const router = useRouter();
-  const offer = offerLine(useToken());
+  const token = useToken();
+  const offer = offerLine(token);
+  // Falls back rather than reading "$undefined" for the moment before
+  // /api/token answers.
+  const sym = token?.symbol ? `$${token.symbol}` : "$BANNR";
 
   if (auth.pendingSign) {
     return (
@@ -38,39 +45,55 @@ export default function TopUpModal() {
     auth.linkWallet();
   }
 
+  const toCredits = () => { closeModal(); router.push("/credits"); };
+
   return (
-    // "Get free generations" was the title, and it stopped being true
-    // when everyone started getting one a day: the offer underneath is
-    // now whatever holding ADDS, which is often the style picker and a
-    // discount rather than more runs. A title promising free
-    // generations above a line that offers something else reads as a
-    // bait. This one states the situation and lets the offer speak.
-    <Modal title={offer ? "Out of runs" : "You need credits"} onClose={closeModal}>
-      {offer ? (
-        <>
-          <p className="modal-lead">{offer}</p>
-          <div className="signin-opts">
-            <button className="btn primary block" disabled={auth.busy} onClick={connect}>
-              {auth.busy ? <span className="spinner" /> : "Connect your wallet"}
+    // ══ THE ENTIRE CONVERSION FUNNEL IS THIS ONE SCREEN ══
+    //
+    // Somebody made a banner, liked it, asked for another, and this is
+    // what they get. Three things were wrong with it.
+    //
+    // "Connect your wallet" was the PRIMARY button. Connecting gives
+    // you nothing unless you already hold the token — so the loudest
+    // action on the screen did nothing at all for the people most
+    // likely to be looking at it, and for everyone else it is a trip
+    // to a DEX and back. The person wants a banner now.
+    //
+    // "Buy credits" carried no number. An unpriced button asks you to
+    // navigate to find out what you are agreeing to, and the honest
+    // answer is small enough to say out loud.
+    //
+    // And nothing said the free run comes back. That is true, it costs
+    // a sale nobody was going to make today, and it is the difference
+    // between a wall and a wait.
+    <Modal title="Out of runs" onClose={closeModal}>
+      <p className="modal-lead">Your free run is back tomorrow.</p>
+
+      <div className="signin-opts">
+        <button className="btn primary block" onClick={toCredits}>
+          Buy credits — from ${PACKS[0].usd}
+        </button>
+
+        {/* The holder route, quieter and second, because it is the
+            slower one. Absent entirely before the tiers are armed —
+            offerLine returns null then, and a button pointing at an
+            offer that does not exist yet is a dead end. */}
+        {offer && (
+          hasWallet ? (
+            // A wallet is already linked. Connecting it again does
+            // nothing, so this goes where the ladder actually is.
+            <button className="btn block" onClick={toCredits}>
+              Hold {sym} instead
             </button>
-            <button
-              className="btn block"
-              onClick={() => { closeModal(); router.push("/credits"); }}
-            >
-              Buy credits instead
+          ) : (
+            <button className="btn block" disabled={auth.busy} onClick={connect}>
+              {auth.busy ? <span className="spinner" /> : `Hold ${sym} instead`}
             </button>
-          </div>
-        </>
-      ) : (
-        <div className="signin-opts">
-          <button
-            className="btn primary block"
-            onClick={() => { closeModal(); router.push("/credits"); }}
-          >
-            Buy credits
-          </button>
-        </div>
-      )}
+          )
+        )}
+      </div>
+
+      {offer && <p className="modal-foot">{offer}</p>}
       {auth.error && <p className="modal-err">{auth.error}</p>}
     </Modal>
   );
