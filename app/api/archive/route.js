@@ -95,5 +95,26 @@ export async function POST(req) {
     return NextResponse.json({ ok: false, reason: "no-link" });
   }
 
+  // ══ AND POINT THE ADMIN BOARD AT THE SAME FILE ══
+  //
+  // The featuring pool is fed by the download click — the same click
+  // that writes this card and stores this file — and both stamp the
+  // identical image-derived `sig`. So the record an admin curates from
+  // can share the real banner instead of the 900×300 JPEG it keeps for
+  // its own thumbnail.
+  //
+  // Best-effort and last: the person's own archive is the thing that
+  // was asked for, and a failure to enrich a board they will never see
+  // must not report as a failure to keep their banner.
+  const sig = snap.data().sig;
+  if (sig) {
+    try {
+      const gen = await db.collection("generations").where("sig", "==", sig).limit(1).get();
+      if (!gen.empty && !gen.docs[0].data().path) {
+        await gen.docs[0].ref.update({ path });
+      }
+    } catch {}
+  }
+
   return NextResponse.json({ ok: true });
 }

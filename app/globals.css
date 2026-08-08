@@ -4446,3 +4446,11 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
   margin: 13px 0 0; font-size: 12.5px; line-height: 1.5;
   color: var(--muted); text-align: center;
 }
+
+/* The admin board tile opens. Same idea as My banners: on a page made
+   entirely of pictures, the picture is what everyone taps. */
+.admin-open {
+  display: block; width: 100%; padding: 0; border: 0;
+  background: none; cursor: zoom-in; border-radius: inherit; overflow: hidden;
+}
+.admin-open img { display: block; width: 100%; }

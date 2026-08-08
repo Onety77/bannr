@@ -15,6 +15,8 @@ import sharp from "sharp";
 import { NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { requireAdmin } from "@/lib/adminAuth";
+import { putBanner } from "@/lib/archive";
+import { BANNER_W, BANNER_H } from "@/lib/templates";
 
 export const runtime = "nodejs";
 
@@ -41,16 +43,32 @@ export async function POST(req) {
   }
 
   let thumb;
+  let full;
   try {
-    thumb = await sharp(Buffer.from(await file.arrayBuffer()))
-      .resize(760)
-      .jpeg({ quality: 74 })
+    const raw = Buffer.from(await file.arrayBuffer());
+    thumb = await sharp(raw).resize(760).jpeg({ quality: 74 }).toBuffer();
+    // ══ KEEP WHAT WAS UPLOADED, NOT ONLY THE THUMBNAIL ══
+    //
+    // A hand-placed banner arrives at full quality and was being
+    // reduced to a 760px JPEG on the way in, with the original
+    // discarded — so the one banner on the board we definitely HAD in
+    // full was the one we could never get back. Normalised to the
+    // banner canvas so it matches everything else in the archive.
+    full = await sharp(raw)
+      .resize(BANNER_W, BANNER_H, { fit: "cover", position: "center" })
+      .png()
       .toBuffer();
   } catch {
     return NextResponse.json({ error: "That file couldn't be read as an image." }, { status: 400 });
   }
 
+  // Under "admin" rather than an account, because there is no account
+  // — this banner did not come from anyone's run. Failure is fine: the
+  // board still works from the thumbnail, exactly as it did before.
+  const path = await putBanner("admin", full).catch(() => null);
+
   const doc = {
+    ...(path ? { path } : {}),
     src: `data:image/jpeg;base64,${thumb.toString("base64")}`,
     ticker: String(form.get("ticker") || "").slice(0, 24),
     // Shown as the style label on the cards. "Upload" when not given,

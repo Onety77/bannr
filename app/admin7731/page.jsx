@@ -14,6 +14,7 @@ import AdminBuybacks from "@/components/AdminBuybacks";
 import AdminGrant from "@/components/AdminGrant";
 import AdminTierGrant from "@/components/AdminTierGrant";
 import AttachCa from "@/components/AttachCa";
+import { saveImage, bannerFilename } from "@/lib/download";
 
 const FLAGS = [
   ["featuredWall", "Fresh wall"],
@@ -47,6 +48,22 @@ export default function AdminPage() {
   // banner featured long enough ago to have fallen off the list.
   const [filter, setFilter] = useState("all");
   const [counts, setCounts] = useState({});
+  // The tile being looked at, or null. Holds the whole item so the
+  // viewer can name the file and know whether a real one exists.
+  const [viewing, setViewing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  // ══ AN <img src> CANNOT SEND A BEARER TOKEN ══
+  //
+  // Every /api/admin route is guarded by requireAdmin, which reads the
+  // Authorization header and nothing else — no cookie, deliberately.
+  // So pointing an <img> straight at /api/admin/banner/{id} gets a
+  // 401 and a broken picture, and no amount of markup fixes it.
+  //
+  // The file is fetched WITH the header and held as an object URL,
+  // which the image and the download both read. The alternative —
+  // accepting a token in the query string — would put a credential in
+  // every log, referrer and screenshot of the address bar.
+  const [fullUrl, setFullUrl] = useState(null);
 
   useEffect(() => {
     const app = getFirebase();
@@ -139,6 +156,36 @@ export default function AdminPage() {
     })();
     return () => { live = false; };
   }, [status, user]);
+
+  // Below the state it reads. Fetches the real file when a tile with
+  // one is opened, and revokes the object URL on the way out — each
+  // one pins a couple of megabytes until it is released.
+  useEffect(() => {
+    if (!viewing?.hasFile || !user) { setFullUrl(null); return; }
+    let live = true;
+    let url = null;
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        const r = await fetch(`/api/admin/banner/${viewing.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) return;
+        const blob = await r.blob();
+        if (!live) return;
+        url = URL.createObjectURL(blob);
+        setFullUrl(url);
+      } catch {
+        // Falls back to the card image, which is already on screen.
+        // A viewer that shows the smaller picture beats one that
+        // shows nothing.
+      }
+    })();
+    return () => {
+      live = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [viewing, user]);
 
   async function signIn() {
     setError(null);
@@ -396,7 +443,28 @@ export default function AdminPage() {
           <div className="admin-grid">
             {items.map((it) => (
               <div className={`admin-tile ${it.hidden ? "is-hidden" : ""}`} key={it.id}>
-                <img src={it.src} alt={it.ticker || "banner"} />
+                {/* ══ THE PICTURE OPENS ══
+
+                    It was an <img> and nothing else, on a board made
+                    entirely of pictures — the one thing anyone tries
+                    to tap, and the one thing that did nothing.
+
+                    Cards WITH a stored file open the real 1500×500
+                    PNG. Cards without open the 900×300 card image,
+                    which is still four times the area it occupies in
+                    the grid and is the only thing that exists for
+                    anything downloaded before the archive did.
+                    Distinguished in the viewer rather than hidden
+                    here, because "let me look at that one" is a
+                    reasonable request either way. */}
+                <button
+                  type="button"
+                  className="admin-open"
+                  onClick={() => setViewing(it)}
+                  aria-label={`View ${it.ticker || "banner"}`}
+                >
+                  <img src={it.src} alt={it.ticker || "banner"} />
+                </button>
                 <div className="admin-tile-body">
                   <div className="admin-tile-meta">
                     <b>{it.ticker || "—"}</b>
@@ -529,6 +597,60 @@ export default function AdminPage() {
             ))}
           </div>
         </>
+      )}
+
+      {/* The viewer. Same two jobs as the one on My banners — see it
+          properly, and get the file — and deliberately not the create
+          page's Lightbox, which carries editing and undo and needs a
+          live run behind it. */}
+      {viewing && (
+        <div
+          className="hview"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${viewing.ticker || "Banner"} full size`}
+          onPointerDown={(e) => { if (e.target === e.currentTarget) setViewing(null); }}
+        >
+          <div className="hview-inner">
+            {/* The card image until the real one arrives, rather than
+                a blank frame — it is already loaded, and a viewer that
+                paints instantly and sharpens beats one that waits. */}
+            <img src={fullUrl || viewing.src} alt="" />
+            <div className="hview-bar">
+              <span className="hview-name">
+                <b>{viewing.ticker || "—"}</b>
+                {/* Says WHICH it is, rather than implying every card
+                    has a real file behind it. Anything downloaded
+                    before the archive existed only ever had the card
+                    image, and pretending otherwise would make a
+                    900×300 JPEG look like a deliverable. */}
+                <em>
+                  {!viewing.hasFile
+                    ? "preview only · 900 × 300"
+                    : fullUrl
+                    ? "1500 × 500"
+                    : "loading full size…"}
+                </em>
+              </span>
+              <button
+                className="btn small primary"
+                disabled={saving || (viewing.hasFile && !fullUrl)}
+                onClick={async () => {
+                  setSaving(true);
+                  const res = await saveImage(
+                    fullUrl || viewing.src,
+                    bannerFilename(viewing.ticker || "banner", 0, "")
+                  );
+                  setSaving(false);
+                  if (res?.error) setError(res.error);
+                }}
+              >
+                {saving ? <span className="spinner" /> : viewing.hasFile ? "Download PNG" : "Download preview"}
+              </button>
+              <button className="btn small" onClick={() => setViewing(null)}>Close</button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

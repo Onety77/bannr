@@ -126,6 +126,53 @@ console.log("\n7. THE CARD CAP MOVED FOR A REASON");
   ok(/all\.docs\.slice\(MAX_ITEMS\)/.test(bare(HIST)), "and the cap is still enforced at write time");
 }
 
+console.log("\n7b. THE ADMIN BOARD REACHES THE REAL FILE");
+{
+  const AB = bare(read("app/api/admin/banner/[id]/route.js"));
+  const GEN = bare(read("app/api/admin/generations/route.js"));
+  const UP = bare(read("app/api/admin/upload/route.js"));
+  const PAGE = bare(read("app/admin7731/page.jsx"));
+
+  // The featuring pool and the archive are written by the same click
+  // and stamped with the same image-derived sig, which is what lets
+  // one card point at the other's file.
+  ok(/collection\("generations"\)\.where\("sig", "==", sig\)/.test(bare(PUT)),
+     "a download links the board card to the file it just stored");
+  ok(/!gen\.docs\[0\]\.data\(\)\.path/.test(bare(PUT)), "and never overwrites one already linked");
+
+  // Admin, NOT owner. An admin looking at the board is looking at
+  // other people's banners — that is the job — so this deliberately
+  // does not scope to a session's own account the way /api/archive
+  // does. requireAdmin is the stronger check.
+  ok(/requireAdmin\(req\)/.test(AB), "the admin route is admin-verified");
+  ok(!/session\.accountId/.test(AB), "and does not pretend to be an ownership check");
+  ok(/isArchivePath\(path\)/.test(AB), "the path is still shape-checked before the bucket");
+
+  // Same rule as everywhere else: the storage path never reaches a
+  // browser.
+  ok(/const \{ path, \.\.\.rest \} = d\.data\(\)/.test(GEN), "the board strips `path` from every row");
+  ok(/hasFile: Boolean\(path\)/.test(GEN), "and sends a flag instead");
+
+  // ══ AN <img src> CANNOT SEND A BEARER TOKEN ══
+  //
+  // Every admin route reads the Authorization header and nothing else.
+  // Pointing an <img> at one gets a 401 and a broken picture, and the
+  // fix is not markup — it is fetching with the header and holding an
+  // object URL. A token in the query string would put a credential in
+  // every log and referrer.
+  ok(/Authorization: `Bearer \$\{token\}`/.test(PAGE) && /createObjectURL/.test(PAGE),
+     "THE VIEWER FETCHES WITH THE HEADER rather than pointing an img at a guarded route");
+  ok(/revokeObjectURL/.test(PAGE), "and releases it, since each one pins megabytes");
+  ok(/src=\{fullUrl \|\| viewing\.src\}/.test(PAGE), "showing the card image until the real one lands");
+  // Older cards genuinely have no file. Saying so beats implying a
+  // 900×300 JPEG is a deliverable.
+  ok(/preview only · 900 × 300/.test(PAGE), "and a card with no file says exactly that");
+
+  // A hand-placed banner arrives at full quality; it was being reduced
+  // to a 760px JPEG with the original discarded.
+  ok(/putBanner\("admin", full\)/.test(UP), "an uploaded banner keeps its full-resolution original");
+}
+
 console.log("\n8. WHAT IS STORED IS A REAL BANNER");
 {
   const p = bare(PUT);

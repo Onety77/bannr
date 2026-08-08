@@ -38,15 +38,23 @@ export async function GET(req) {
   const col = db.collection("generations");
   const filter = new URL(req.url).searchParams.get("filter") || "all";
 
+  // The storage path is stripped and replaced by a flag, exactly as
+  // /api/history does. The browser has no use for it, and it is the
+  // one string that would let a leaked response be replayed against
+  // anything that signs paths later. The file is fetched by ID from
+  // /api/admin/banner/{id}, which re-checks admin on every request.
+  const row = (d) => {
+    const { path, ...rest } = d.data();
+    return { id: d.id, ...rest, hasFile: Boolean(path) };
+  };
+
   let items;
   if (FIELD[filter]) {
     const snap = await col.where(FIELD[filter], "==", true).limit(FILTER_LIMIT).get();
-    items = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    items = snap.docs.map(row).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   } else {
     const snap = await col.orderBy("ts", "desc").limit(LIST_LIMIT).get();
-    items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    items = snap.docs.map(row);
   }
 
   // Counts for the filter chips, so the board says how many banners are
