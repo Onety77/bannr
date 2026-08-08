@@ -79,7 +79,7 @@ function build(db) {
 const T = fs.readFileSync(R + "lib/tiers.js", "utf8").replace(/\r\n/g, "\n");
 const TIERS = new Function(
   T.replace(/^export /gm, "") +
-  "\nreturn { DEFAULT_TIERS, DEFAULT_FREE, CAPS, PERKS, TIER_IDS, cleanTier, cleanTiers, cleanFree, tierFor, tierById, entitlementsOf, nextTier };"
+  "\nreturn { DEFAULT_TIERS, DEFAULT_FREE, PERKS, TIER_IDS, cleanTier, cleanTiers, cleanFree, tierFor, tierById, entitlementsOf, nextTier };"
 )();
 
 const DEFAULT_GATE = new Function(
@@ -129,7 +129,13 @@ ok(cleanGate({ tiers: [{ id: "t1", dailyRuns: -5 }] }).tiers[0].dailyRuns === 0,
 ok(cleanGate({ tiers: [{ id: "t1", discount: 400 }] }).tiers[0].discount === 90, "discount cannot reach 100% by mashing a key");
 ok(cleanGate({ recheckMinutes: 0 }).recheckMinutes >= 1, "recheck cannot be 0 (would hammer the RPC)");
 ok(cleanGate({}).free.dailyRuns === 1, "the free tier defaults to one run a day");
-ok(cleanGate({ free: { dailyRuns: 2, styles: true } }).free.styles === true, "and its capabilities are editable");
+ok(cleanGate({ free: { dailyRuns: 4 } }).free.dailyRuns === 4, "and is editable");
+// Features are priced, never gated — so the free tier is an AMOUNT
+// and carries no capability flags to switch off. A tier that locked
+// one put a paying customer below a token holder who never spent a
+// cent.
+ok(cleanGate({ free: { dailyRuns: 2, styles: true } }).free.styles === undefined,
+   "AND IT HAS NO CAPABILITY FLAGS AT ALL, however they are sent");
 
 console.log("\n=== 1b. THE LADDER ONLY EVER GOES UP ===");
 {

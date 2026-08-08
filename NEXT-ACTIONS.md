@@ -34,10 +34,9 @@ version before it.
       with a balance in your wallet, set tier 1 below what you hold and
       tier 2 above it, arm it, and generate.
       **None of the tier code has ever run against a real wallet.**
-      One pass exercises the balance read, tier resolution, the style
-      picker unlocking, the discounted price on `/credits`, the
-      "X BANNR from Insider" line, and the button reading
-      *"free (N left today)"*. If `HELIUS_RPC_URL` is missing, this is
+      One pass exercises the balance read, tier resolution, the
+      discounted price on `/credits`, the "X BANNR from Insider" line,
+      and the button reading *"free (N left today)"*. If `HELIUS_RPC_URL` is missing, this is
       also where you find out — balance reads fall back to a public
       endpoint, everyone resolves to no tier, and nothing errors.
 - [ ] **Seed the feed.** An empty feed on launch day says nobody's
@@ -81,9 +80,9 @@ these — they are all "does it look right".
 - [ ] **Partial refund.** Two 4-option runs in two tabs at once.
       Expect *"2 of 4 options came back… refunded 2 credits"* and a
       matching balance.
-- [ ] **A locked field on a fresh account.** Sign in with an account
-      holding nothing: the style picker and "What do you want?" should
-      both show the locked row, and one run should still be free.
+- [ ] **A fresh account holding nothing.** Sign in with one: the style
+      picker and "What do you want?" must both be fully usable, and one
+      run should be free. Nothing in the form is gated.
 - [ ] **Google avatar.** Only captured on your *next* sign-in.
 
 ---
@@ -147,6 +146,7 @@ Roughly in the order I'd build them.
 - Packs are priced in **USD**, paid in SOL, converted at quote time
 - Tier thresholds are in **tokens**, never dollars
 - One free run a day for everyone signed in, independent of the token
+- No feature is token-gated. Tiers are economics and status, never a bigger app
 - The buyback commitment is **accounting, not a bot** — no signing key
   on the server, and there is currently none anywhere in the codebase
 - History saves on **download**, not on generate

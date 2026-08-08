@@ -23,7 +23,7 @@ const near = (a, b, eps = 0.005) => Math.abs(a - b) <= eps;
 const load = (file, names) =>
   new Function(read(file).replace(/^import[^\n]*$/gm, "").replace(/^export /gm, "") + `\nreturn { ${names} };`)();
 
-const T = load("lib/tiers.js", "DEFAULT_TIERS, DEFAULT_FREE, CAPS, cleanTiers, cleanFree, tierFor, tierById, entitlementsOf, nextTier");
+const T = load("lib/tiers.js", "DEFAULT_TIERS, DEFAULT_FREE, cleanTiers, cleanFree, tierFor, tierById, entitlementsOf, nextTier");
 const P = load("lib/packs.js", "PACKS, priceUsd, creditsForPayment, packLabel, TOLERANCE");
 const S = load("lib/solPrice.js", "pickSolUsd, solForUsd, usdForSol, WSOL");
 
@@ -52,8 +52,10 @@ console.log("\n=== 2. THE FREE TIER IS A STANDING, NOT AN ABSENCE ===");
 {
   const free = T.entitlementsOf(GATE, null);
   ok(free.dailyRuns === 1, "a non-holder gets one run a day");
-  ok(free.styles === false && free.direction === false, "and cannot pick a style or say what they want");
   ok(free.discount === 0, "no discount");
+  // A free run is a smaller amount of the real product, not a demo of
+  // a worse one. Nothing in the app is gated by a tier.
+  ok(free.styles === undefined, "and no capability flags at all — features are priced, never gated");
   ok(free.tierId === null, "and no tier id, so the UI can tell the difference");
 }
 {
@@ -65,7 +67,7 @@ console.log("\n=== 2. THE FREE TIER IS A STANDING, NOT AN ABSENCE ===");
 {
   const t3 = T.entitlementsOf(GATE, T.tierFor(250_000, LADDER));
   ok(t3.dailyRuns === 3 && t3.discount === 40, "the top rung gets its own numbers");
-  ok(t3.styles && t3.direction && t3.advanced, "and everything unlocked");
+  ok(t3.earlyAccess === true && t3.customStyle === true, "and its status perks");
   ok(t3.tierId === "t3" && t3.tierName === "Founder", "named, for the page");
 }
 {
@@ -260,21 +262,33 @@ console.log("\n=== 7. THE SERVER ENFORCES THE LOCKS, NOT THE PAGE ===");
   ok(/resolveEntitlements\(session\.accountId\)/.test(G), "the run resolves entitlements from the session, never from the form");
   ok(G.indexOf("resolveEntitlements") < G.indexOf("await req.formData()"),
      "AND BEFORE THE FORM IS READ — otherwise the fields are acted on before anyone asks if they are allowed");
-  ok(/ent\.direction \?/.test(G), "the direction note is dropped when the tier does not include it");
-  ok(/if \(!ent\.styles\)/.test(G), "so is a chosen style");
-  ok(/if \(!ent\.advanced/.test(G), "and the advanced settings");
-  ok(/locked: locked\.length/.test(G), "and what was dropped is reported, not silently swallowed");
-  ok(/allowance: ent\.dailyRuns/.test(G), "the allowance comes from the ladder");
+  // ══ NOTHING IN THE BRIEF IS GATED ══
+  //
+  // This route used to strip the direction note, force a locked
+  // account back to Default and empty the advanced settings. It meant
+  // somebody who had PAID ranked below somebody holding $20 of a token
+  // they could sell in one click — the person handing us cash could
+  // not pick a style.
+  ok(!/ent\.direction/.test(G), "the direction note is never stripped");
+  ok(!/ent\.styles/.test(G), "a chosen style is never overridden");
+  ok(!/ent\.advanced/.test(G), "and the advanced settings are never emptied");
+  ok(!/locked:/.test(G), "so there is nothing to report as dropped");
+  ok(/allowance: ent\.dailyRuns/.test(G), "the allowance is all a tier decides here");
   ok(!/gate\.dailyRuns/.test(G), "and never from a flat gate field again");
 }
 {
   const C = bare(read("app/create/page.jsx"));
   ok(/useEntitlements\(\)/.test(C), "the create page reads the same table");
-  ok(/!ent\.styles \?/.test(C) && /!ent\.direction \?/.test(C), "and locks both rows rather than hiding them");
-  // A restored draft or a ?style= link can carry a style this account
-  // may not pick; leaving it selected would show a chosen style the
-  // server then drops.
-  ok(/if \(ent\.styles\) return;/.test(C), "a locked account is forced back to Default in state, not just at submit");
+  ok(/ent\.dailyRuns/.test(C), "for the free-run count, and nothing else");
+  // Every lock is gone, including the ones that only ever existed in
+  // the UI. A row offering to unlock a feature is the same insult in
+  // softer clothes.
+  // \b, because without it `ent\.direction` matches inside
+  // `formRef.current.direction` and the assertion fails on the field
+  // it is meant to be protecting.
+  ok(!/\bent\.(styles|direction|advanced)\b/.test(C), "AND NOTHING IN THE FORM IS HIDDEN BY A TIER");
+  ok(!/for every style/.test(C), "no row offers to unlock a feature");
+  ok(!/setLocked/.test(C), "and nothing reports a field as dropped");
 }
 {
   const E = read("lib/useEntitlements.js");

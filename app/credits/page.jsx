@@ -31,18 +31,15 @@ import { useWallet, short, buildTreasuryTx } from "@/lib/wallet";
 
 const NUM = (n) => (Number(n) || 0).toLocaleString("en-US");
 
-// Every row the ladder compares, in the order they matter. Named here
-// rather than derived from CAPS so the wording is the reader's — the
-// server calls it `direction`, a person calls it telling us what they
-// want — and so the two perks that are honoured by hand sit in the
-// same table as the ones the pipeline enforces. To the person reading
-// it there is no difference, and there should not be.
+// Every row the ladder compares, in the order they matter.
+//
+// The three capability rows that used to be here are gone: no feature
+// is token-gated any more, so listing "Pick a style — Yes" against
+// every rung including Free was four identical ticks pretending to be
+// a comparison. What a tier actually buys is economics and status.
 const LADDER_ROWS = [
   ["dailyRuns", "Free runs"],
   ["discount", "Off credits"],
-  ["styles", "Pick a style"],
-  ["direction", "Say what you want"],
-  ["advanced", "Advanced settings"],
   ["earlyAccess", "New surfaces first"],
   ["customStyle", "A style of your own"],
 ];
@@ -407,13 +404,12 @@ export default function CreditsPage() {
                   <ul className="lad-perks">
                     {t.dailyRuns > 0 && <li>{t.dailyRuns} free {t.dailyRuns === 1 ? "run" : "runs"} a day</li>}
                     {t.discount > 0 && <li>{t.discount}% off credits</li>}
-                    {t.styles && <li>Every style</li>}
                     {t.earlyAccess && <li>New surfaces first</li>}
                     {t.customStyle && <li>A style of your own</li>}
                     {/* A rung whose entire list is falsy would render
                         an empty card, and an empty card reads as a
                         loading state rather than as an answer. */}
-                    {!t.dailyRuns && !t.discount && !t.styles && <li className="lad-none">Credits only</li>}
+                    {!t.dailyRuns && !t.discount && <li className="lad-none">Credits only</li>}
                   </ul>
 
                   {/* ══ EVERYTHING, INCLUDING WHAT IT DOES NOT GET ══

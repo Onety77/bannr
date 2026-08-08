@@ -31,17 +31,9 @@
 // ============================================================
 "use client";
 import { useEffect, useState } from "react";
-import { CAPS } from "@/lib/tiers";
 
 const NUM = (n) => (Number(n) || 0).toLocaleString("en-US");
 
-// The capability switches, named the way they appear to the person
-// filling the form in rather than the way they appear in the code.
-const CAP_LABELS = {
-  styles: "Pick a style",
-  direction: "Say what they want",
-  advanced: "Advanced settings",
-};
 
 export default function AdminToken({ user }) {
   const [data, setData] = useState(null);
@@ -160,19 +152,6 @@ export default function AdminToken({ user }) {
               account gets it, so the ceiling is what bounds it — not the threshold.
             </em>
           </label>
-          <div className="tk-caps">
-            <span className="tk-caps-h">They can also</span>
-            {CAPS.map((c) => (
-              <label className="tk-check small" key={c}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(form.free[c])}
-                  onChange={(e) => setFree(c, e.target.checked)}
-                />
-                <span><b>{CAP_LABELS[c]}</b></span>
-              </label>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -395,19 +374,6 @@ export default function AdminToken({ user }) {
                 />
                 <em>costs nothing until they buy</em>
               </label>
-            </div>
-
-            <div className="tk-caps">
-              {CAPS.map((c) => (
-                <label className="tk-check small" key={c}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(t[c])}
-                    onChange={(e) => setTier(i, c, e.target.checked)}
-                  />
-                  <span><b>{CAP_LABELS[c]}</b></span>
-                </label>
-              ))}
             </div>
 
             {/* Honoured by hand, and the label says so. Neither of

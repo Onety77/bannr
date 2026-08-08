@@ -10,7 +10,7 @@ Next.js · OpenAI `gpt-image-2` · Solana wallet auth · Firestore accounts · S
 
 ```
 npm run check    # TDZ, CSS, nav and event-handler guards (also runs on prebuild)
-npm test         # 27 regression files, ~1770 assertions
+npm test         # 27 regression files, ~1780 assertions
 npm test pfp     # …filtered by filename
 ```
 
@@ -104,9 +104,10 @@ nobody. There is no fallback rate: an untrustworthy price disables buying
 rather than selling a pack for whatever a bad number came to.
 
 **Four standings**, in `lib/tiers.js` and editable at `/admin7731`: everyone
-signed in gets one free run a day; three holder tiers add runs, a pack discount
-and the parts of the brief the free tier does not carry (the style picker and
-the free-text direction). Thresholds are in whole tokens, never dollars — a
+signed in gets one free run a day; three holder tiers add runs and a pack
+discount. No feature is ever token-gated — everything in the app is buyable
+with credits, because a tier that locks a feature puts a paying customer below
+a token holder who never spent a cent. Thresholds are in whole tokens, never dollars — a
 dollar threshold shrinks as the price rises, which weakens the mechanism
 exactly as it works and lets every holder sell down on a pump for free.
 

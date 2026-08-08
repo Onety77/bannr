@@ -106,15 +106,10 @@ export async function POST(req) {
       return NextResponse.json({ error: "Slow down — too many generations in one minute." }, { status: 429 });
     }
 
-    // ══ WHAT THIS ACCOUNT IS ENTITLED TO ══
+    // ══ HOW MANY FREE RUNS THIS ACCOUNT HAS ══
     //
-    // Resolved HERE, before the form is read, because it decides two
-    // separate things and they used to be one: how the run is paid for
-    // (further down) and which parts of the brief are even allowed
-    // (immediately below). Working it out inside the charge block, as
-    // the allowance once was, would mean the style picker and the
-    // direction note had already been parsed and acted on by the time
-    // anyone asked whether this account may use them.
+    // Nothing else. It used to decide which parts of the brief were
+    // allowed too, and that was wrong — see the note further down.
     //
     // The RPC behind this fires at most once per account per day — see
     // gateStateOf — and never at all when the gate is off.
@@ -130,23 +125,22 @@ export async function POST(req) {
       // is a steer on top of a chosen style, not a competing brief,
       // and a wall of text here would drown the style it is meant to
       // be adjusting.
-      //
-      // DROPPED, NOT REFUSED, when the tier does not include it. The
-      // create page does not show the field to anyone who cannot use
-      // it, so a request carrying one is a stale tab or somebody
-      // poking the endpoint — and failing a paid run over a field the
-      // sender may not know they sent is the wrong trade. What comes
-      // back says what was dropped.
-      direction: ent.direction ? String(form.get("direction") || "").slice(0, 240) : "",
+      direction: String(form.get("direction") || "").slice(0, 240),
     };
     if (!brief.name.trim()) return NextResponse.json({ error: "A coin name is required." }, { status: 400 });
     if (brief.ticker && !brief.ticker.startsWith("$")) brief.ticker = "$" + brief.ticker;
 
-    // What the brief asked for and did not get. Reported back so the
-    // UI can be honest rather than silently producing something other
-    // than what was on screen.
-    const locked = [];
-    if (!ent.direction && String(form.get("direction") || "").trim()) locked.push("direction");
+    // ══ NOTHING IN THE BRIEF IS GATED ANY MORE ══
+    //
+    // This block stripped the direction note, forced a locked account
+    // back to Default and emptied the advanced settings, all according
+    // to a tier. It meant somebody who had PAID ranked below somebody
+    // holding $20 of a token — the person handing us cash could not
+    // pick a style. Features are priced, never gated; see lib/tiers.js.
+    //
+    // What a tier still decides is how many runs are free and what a
+    // pack costs, both of which are money and neither of which is a
+    // lock on the product.
 
     // One or more styles. `templateId` is still accepted so old links
     // and /create?style= keep working; `styles` is the multi-select
@@ -156,15 +150,7 @@ export async function POST(req) {
       ...String(form.get("styles") || "").split(",").map((s) => s.trim()).filter(Boolean),
       ...(form.get("templateId") ? [String(form.get("templateId"))] : []),
     ];
-    let styleIds = [...new Set(requested)].filter((id) => id === AUTO_ID || getTemplate(id));
-    // Without the styles capability there is exactly one style, and it
-    // is Default. Not an error — Default is the mode most people use
-    // anyway, and it is the one that carries the promise of being
-    // trustworthy blind.
-    if (!ent.styles) {
-      if (styleIds.some((id) => id !== AUTO_ID)) locked.push("styles");
-      styleIds = [];
-    }
+    const styleIds = [...new Set(requested)].filter((id) => id === AUTO_ID || getTemplate(id));
     if (styleIds.length === 0) styleIds.push(AUTO_ID);
     templateId = styleIds.join(",");
 
@@ -199,10 +185,6 @@ export async function POST(req) {
       const parsed = JSON.parse(String(form.get("advanced") || "{}"));
       if (parsed && typeof parsed === "object") advanced = parsed;
     } catch {}
-    if (!ent.advanced && Object.keys(advanced).length) {
-      locked.push("advanced");
-      advanced = {};
-    }
 
     // The account-level "never include" rule, read from the ACCOUNT
     // rather than the request — a saved rule the client could omit
@@ -658,11 +640,6 @@ export async function POST(req) {
       // that was the product or a fault. Absent when nothing was
       // lost, so the happy path is untouched.
       shortfall: missing > 0 ? { asked: attempted, made: results.length, refunded } : null,
-      // Parts of the brief this account's tier does not include, which
-      // were dropped rather than refused. Absent on the normal path.
-      // Silently ignoring them would mean shipping a banner that is
-      // not what was on screen and never saying so.
-      locked: locked.length ? [...new Set(locked)] : null,
       demoMode,
       engine: demoMode ? "demo" : "gpt-image-2",
       styles: styleIds,

@@ -101,13 +101,13 @@ client bundle and readable in devtools. A private repo would not have helped;
 the leak was the bundle. Never import the prompt file from a client component.
 There is a dev-time assertion that the two files agree on every style.
 
-**`lib/tiers.js` belongs to neither side, and that is load-bearing.** It has no
-imports and is neither `server-only` nor `"use client"`, because the API and
-the create page have to reach the same answer about what an account may do. A
-locked field that still works, and an unlocked field the server strips, are the
-two bugs it exists to make impossible. The server reaches it through
+**`lib/tiers.js` belongs to neither side.** No imports, neither `server-only`
+nor `"use client"`, because the API and the create page have to reach the same
+answer about an account's standing. The server reaches it through
 `lib/entitlements.js`, the browser through `lib/useEntitlements.js`, and both
-reduce to `entitlementsOf()`.
+reduce to `entitlementsOf()`. That mattered far more when tiers gated features;
+it now decides free runs and a discount, which is a much smaller surface to
+keep in agreement — and that shrinking is the point.
 
 **Banners are stored, and only the ones somebody kept.** `lib/archive.js`
 writes the full 1500×500 PNG to Firebase Storage at the moment of DOWNLOAD —
@@ -224,10 +224,9 @@ it: *thin, crisp and even is a sticker; soft, gathered and uneven is light.*
   `gate.enabled` — it is the trial, it has to work before the token exists, and
   `entitlementsOf()` returns it with a null tier for that reason. It is also
   the floor: a tier can never grant fewer runs than free does.
-- **What the free tier does not get is the style picker and the "What do you
-  want?" note.** Not About, not the tagline, not reference images — those are
-  how you describe your project, and charging for them would make the free tier
-  a demo of a worse product rather than a smaller amount of the real one.
+- **The free tier is a smaller AMOUNT of the real product, never a worse one.**
+  Limiting how many runs is what makes a trial; limiting what they can do would
+  be a demo of a different, worse app.
 - **Early access and a bespoke style are tier-3 perks, honoured by hand.**
   Neither is a switch: one is a decision about when a surface ships, the other
   is somebody sitting down and writing a director. They are stored and
@@ -256,12 +255,28 @@ nobody.
 
 **Four standings, one table** (`lib/tiers.js`, imported by both sides):
 
-| | Holding | Runs/day | Discount | Styles | Direction |
-|---|---|---|---|---|---|
-| Free | — | 1 | — | no | no |
-| t1 Holder | set in admin | 1 | 10% | yes | yes |
-| t2 Insider | set in admin | 2 | 25% | yes | yes |
-| t3 Founder | set in admin | 3 | 40% | yes | yes |
+| | Holding | Runs/day | Discount | Perks |
+|---|---|---|---|---|
+| Free | — | 1 | — | — |
+| t1 Holder | set in admin | 2 | 10% | — |
+| t2 Insider | set in admin | 3 | 25% | early access |
+| t3 Founder | set in admin | 5 | 40% | + a style of their own |
+
+**NO FEATURE IS EVER TOKEN-GATED.** There was a capability list — styles,
+direction, advanced — and each tier switched them on. It meant somebody who
+paid $79 ranked below somebody holding $20 of a token they could sell in one
+click: the person handing us cash could not pick a style. It also broke at the
+moment that matters most — burn the free run, like it, buy credits to continue,
+discover the thing you were reaching for is still not there. And it argued with
+the discount, which is worth nothing unless somebody buys.
+
+Everything in the app is buyable with credits, full stop. A tier is better
+economics plus status, never a bigger app. One rule instead of two ladders. If a
+rung ever needs to feel more exclusive the answer is status that costs a
+customer nothing — a badge, early access — not a lock.
+
+Which also means **every rung must grant more runs than the one below it**, or
+its only difference is the discount.
 
 Every number is admin-editable at `/admin7731`. The defaults above are the
 shape, not a decision — thresholds are 0 until someone sets them, and the gate

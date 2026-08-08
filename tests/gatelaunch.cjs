@@ -66,15 +66,21 @@ console.log("\n3. THE OFFER IS READ, NEVER WRITTEN DOWN");
 
   // ══ AND THE SECOND ══
   //
-  // Everyone gets one free run a day, and the first rung also grants
-  // one. Listing the tier's benefits would advertise something the
-  // reader already has — which reads as a con, or as us not knowing
-  // our own product. What it actually buys is the style picker.
-  ok(offerLine(rungs({ dailyRuns: 1, styles: false, direction: false }, rung(1000, 1, 10, { styles: true, direction: true })))
-      === "Hold 1K $BANNR for every style, your own direction and 10% off credits.",
-      "A RUNG MATCHED TO FREE ON RUNS advertises what it actually unlocks, not what it has");
+  // Everyone gets one free run a day, so a rung granting one adds
+  // nothing in runs and the sentence must not pretend otherwise.
+  //
+  // It used to list unlocked FEATURES here — every style, your own
+  // direction. Those are gone: gating a feature put a paying customer
+  // below a token holder who never spent a cent, so a rung is extra
+  // runs, a cheaper pack and status. Nothing to unlock.
+  ok(offerLine(rungs({ dailyRuns: 1 }, rung(1000, 1, 10)))
+      === "Hold 1K $BANNR for 10% off credits.",
+      "A RUNG MATCHED TO FREE ON RUNS advertises only what it really adds");
   ok(!/free banner/.test(offerLine(rungs({ dailyRuns: 2 }, rung(1000, 2, 10)))),
      "and never claims more runs when there are none to gain");
+  ok(offerLine(rungs({ dailyRuns: 1 }, rung(1000, 3, 10)))
+      === "Hold 1K $BANNR for 2 more free banners a day and 10% off credits.",
+     "the runs it advertises are the DIFFERENCE, not the total");
 
   // A discount-only rung is a real offer and has to say so.
   ok(offerLine(rungs(NOFREE, rung(1000, 0, 25))) === "Hold 1K $BANNR for 25% off credits.",
