@@ -138,6 +138,24 @@ console.log("\n=== 2d. THE PAGE AGREES WITH THE SERVER ===");
   const H = bare(read("lib/useEntitlements.js"));
   ok(/auth\.user\?\.entitlements/.test(H), "the client prefers the server's cached answer");
   ok(/\.\.\.base,/.test(H), "merged over the shared table rather than replacing it");
+  // ══ THE GAP THAT SHIPPED ══
+  //
+  // The assertions below said the client PREFERS the cached answer and
+  // that the verdict WRITES one. Neither asked whether the granted
+  // path writes one — and with the tiers off it did not. So a granted
+  // account got a tier that half worked: /api/pricing computes
+  // entitlements live and showed the 40% discount correctly, while
+  // /create read the cache that was never written and locked every
+  // field. Granted the top tier, shown the free one, with a working
+  // discount on the next page as proof it had been applied.
+  const E = bare(read("lib/entitlements.js"));
+  const off = E.slice(E.indexOf("if (!gate.enabled)"), E.indexOf("const st = gateStateOf"));
+  ok(off.length > 100, "the tiers-off branch was found");
+  ok(/setGateVerdict\(accountId, ent/.test(off),
+     "A GRANT RECORDS ITS VERDICT EVEN WITH THE TIERS OFF — which is the only situation a grant exists for");
+  ok(/if \(granted\)/.test(off), "only when there is one, so an ordinary visit still writes nothing");
+  ok(/stale/.test(off), "and only when it would change something, so this stays a read");
+
   const U = bare(read("lib/users.js"));
   ok(/gateEnt: \{/.test(U), "which the verdict writes");
   ok(/entitlements: gateToday && u\.gateEnt \? u\.gateEnt : null/.test(U), "and publicUser returns, expiring with the day");

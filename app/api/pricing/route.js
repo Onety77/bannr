@@ -30,12 +30,10 @@ import { solUsd, solForUsd } from "@/lib/solPrice";
 import { resolveEntitlements } from "@/lib/entitlements";
 import { getGate } from "@/lib/tokenGate";
 import { entitlementsOf } from "@/lib/tiers";
-import { GENERATION_COST, getUser } from "@/lib/users";
+import { GENERATION_COST, getUser, todayKey } from "@/lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const todayKey = () => new Date().toISOString().slice(0, 10);
 
 // Free runs remaining today. Zero means spent; the fallback covers an
 // account whose balance has never been checked, where the stored
