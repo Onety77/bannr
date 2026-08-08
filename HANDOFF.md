@@ -227,6 +227,15 @@ it: *thin, crisp and even is a sticker; soft, gathered and uneven is light.*
 - **The free tier is a smaller AMOUNT of the real product, never a worse one.**
   Limiting how many runs is what makes a trial; limiting what they can do would
   be a demo of a different, worse app.
+- **NO EXISTING STYLE IS EVER RESERVED FOR A TIER.** Aminu asked for POV to be
+  Founder-only and then dropped it, and the reasoning is worth keeping: POV is
+  public today, so locking it would *take something away* from people who
+  already have it — the same inversion as gating features, but worse, because
+  they can see other people using it. A style written FOR somebody costs no
+  other customer anything; a style taken from everybody costs every customer.
+  **The agreed version is early access**: a NEW style ships to Founders first
+  and opens to everyone a week later. Nobody is ever denied something they can
+  see. Not built yet — needs a per-style availability date.
 - **Early access and a bespoke style are tier-3 perks, honoured by hand.**
   Neither is a switch: one is a decision about when a surface ships, the other
   is somebody sitting down and writing a director. They are stored and

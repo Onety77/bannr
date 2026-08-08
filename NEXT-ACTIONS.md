@@ -123,8 +123,15 @@ Roughly in the order I'd build them.
 
 - **Daily most-liked coin.** The reason Share exists. Needs a
   once-a-day ranking and somewhere to show it.
-- **X headers, properly.** Already promised in the UI, and it would
-  make tier 3's "early access" perk concrete. A genuinely different
+- **Early access, for real.** A per-style availability date so a NEW
+  style ships to Founders first and opens to everyone a week later.
+  Agreed 8 Aug as the answer to "make POV Founder-only" — which was
+  dropped, because POV is already public and locking it would take
+  something away rather than add something. This adds. Makes the
+  `earlyAccess` checkbox mean something instead of being a promise
+  with nothing behind it.
+- **X headers, properly.** Already promised in the UI, and the first
+  obvious thing to ship through early access. A genuinely different
   design problem: X crops headers differently on mobile and the avatar
   punches a hole in the bottom-left.
 - **Animated banners.** `GIF-BANNERS.md` — §0 is now **answered**: DEX
