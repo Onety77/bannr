@@ -243,5 +243,74 @@ console.log("\n4. THE OTHER BAN THAT ALREADY HOLDS IS UNTOUCHED");
      "including its own escape hatch for the client");
 }
 
+console.log("\nX. THE STYLE REFERENCES POINT THE RIGHT WAY");
+{
+  // ══ THIS ONE COST SIXTEEN UNUSABLE BANNERS ══
+  //
+  // The block forbade copying a reference's "layout, composition,
+  // subject matter, colour palette, LIGHTING, overall darkness or
+  // brightness, mood, typeface" and said a banner resembling one "in
+  // any of those respects has failed" — then asked, in the abstract,
+  // for "the STANDARD".
+  //
+  // Every file in references/tech is flat, light, restrained and
+  // typographic. So the instruction read as: do not be restrained, do
+  // not be light, do not be typographic. Sixteen banners came back
+  // dark, ornate and maximalist, and Tek — the only style WITH
+  // references — was the worst style in the product. The model was
+  // obeying.
+  // Comments stripped, because the code above the block explains the
+  // old wording by quoting it — and matching that comment instead of
+  // the code is the failure mode this suite keeps rediscovering.
+  const b = fs.readFileSync(R + "lib/openai.js", "utf8").replace(/\r\n/g, "\n")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  ok(!/in any of those respects has failed/.test(b),
+     "resembling a reference is no longer declared a failure");
+  ok(!/colour palette, LIGHTING, overall darkness or brightness, mood/.test(b),
+     "AND THE FORBIDDEN LIST NO LONGER COVERS THE THINGS A REFERENCE EXISTS TO TRANSMIT");
+  // What must still never be lifted is the CONTENT. That fear was
+  // real; it was the scope that was wrong.
+  ok(/NOTHING \$\{one \? "IT DEPICTS" : "THEY DEPICT"\} belongs in your banner/.test(b),
+     "the subject matter is still forbidden");
+  ok(/not any word, wordmark or logo/.test(b), "and so are their words and logos");
+  ok(/TAKE HOW/.test(b) && /restraint/.test(b),
+     "while the design decisions are now explicitly asked for");
+
+  // The director wrote the concept BEFORE the renderer sees anything,
+  // so an ornate brass door has to be stopped there too.
+  ok(/A NAME IS NOT A SUBJECT/.test(b), "the director is told a name is not a subject");
+  ok(!/or from what it is named after/.test(b),
+     "and the licence that permitted illustrating the name is gone");
+  ok(/THE GROUND IS ONE THING AND IT IS QUIET/.test(b), "and every concept must name a quiet ground");
+}
+
+console.log("\nY. TEK BANS WHAT ACTUALLY CAME BACK");
+{
+  // Scoped here rather than reusing the `tech` from the block at the
+  // top of the file, which is local to it.
+  const tech = T.slice(T.indexOf('id: "tech"'), T.indexOf('id: "meme"'));
+  // The old list banned circuitry and sci-fi UI, so the clichés simply
+  // moved next door: brass doors, cogs, keys, honeycomb, cityscapes.
+  for (const s of [
+    "ornate machinery, gears, cogs",
+    "keys, padlocks, chains, safes, vaults",
+    "elaborate 3D-rendered scenes",
+    "what the project's NAME literally means",
+  ]) ok(tech.includes(s), `forbidden: ${s}`);
+
+  for (const s of [
+    "THE GROUND IS ONE THING, AND IT IS QUIET",
+    "THIS IS DESIGN, NOT A RENDER",
+    "DO NOT ILLUSTRATE THE NAME",
+  ]) ok(tech.includes(s), `the mood states it too: ${s}`);
+
+  // Flat imperatives hold; reasoning that trails off into "none of
+  // them is necessary" reads as advice and is ignored. Every new rule
+  // is a command.
+  ok(/THE GROUND IS ONE THING, AND IT IS QUIET\.[^]{0,80}A flat colour\./.test(tech),
+     "and states it as an imperative rather than as an explanation");
+}
+
 console.log(bad ? "\n" + bad + " FAILED\n" : "\nall green\n");
 process.exit(bad ? 1 : 0);

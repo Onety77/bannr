@@ -199,6 +199,31 @@ executes; it does not ideate. Concepts are written together in one text call
 and required to be compositionally unlike each other. The PFP maker
 deliberately has no such pass — there is nothing to ideate.
 
+**A STYLE REFERENCE MUST TRANSMIT DESIGN, NEVER CONTENT — AND THE FIRST VERSION
+HAD IT EXACTLY BACKWARDS.** It forbade copying a reference's "layout,
+composition, subject matter, colour palette, LIGHTING, overall darkness or
+brightness, mood, typeface", said a banner resembling one "in any of those
+respects has failed", and asked for "the STANDARD" in the abstract.
+
+Every file in `references/tech` is flat, light, restrained and typographic. So
+the instruction read as: *do not be restrained, do not be light, do not be
+typographic.* A Tek run returned sixteen banners of brass doors, cogs, keys and
+honeycomb — dark ornate maximalism, every time — and **Tek, the only style with
+references, was the worst style in the product.** The model was obeying.
+
+"The standard" is not transmissible either. A model cannot extract craft as an
+abstraction; what it can read off a picture is precisely the list that was being
+forbidden. The fear behind the old wording was real but the scope was wrong: it
+is CONTENT that must not be lifted — the subject, the scene, the words, the
+logos. How the thing is DESIGNED is the whole reason a reference is attached and
+is now asked for by name.
+
+**A name is not a subject.** The design director said the register outranks the
+name in one paragraph and then licensed an image drawn "from what it is named
+after" in the next — so Honey, a liquidity launchpad, got honeycomb and syrup,
+and "Locked forever" got padlocks and vaults. The licence is gone. A word earns
+at most a colour or one quiet motif; it never earns the picture.
+
 **Chasing a failure too hard creates its opposite.** Glow was pushed away from
 "neon outline" so hard it became a thin crisp rim, which is a sticker. The fix
 was to make softness the headline and permit the falloff. The line that carries
