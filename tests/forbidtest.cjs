@@ -353,7 +353,25 @@ console.log("\nX. THE STYLE REFERENCES POINT THE RIGHT WAY");
      "the director is told a name is not a subject");
   ok(!/or from what it is named after/.test(b),
      "and the licence that permitted illustrating the name is gone");
-  ok(/THE GROUND IS ONE THING AND IT IS QUIET/.test(b), "and every concept must name a quiet ground");
+  // ══ THE OVER-CORRECTION, AND WHY IT IS GONE ══
+  //
+  // "The ground is one thing and it is QUIET… never build a scene…
+  // the strongest work here is almost empty" was written to stop
+  // brass doors and honeycomb. It stopped everything. Tek went from
+  // a photographed mountain path carrying real stock tickers to a
+  // flat green rectangle with a logo on it — because with that rule
+  // in place, HAVING NO IDEA was the safest compliant answer.
+  //
+  // Only one of the four rules added that day actually fixed the
+  // Honey run, and it is the one above: the idea comes from what the
+  // project DOES, never from what it is CALLED. That kills honeycomb
+  // and padlocks without touching pictorial ambition.
+  ok(/NAME THE GROUND, AND LET THE IDEA CHOOSE IT/.test(b),
+     "the ground is chosen by the idea, not by a preference for emptiness");
+  ok(/AN EMPTY FRAME IS NOT RESTRAINT, IT IS AN ABSENT CONCEPT/.test(b),
+     "AND AN EMPTY FRAME IS NAMED AS A FAILURE, not as restraint");
+  ok(/BE LITERAL ABOUT WHAT THE PROJECT TOUCHES/.test(b),
+     "with the real companies named, which is what made the good ones good");
 }
 
 console.log("\nX2. NO REFERENCE HANDS OVER A LOGO");
@@ -408,20 +426,22 @@ console.log("\nY. TEK BANS WHAT ACTUALLY CAME BACK");
   for (const s of [
     "ornate machinery, gears, cogs",
     "keys, padlocks, chains, safes, vaults",
-    "elaborate 3D-rendered scenes",
     "what the project's NAME literally means",
   ]) ok(tech.includes(s), `forbidden: ${s}`);
 
-  for (const s of [
-    "THE GROUND IS ONE THING, AND IT IS QUIET",
-    "THIS IS DESIGN, NOT A RENDER",
-    "DO NOT ILLUSTRATE THE NAME",
-  ]) ok(tech.includes(s), `the mood states it too: ${s}`);
+  ok(tech.includes("DO NOT ILLUSTRATE THE NAME"), "the mood states the name rule too");
+  ok(tech.includes("ONE IDEA, WHOLLY COMMITTED TO"), "and asks for one committed idea");
+  ok(tech.includes("BE LITERAL ABOUT WHAT THE PROJECT TOUCHES"), "naming the real things the project touches");
+  // The bans that killed the style are gone from the mood as well as
+  // the director. A landscape, a lit environment and a photograph are
+  // all legitimate grounds again.
+  ok(!/THIS IS DESIGN, NOT A RENDER/.test(tech), "and no longer forbids a rendered or photographic ground");
+  ok(!/almost empty/.test(tech), "nor calls the strongest work almost empty");
 
   // Flat imperatives hold; reasoning that trails off into "none of
   // them is necessary" reads as advice and is ignored. Every new rule
   // is a command.
-  ok(/THE GROUND IS ONE THING, AND IT IS QUIET\.[^]{0,80}A flat colour\./.test(tech),
+  ok(/ONE IDEA, WHOLLY COMMITTED TO\. The frame holds a single thought/.test(tech),
      "and states it as an imperative rather than as an explanation");
 }
 

@@ -221,6 +221,34 @@ executes; it does not ideate. Concepts are written together in one text call
 and required to be compositionally unlike each other. The PFP maker
 deliberately has no such pass — there is nothing to ideate.
 
+**AN EMPTY FRAME IS NOT RESTRAINT, IT IS AN ABSENT CONCEPT — AND BANNING
+CLICHÉS BANNED AMBITION WITH THEM.** A Honey run came back as brass doors,
+gears and honeycomb, and four rules were added in response. Only ONE of them
+was the fix: *the idea comes from what the project DOES, never from what it is
+CALLED.* That alone kills honeycomb, syrup and padlocks.
+
+The other three — "the ground is one thing and it is QUIET", "this is design,
+not a render", "the strongest work here is almost empty" — were collateral, and
+they gutted the style. Tek went from a photographed mountain path with real
+stock tickers set into the stones, and a network of Apple/Tesla/Nvidia marks
+around the client's logo, to **a flat green rectangle with a logo and a name on
+it.** With those rules in place, HAVING NO IDEA was the safest compliant answer.
+
+The replacements say the opposite out loud: a landscape, a photograph, an
+object, a diagram or a plain field are ALL legitimate grounds and the IDEA
+chooses between them; ambition and atmosphere are welcome; a bare colour field
+with a mark and a name is the assembled default the style exists to beat. Plus
+**BE LITERAL ABOUT WHAT THE PROJECT TOUCHES** — if it is about stocks, Apple and
+Tesla and Nvidia belong in the frame by name and by mark. That is what made the
+good ones good, and "various assets" is what a director writes when it has not
+had an idea.
+
+**The lesson is about the shape of the fix, not this style.** A failure produces
+a specific ban; the temptation is to widen it until nothing like it can recur;
+and the wide version removes the good with the bad. Ban the failure, not the
+family it belongs to — and when a style gets noticeably worse right after a
+prompt change, look first at what the change made IMPOSSIBLE.
+
 **A DIRECTOR READING A CHECKLIST STOPS DIRECTING AND STARTS COMPLYING — AND
 THIS HAS NOW HAPPENED TWICE.** HIM was cut back for it once, and the note is
 still in its own comment complaining that it had reached "886 words of
