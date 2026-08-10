@@ -23,10 +23,27 @@ export default function manifest() {
     display: "standalone",
     background_color: "#000000",
     theme_color: "#000000",
+    // ══ BIGGEST FIRST, AND ONE OF THEM MASKABLE ══
+    //
+    // Two things were wrong with the old order. A 64px .ico was listed
+    // first, and plenty of fetchers take the first entry rather than
+    // the best one — so the sheet got a 64px icon while a 400px one sat
+    // underneath it. And every icon here was the bare mark on
+    // transparency, running edge to edge, with nothing declared
+    // maskable. Anything that masks to a circle or a squircle — the
+    // wallet sheet, an iOS home screen, an Android launcher — was
+    // therefore clipping the corners off the mark.
+    //
+    // icon-512 is the same mark with an opaque background and the mark
+    // at 60% of the width, which is inside the safe zone any mask can
+    // crop to. It is listed twice deliberately: `maskable` alone is
+    // ignored by anything wanting a plain icon, and `any` alone gets no
+    // safe-zone treatment, so both purposes name the same file.
     icons: [
-      { src: "/favicon.ico", sizes: "64x64", type: "image/x-icon" },
+      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
       { src: "/logo-mark.png", sizes: "96x96", type: "image/png" },
-      { src: "/logo.png", sizes: "400x400", type: "image/png", purpose: "any" },
+      { src: "/favicon.ico", sizes: "64x64", type: "image/x-icon" },
     ],
   };
 }
