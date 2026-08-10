@@ -27,7 +27,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { setUser } from "@/lib/credits";
 import { useAuth } from "@/lib/useAuth";
-import { useWallet, short, buildTreasuryTx } from "@/lib/wallet";
+import { useWallet, short } from "@/lib/wallet";
+import { newReference, transferUrl, savePending, readPending, clearPending } from "@/lib/solanaPay";
 
 const NUM = (n) => (Number(n) || 0).toLocaleString("en-US");
 
@@ -60,13 +61,11 @@ export default function CreditsPage() {
   // "what do I get" for almost everyone; the full table answers "what
   // would climbing buy me", which is a question you only ask once.
   const [openLadder, setOpenLadder] = useState(false);
-  // A transaction built and waiting for the tap that carries it to
-  // the wallet app, and whether a broadcast one is being confirmed.
-  const [tx, setTx] = useState(null);
   const [claiming, setClaiming] = useState(false);
-  // Bumped on a timer to rebuild that transaction before its blockhash
-  // dies. See the rebuild effect below for why it has to be a timer.
-  const [txTick, setTxTick] = useState(0);
+  // A transfer request that has been opened in a wallet and not yet
+  // seen on chain. { reference, pack } — the reference is what finds
+  // it, since nothing comes back through the browser.
+  const [watching, setWatching] = useState(null);
   const auth = useAuth();
   const wallet = useWallet();
   // No test mode any more. It existed so credits could be topped up
@@ -112,15 +111,38 @@ export default function CreditsPage() {
     if (!treasuryConfigured) return setErr("Payments aren't switched on yet.");
     if (!pack?.sol) return setErr("Can't quote a price right now. Try again in a moment.");
 
-    // A phone browser cannot see a wallet, so it asks the app by
-    // deeplink instead. The pack goes with the request, because this
-    // page will be GONE by the time the answer arrives — the redirect
-    // lands in a new tab, on a fresh load, that never saw the tap.
+    // ══ A PHONE PAYS BY TRANSFER REQUEST ══
+    //
+    // No wallet in a phone browser, so the wallet APP is handed the
+    // intent — pay this address this much — and builds, signs and
+    // sends the transaction itself. See lib/solanaPay.js for why this
+    // replaced the two-hop signing dance: WE used to choose the
+    // blockhash, a blockhash lives about a minute, and the round trip
+    // through the wallet is not ours to compress. Now there is no
+    // deadline at all.
+    //
+    // Nothing comes back through the URL. The reference is how the
+    // payment is found afterwards, and it is stored before we navigate
+    // because this tab may be backgrounded for minutes.
     //
     // Synchronous, and the last thing to run: the navigation has to
-    // happen inside this tap or iOS opens phantom.app in the browser.
+    // happen inside this tap or iOS opens the wallet's WEBSITE.
     if (auth.needsDeeplink) {
-      auth.startWalletDeeplink("buy", "phantom", { packId: pack.id });
+      try {
+        const reference = newReference();
+        const url = transferUrl({
+          treasury: process.env.NEXT_PUBLIC_TREASURY_WALLET,
+          sol: pack.sol,
+          reference,
+          accountId: auth.user.accountId,
+          message: `${pack.credits} credits`,
+        });
+        savePending({ reference, packId: pack.id, sol: pack.sol });
+        setWatching({ reference, pack });
+        window.location.href = url;
+      } catch (e) {
+        setErr(e?.message || "Couldn't open your wallet app.");
+      }
       return;
     }
 
@@ -146,96 +168,92 @@ export default function CreditsPage() {
     setMsg(`${out.credits} credits added. Thank you.`);
   }
 
-  // ---------- the deeplink half ----------
-  // Resumed in whatever tab the redirect landed in, which is not the
-  // one the pack was chosen in. Everything it needs came back through
-  // localStorage; see lib/walletFlow.
+  // ---------- the transfer-request half ----------
 
-  // The wallet named an address: build the transaction NOW, on page
-  // load, where an await costs nothing. It has to be ready before the
-  // tap, because fetching a blockhash inside the tap would spend the
-  // gesture and land the user on phantom.app instead of in Phantom.
+  // ══ PICK THE WATCH BACK UP ON LOAD ══
   //
-  // WAITS FOR PRICING. The amount is no longer a constant that came
-  // with the bundle — it is today's conversion, and building a
-  // transaction before it arrives would send whatever `undefined`
-  // rounds to.
+  // Opening a `solana:` URL switches apps, and iOS may discard the tab
+  // behind it. So a page that finds a saved reference resumes watching
+  // for it, whether it was backgrounded for ten seconds or reloaded
+  // from nothing.
   useEffect(() => {
-    const p = auth.pendingPay;
-    if (!p || !packs.length) return;
+    if (watching || !packs.length) return;
+    const p = readPending();
+    if (!p) return;
+    const pack = packs.find((x) => x.id === p.packId) || null;
+    setWatching({ reference: p.reference, pack });
+  }, [packs, watching]);
+
+  // ══ THE PAYMENT ARRIVES ON THE CHAIN, NOT IN THE BROWSER ══
+  //
+  // A transfer request gives no redirect and no signature — the wallet
+  // builds and sends on its own. What we have is the reference we
+  // attached, which is an account key, and account keys are
+  // searchable. So this asks "has anything referencing this landed
+  // yet" until something has, then hands the signature to the same
+  // claim that every other payment path uses.
+  //
+  // No deadline anywhere in here. That is the entire point of the
+  // rewrite: the old flow had about sixty seconds from building a
+  // transaction to broadcasting it, and the part in the middle — a
+  // person reading a warning about their own money — was never ours
+  // to hurry.
+  useEffect(() => {
+    if (!watching?.reference || claiming) return;
     let live = true;
-    (async () => {
-      const pack = packs.find((x) => x.id === p.payload?.packId);
-      if (!pack) { setErr("Couldn't tell which pack that was — pick it again."); return; }
-      if (!pack.sol) { setErr("Can't quote a price right now. Try again in a moment."); return; }
-      const built = await buildTreasuryTx(pack.sol, auth.user?.accountId, p.address);
+    let tries = 0;
+
+    const stop = (patch) => {
+      clearPending();
       if (!live) return;
-      if (built.error) { setErr(built.error); return; }
-      setTx({ transaction: built.transaction, pack });
-    })();
-    return () => { live = false; };
-    // txTick, and NOT tx: this rebuilds on a timer, so a `tx &&` guard
-    // would let the first one stand forever — which is what it did.
-  }, [auth.pendingPay, auth.user?.accountId, packs, txTick]);
+      setWatching(null);
+      if (patch) patch();
+    };
 
-  // ══ A BLOCKHASH DIES IN ABOUT A MINUTE ══
-  //
-  // The transaction has to exist BEFORE the tap, because fetching a
-  // blockhash inside the tap spends the gesture and lands the user on
-  // phantom.app instead of in Phantom. So it is built here, on page
-  // load, and then sits waiting — through the tap, the hop out, a
-  // security warning to read, an approval, and the hop back.
-  //
-  // That is comfortably longer than a blockhash lives. The signed
-  // transaction was therefore already expired by the time it was
-  // broadcast: the network dropped it, no money moved, and the page
-  // polled for an id that would never land.
-  //
-  // Rebuilding on a timer keeps it young without ever putting an await
-  // between the tap and the navigation.
-  //
-  // ══ TEN SECONDS, AND FORTY WAS NOT ENOUGH ══
-  //
-  // The budget is about sixty seconds — measured, not assumed: a
-  // blockhash 400 slots old comes back "Blockhash not found" while a
-  // fresh one simulates fine. EVERYTHING has to fit inside it: however
-  // long this sits waiting for the tap, plus the hop out, plus Phantom
-  // starting, plus a security warning to read, plus the approval, plus
-  // Safari opening a new tab and loading this page again from nothing
-  // before it can broadcast.
-  //
-  // At forty seconds the wait alone could eat two thirds of the budget
-  // before the user had even tapped, and the rest of that list does
-  // not fit in twenty. Ten leaves roughly fifty for the wallet, which
-  // is enough to read the warning rather than race it.
-  useEffect(() => {
-    if (!auth.pendingPay || claiming) return;
-    const id = setInterval(() => setTxTick((t) => t + 1), 10_000);
-    return () => clearInterval(id);
-  }, [auth.pendingPay, claiming]);
+    const tick = async () => {
+      if (!live) return;
+      tries += 1;
+      try {
+        const r = await fetch(
+          `/api/solana/find?reference=${encodeURIComponent(watching.reference)}`,
+          { cache: "no-store" }
+        );
+        const d = await r.json();
+        if (!live) return;
 
-  // The wallet broadcast it. All that is left is waiting for the
-  // chain, which the existing claim poll already does.
-  useEffect(() => {
-    const p = auth.paid;
-    if (!p?.signature || claiming) return;
-    setClaiming(true);
-    setTx(null);
-    setMsg(`Payment sent (${p.signature.slice(0, 12)}…). Confirming…`);
-    (async () => {
-      const out = await claim(p.signature);
-      if (out.error) { setErr(out.error); setMsg(null); }
-      else {
-        setUser(out.user);
-        setMsg(`${out.credits} credits added. Thank you.`);
+        if (d.signature) {
+          setClaiming(true);
+          setMsg("Payment received. Confirming…");
+          const out = await claim(d.signature);
+          if (!live) return;
+          if (out.error) { setErr(out.error); setMsg(null); }
+          else {
+            setUser(out.user);
+            setMsg(`${out.credits} credits added. Thank you.`);
+          }
+          setClaiming(false);
+          stop();
+          return;
+        }
+      } catch {
+        // A dropped request while the phone was switching apps is
+        // normal. Keep watching rather than declaring failure.
       }
-      // Ends the flow either way. A confirmed payment is not something
-      // to retry, and a failed one has a signature the user can be
-      // told about rather than a loop to sit in.
-      auth.finishFlow();
-      setClaiming(false);
-    })();
-  }, [auth.paid, claiming]);
+
+      // Thirty minutes at two seconds. Generous on purpose: the cost
+      // of giving up early is someone paying and being told nothing
+      // happened, which is far worse than a page that waits.
+      if (tries > 900) {
+        stop(() => setErr(
+          "Haven't seen that payment yet. If you approved it, your credits will appear on their own."
+        ));
+      }
+    };
+
+    const id = setInterval(tick, 2000);
+    tick();
+    return () => { live = false; clearInterval(id); };
+  }, [watching, claiming]);
 
   // Poll the claim endpoint until the transaction lands. The webhook
   // is still running as a backstop, and both paths write the same
@@ -327,44 +345,30 @@ export default function CreditsPage() {
       {msg && <div className="notice money page-gap-top">{msg}</div>}
       {err && <div className="notice error page-gap-top">{err}</div>}
 
-      {/* THE SECOND HOP OF A PHONE PURCHASE.
-          The pack was chosen in a different tab, which iOS left
-          behind; this one came back from the wallet knowing only an
-          address. The transaction is already built — building it
-          needs a blockhash, and fetching one inside the tap would
-          spend the gesture that lets the link reach the app. */}
-      {auth.pendingPay && (
+      {/* WAITING ON A PHONE PURCHASE.
+          The wallet has the request and will send the payment itself.
+          Nothing redirects back, so this says plainly that coming
+          back is the user's move — a panel that implied otherwise
+          would leave someone sitting in Phantom waiting for a hop
+          that is never going to happen. */}
+      {watching && (
         <div className="wcont page-gap-top">
           <span className="wcont-lead">
-            <b className="wcont-step">Step 2 of 2</b>
-            Paying from <span className="mono">{short(auth.pendingPay.address)}</span>
+            <b className="wcont-step">Waiting</b>
+            {watching.pack
+              ? `${watching.pack.credits} credits for ${watching.pack.sol} SOL`
+              : "Approve the payment in your wallet"}
           </span>
           <p className="hint">
-            {tx
-              // States the deal and stops. Contrasting it with the
-              // signing step ("this one DOES move funds") only
-              // reopened the question of whether the other one did.
-              ? `${tx.pack.credits} credits for ${tx.pack.sol} SOL.`
-              : "Preparing the payment…"}
+            Approve it in your wallet, then come back here. Credits land on
+            their own — this page is watching for the payment.
           </p>
           <div className="wcont-row">
             <button
-              className="btn small primary"
-              disabled={!tx || auth.busy}
-              // Clears the previous attempt's message on the way out.
-              // After an expiry this button is offered again with the
-              // explanation still on screen, and carrying it into the
-              // next hop would leave someone reading "that expired"
-              // while a fresh approval was already succeeding.
-              onClick={() => { setErr(null); auth.payWithDeeplink(tx.transaction); }}
-            >
-              {!tx || auth.busy ? <span className="spinner" /> : "Approve payment"}
-            </button>
-            <button
               className="btn small"
-              onClick={() => { setTx(null); auth.cancelWalletDeeplink(); auth.finishFlow(); }}
+              onClick={() => { clearPending(); setWatching(null); setMsg(null); }}
             >
-              Cancel
+              Stop waiting
             </button>
           </div>
         </div>

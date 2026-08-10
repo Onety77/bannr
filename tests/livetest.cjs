@@ -94,7 +94,10 @@ console.log("\n5. THE SECOND WALLET PROMPT IS ANNOUNCED BEFORE THE FIRST TAP");
 
   // The count is what turns "asking again?" into "last one".
   ok(WC.includes("Step 2 of 2"), "the second screen is numbered");
-  ok(CR.includes("Step 2 of 2"), "on the purchase path too");
+  // The purchase path has one screen now, not two: the wallet is
+  // handed the whole payment at once. So it is labelled by STATE
+  // rather than by step, because there is no step two to count to.
+  ok(CR.includes("Waiting"), "the purchase path says where it is up to");
   ok(/\.wcont-step \{/.test(CSS), "and the count is styled to be read first");
 
   // Phantom's own screen is titled "Sign Message". Calling it
@@ -129,7 +132,7 @@ console.log("\n5. THE SECOND WALLET PROMPT IS ANNOUNCED BEFORE THE FIRST TAP");
       const lines = (bare(msg).match(/^\s*"[^"]*",?$/gm) || []).length;
       ok(lines <= 5, "kept short — a long message in a wallet sheet reads as fine print (" + lines + " lines)");
     }
-    ok(CR.includes("${tx.pack.credits} credits for ${tx.pack.sol} SOL."), "the payment states the deal and stops");
+    ok(CR.includes("${watching.pack.credits} credits for ${watching.pack.sol} SOL"), "the payment states the deal and stops");
   }
 }
 

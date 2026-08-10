@@ -354,36 +354,31 @@ console.log("\n7a. THE GESTURE RULE — WHY THE FIRST VERSION LANDED ON A DOWNLO
   ok(eff.includes("flow.fetchChallenge(result.publicKey)"), "it fetches the challenge, which needs no gesture");
   ok(eff.includes("pendingSign: {"), "and parks it for a tap");
 
-  // The buy hop obeys the same rule, and its transaction has to be
-  // built BEFORE the tap for exactly the same reason.
-  const pay = A.slice(A.indexOf("const payWithDeeplink"), A.indexOf("const finishFlow"));
-  ok(!/^\s*const payWithDeeplink = useCallback\(async/m.test(A), "payWithDeeplink is not async either");
-  ok(!/await|fetch\(|import\(/.test(bare(pay)), "and awaits nothing before handing the transaction over");
-  // signTransaction since Phantom retired signAndSendTransaction —
-  // see tests/paytest.cjs. The gesture rule is unchanged by that: the
-  // navigation still has to happen inside the tap, and broadcasting
-  // now happens later, on the way back, where an await is free.
-  ok(pay.includes("mods.DeepLink.signTransaction("), "it just goes");
+  // ══ THERE IS NO BUY HOP HERE ANY MORE ══
+  //
+  // Paying used to be a second app-hop carrying a transaction WE had
+  // built, which meant we chose the blockhash — and a blockhash lives
+  // about a minute while the round trip through a wallet is a person
+  // reading a warning about their own money. It expired more often
+  // than it landed. It is a Solana Pay transfer request now: the
+  // wallet builds and sends it, and the payment is found on chain by
+  // its reference. tests/paytest.cjs owns that path.
+  //
+  // The gesture rule still applies to it, and is asserted there. What
+  // matters here is that nothing of the old one survives to be called.
+  ok(!/payWithDeeplink/.test(A), "useAuth has no transaction hop left");
+  ok(!/signTransaction|signAndSendTransaction/.test(bare(read("lib/deeplink.js"))),
+     "and the deeplink has no transaction method left");
   {
     const CR = read("app/credits/page.jsx");
-    ok(CR.includes('auth.startWalletDeeplink("buy", "phantom", { packId: pack.id });'),
-       "the pack travels with the flow, because this tab will be gone");
-    ok(CR.includes("const built = await buildTreasuryTx(pack.sol, auth.user?.accountId, p.address);"),
-       "and the transaction is built on page load");
-    // The handler clears the previous attempt's message first, since
-    // an expired payment now offers this same button again with the
-    // explanation still on screen. Still synchronous, which is the
-    // part that matters: nothing may be awaited before the navigation.
-    ok(CR.includes("auth.payWithDeeplink(tx.transaction);"), "then handed over on a tap");
-    ok(/onClick=\{\(\) => \{ setErr\(null\); auth\.payWithDeeplink/.test(CR),
-       "and nothing is awaited inside that handler");
-    ok(!/onClick=\{async[^}]*payWithDeeplink/.test(CR), "not from an async handler");
-    // The builder is shared, so the injected path and the deeplink
-    // path cannot drift on something as load-bearing as the memo.
+    ok(!/startWalletDeeplink\("buy"/.test(CR), "the credits page starts no wallet flow to pay");
+    ok(!/buildTreasuryTx/.test(CR), "and builds no transaction of its own");
+    // The injected path — a desktop extension — still builds and sends
+    // one itself, and is untouched by any of this.
     const W = read("lib/wallet.js");
-    ok(W.includes("export async function buildTreasuryTx"), "one builder");
+    ok(W.includes("export async function buildTreasuryTx"), "one builder, for the injected path");
     ok(W.includes("const built = await buildTreasuryTx(sol, accountId, p.publicKey.toString());"),
-       "used by the injected path too, so the memo cannot differ between them");
+       "used by the injected path, which never had the blockhash problem");
     ok((W.match(/MEMO_PROGRAM_ID/g) || []).length === 2, "and the memo is written in exactly one place");
   }
 
@@ -410,7 +405,7 @@ console.log("\n7b. ONE OWNER FOR THE REDIRECT");
   ok(!/handleRedirect\(\)/.test(bare(A)), "useAuth does not call handleRedirect at all any more");
   ok(A.includes("resumeOnce();") && A.includes("return subscribeWallet(setDl);"),
      "it subscribes instead, so every instance sees the same flow");
-  ok(A.includes("const { pendingSign, pendingPay, paid, linked } = dlState;"),
+  ok(A.includes("const { pendingSign, linked } = dlState;"),
      "and reads all of it from that one place");
   ok(!/useState\(null\);[^\n]*\n[^\n]*setPendingSign/.test(A), "no per-hook copy left to disagree");
 
@@ -428,7 +423,7 @@ console.log("\n7b. ONE OWNER FOR THE REDIRECT");
   ok(RES.includes('/decrypt|expired|session/i.test(result.message || "")'), "a decrypt failure is recognised");
   ok(RES.includes("DeepLink.disconnectAll()"), "and the unusable state is WIPED, so the retry starts clean");
   ok(RES.includes("That wallet connection went stale."), "with a message that says what to do");
-  ok(A.includes("setWalletState({ pendingSign: null, pendingPay: null, paid: null, error: null });"),
+  ok(A.includes("setWalletState({ pendingSign: null, error: null });"),
      "and starting over clears anything half-finished, since connect mints a new keypair");
 
   ok(A.includes("busy: busy || dlState.busy") && A.includes("error: error || dlState.error"),

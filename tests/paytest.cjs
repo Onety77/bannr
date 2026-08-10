@@ -1,227 +1,154 @@
-// Buying credits on a phone, and the one link in that chain that was
-// broken: the pack id.
+// Buying credits on a phone. Four bugs deep, and each one only showed
+// up on a real handset — so the history is kept here, because every
+// assertion below exists because something took money's worth of
+// someone's time.
 //
-// Choosing a pack hops out to Phantom to connect, comes back on a
-// fresh page load, and has to remember WHICH pack was chosen — React
-// state does not survive the navigation, so the id rides in
-// localStorage via beginFlow's `payload`. The caller passed it, the
-// store accepted it, and the function in the middle took two
-// parameters and dropped the third on the floor. Result: payload
-// null, no pack matched, the transaction never got built, and because
-// the confirm step is a button that only appears once a transaction
-// exists, the next tap started the CONNECT hop again. Phantom asking
-// to connect, forever, never asking to confirm.
+//   1. The pack id was passed as a third argument to a function that
+//      took two. It never arrived, so nothing could be built, so the
+//      confirm button never appeared, so the next tap started the
+//      CONNECT hop again — Phantom asking to connect, forever.
+//   2. Phantom retired the signAndSendTransaction deeplink. It began
+//      answering "method not supported" AFTER the user approved.
+//   3. The claim poll returned on its first pass, because 202 makes
+//      Response.ok true. "Still confirming — hold on." was displayed
+//      as a final answer.
+//   4. And the one that ended the design: WE chose the blockhash. A
+//      blockhash lives about a minute — measured, not assumed — and
+//      the round trip through a wallet app is a person reading a
+//      warning about their own money. It expired more often than it
+//      landed, at forty seconds and at ten.
 //
-// Nothing here mocks the chain. The round trip is the real
-// walletFlow; the wiring assertions read the real source.
+// So paying is a Solana Pay transfer request now. The wallet is handed
+// the intent and builds, signs and sends the transaction ITSELF, with
+// a blockhash it fetches at the moment of approval. There is no
+// deadline left to miss, and no signing hop to get wrong.
 const fs = require("fs");
 const R = require("path").join(__dirname, "..") + "/";
 const read = (f) => fs.readFileSync(R + f, "utf8").replace(/\r\n/g, "\n");
+const bs58lib = require(R + "node_modules/bs58");
+const B58 = bs58lib.default || bs58lib;
 let bad = 0;
 const ok = (c, m) => { console.log((c ? "  PASS  " : "  FAIL  ") + m); if (!c) bad++; };
-// Assertions ABOUT code must not be able to match the prose next to
-// it. The paragraph above says "payload" and "beginFlow" repeatedly;
-// ungrated, a test for those words would be grading my own comment.
+// Assertions ABOUT code must not be able to match the prose beside it.
+// The comment above says "blockhash" and "reference" repeatedly.
 const bare = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 console.log("\nPAYING FOR A PACK ON A PHONE\n");
 
-/* ---------------- the store round trip, for real ---------------- */
+/* ---------------- the URL the wallet is handed ---------------- */
 const store = new Map();
 global.localStorage = {
   getItem: (k) => (store.has(k) ? store.get(k) : null),
   setItem: (k, v) => store.set(k, String(v)),
   removeItem: (k) => store.delete(k),
 };
-const flow = new Function(
-  read("lib/walletFlow.js")
+global.crypto = require("crypto").webcrypto;
+
+const P = new Function(
+  read("lib/solanaPay.js")
     .replace(/^"use client";$/m, "")
-    .replace(/^import[^\n]*$/gm, "")
     .replace(/^export /gm, "") +
-    "\nreturn { beginFlow, readFlow, endFlow };"
+    "\nreturn { newReference, transferUrl, savePending, readPending, clearPending };"
 )();
 
-flow.beginFlow("buy", "phantom", { packId: "launch" });
-const back = flow.readFlow();
-ok(back?.payload?.packId === "launch", "a pack id survives the hop out and back");
-ok(back?.intent === "buy", "so does the intent that went with it");
+// A reference is an account key we attach and then search for. It has
+// to be a real 32-byte address or the node cannot look it up.
+const ref = P.newReference();
+ok(B58.decode(ref).length === 32, `a reference is 32 bytes (${ref.slice(0, 8)}…)`);
+ok(P.newReference() !== P.newReference(), "and a fresh one every time, so attempts never collide");
 
-// The armed one-tap path writes the challenge alongside, and used to
-// hardcode null in the payload slot. A returning buyer takes that
-// branch, so it has to carry the pack too.
-flow.endFlow();
-flow.beginFlow("buy", "phantom", { packId: "studio" }, { address: "abc", nonce: "n1" });
-const armed = flow.readFlow();
-ok(armed?.payload?.packId === "studio", "and survives the armed path, alongside a challenge");
-ok(armed?.nonce === "n1", "without displacing the challenge it travels with");
+const url = P.transferUrl({
+  treasury: "TREASURYxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  sol: 0.0711,
+  reference: ref,
+  accountId: "acct_123",
+  message: "15 credits",
+});
+ok(url.startsWith("solana:TREASURY"), "the URL is a transfer request to the treasury");
+{
+  const q = new URLSearchParams(url.slice(url.indexOf("?") + 1));
+  ok(q.get("amount") === "0.0711", "carrying the exact amount");
+  ok(q.get("reference") === ref, "and the reference that will find it afterwards");
+  // The memo is what lets ANY wallet pay for THIS account without
+  // being registered to it first — /api/pay/claim matches it against
+  // the signed-in account. Without it a first-time buyer pays and
+  // cannot be credited.
+  ok(q.get("memo") === "acct_123", "and the account id as the memo, which is how it gets credited");
+  ok(q.get("label") === "bannr", "named, since this is what the wallet shows");
+}
+// Trailing zeros would be rendered back to the user verbatim by some
+// wallets, and "0.07110000" reads like a glitch on a payment screen.
+ok(
+  new URLSearchParams(
+    P.transferUrl({ treasury: "T", sol: 0.5, reference: ref }).split("?")[1]
+  ).get("amount") === "0.5",
+  "an amount is not padded with zeros"
+);
 
-/* ---------------- the wiring that broke ---------------- */
-const auth = bare(read("lib/useAuth.js"));
+// Refusing beats sending someone to a wallet with a broken request.
+for (const [bad_, why] of [
+  [{ treasury: "", sol: 1, reference: ref }, "no treasury"],
+  [{ treasury: "T", sol: 0, reference: ref }, "no price"],
+  [{ treasury: "T", sol: 1, reference: "" }, "no reference"],
+]) {
+  let threw = false;
+  try { P.transferUrl(bad_); } catch { threw = true; }
+  ok(threw, `refuses to build a request with ${why}`);
+}
+
+/* ------------- the attempt outlives the app switch ------------- */
+// Opening a solana: URL switches apps and iOS may discard the tab. The
+// reference is written down first so a cold load can resume the watch.
+store.clear();
+P.savePending({ reference: ref, packId: "starter", sol: 0.0711 });
+ok(P.readPending()?.reference === ref, "a pending payment survives being backgrounded");
+ok(P.readPending()?.packId === "starter", "and remembers which pack it was for");
+P.clearPending();
+ok(P.readPending() === null, "and is forgotten once it is done");
+
+store.clear();
+localStorage.setItem("bannr:pay", JSON.stringify({ reference: ref, at: Date.now() - 31 * 60 * 1000 }));
+ok(P.readPending() === null, "an abandoned attempt expires rather than being polled for tomorrow");
+
+/* ---------------- wired into the page, inside the tap ---------------- */
 const credits = bare(read("app/credits/page.jsx"));
-
-// The caller. Three arguments: intent, provider, and the pack.
-const call = credits.match(/startWalletDeeplink\(\s*"buy"[^)]*\)/);
-ok(!!call, "the credits page starts a buy flow");
-ok(/packId/.test(call?.[0] || ""), "and names the pack when it does");
-
-// The function in the middle. This is the assertion that was missing:
-// it accepted two parameters while being handed three.
-const sig = auth.match(/const startWalletDeeplink = useCallback\(\(([^)]*)\)/);
-ok(!!sig, "startWalletDeeplink is defined");
-const params = (sig?.[1] || "").split(",").map((s) => s.trim()).filter(Boolean);
-ok(params.length >= 3, `it accepts the payload as a third parameter (has ${params.length})`);
-ok(/payload/.test(params[2] || ""), "and that third parameter is the payload");
-
-// Every handoff to the store must pass it on. Two branches reach
-// beginFlow — the fresh connect and the armed one-tap — and both were
-// discarding it, one by omission and one by a literal null.
-const begins = auth.match(/beginFlow\([^)]*\)/g) || [];
-ok(begins.length >= 2, `both branches reach the store (found ${begins.length})`);
-for (const b of begins) {
-  const args = b.slice(b.indexOf("(") + 1, -1).split(",").map((s) => s.trim());
-  ok(args[2] === "payload", `payload is forwarded, not dropped: ${b}`);
+ok(/window\.location\.href = url;/.test(credits), "the page navigates to the request");
+{
+  // THE GESTURE RULE. iOS only opens the app when it considers the
+  // navigation user-initiated; await anything first and Safari loads
+  // the wallet's WEBSITE instead. This is why the reference is
+  // generated locally rather than with @solana/web3.js, whose import
+  // is dynamic.
+  const buy = credits.slice(credits.indexOf("async function buy("), credits.indexOf("// ---------- the transfer-request half"));
+  // Bounded to the PHONE branch only. The desktop path below it talks
+  // to an injected wallet and awaits freely, which is fine — it has a
+  // provider in the page and never leaves it. Slicing past the closing
+  // brace would drag those awaits in and fail on code that is correct.
+  const from = buy.indexOf("if (auth.needsDeeplink)");
+  const hop = buy.slice(from, buy.indexOf("\n    }", from) + 6);
+  ok(hop.length > 100 && /return;/.test(hop), "the phone branch was found, whole");
+  ok(!/wallet\.connect|payTreasury/.test(hop), "and it really is only that branch");
+  ok(!/await|import\(|fetch\(/.test(hop), "and awaits nothing between the tap and the navigation");
+  ok(/savePending\(/.test(hop), "the reference is written down BEFORE leaving");
 }
+ok(!/buildTreasuryTx/.test(credits), "no transaction is built for the phone path at all");
+ok(!/startWalletDeeplink\("buy"/.test(credits), "and no wallet flow is started to pay");
 
-// The far side already read it correctly; it was only ever starved.
-// Asserted so a future tidy-up of walletResume cannot quietly undo
-// the half of this that always worked.
-const resume = bare(read("lib/walletResume.js"));
-ok(/payload:\s*pending\.payload/.test(resume), "the resume hands the pack to the credits page");
+/* ---------------- finding it on the chain ---------------- */
+const find = bare(read("app/api/solana/find/route.js"));
+ok(/getSignaturesForAddress/.test(find), "the payment is found by its reference");
+ok(/limit: 10, commitment: "confirmed"/.test(find), "at confirmed, since the claim reads at confirmed too");
+// A rejected transaction still leaves a row against the reference.
+// Handing that to the claim would report a payment that never was.
+ok(/!r\.err/.test(find), "failed transactions are skipped, not reported as payments");
+ok(/\.pop\(\)/.test(find), "and the oldest success is taken, not the latest thing to touch the key");
 
-/* ---------------- and the failure it produced ---------------- */
-// The error the user actually saw. Kept as a test so the message and
-// the lookup it reports on cannot drift apart.
-ok(
-  /packs\.find\(\s*\(\s*x\s*\)\s*=>\s*x\.id === p\.payload\?\.packId\s*\)/.test(credits),
-  "the credits page looks the pack up by the id that travelled"
-);
-
-/* ------------- Phantom retired signAndSendTransaction ------------- */
-// It was deprecated in July 2025 and has since been switched off. The
-// app-hop came back with the wallet's own "method not supported" AFTER
-// the user approved — the worst place in the flow to fail, because it
-// reads as a payment gone wrong rather than as us asking for the wrong
-// thing. signTransaction is the replacement: same payload, but the
-// wallet hands the signed bytes BACK and submitting them is ours.
-const dlsrc = bare(read("lib/deeplink.js"));
-ok(!/signAndSendTransaction/.test(dlsrc), "the deeplink no longer calls the retired method");
-ok(/\/signTransaction\?/.test(dlsrc), "it hops to signTransaction instead");
-ok(/type: "signed"/.test(dlsrc), "and reports signed bytes, not a signature");
-
-const resumeSrc = bare(read("lib/walletResume.js"));
-ok(/result\.type === "signed"/.test(resumeSrc), "the resume expects signed bytes");
-ok(/\/api\/solana\/send/.test(resumeSrc), "and broadcasts them, since the wallet no longer does");
-
-/* ---------- the transaction that expired before it was sent ---------- */
-const sendSrc = bare(read("app/api/solana/send/route.js"));
-ok(/skipPreflight: false/.test(sendSrc), "the node checks the transaction instead of silently dropping it");
-ok(/blockhash not found/i.test(sendSrc), "and an expired one is reported as expired");
-
-const creditsBare = bare(read("app/credits/page.jsx"));
-ok(/setTxTick\(\(t\) => t \+ 1\)/.test(creditsBare), "the waiting transaction is rebuilt on a timer");
-// The budget is about sixty seconds end to end — measured against the
-// network, where 400 slots old reads "Blockhash not found" and a fresh
-// one simulates fine. The wait for the tap is only the FIRST item in
-// that budget; the hop out, the wallet starting, the warning, the
-// approval and a cold page load on the way back all come out of the
-// same minute. Forty seconds left nothing for them.
-ok(/setInterval\(\(\) => setTxTick\(\(t\) => t \+ 1\), 10_000\)/.test(creditsBare),
-   "and rebuilt often enough to leave the wallet most of the minute");
-// An expiry keeps the wallet connected, so it costs one approval
-// rather than starting the whole flow again at the connect hop.
-ok(/out\.expired/.test(resumeSrc), "an expired payment is told apart from a failed one");
-ok(/pendingPay: live\?\.publicKey/.test(resumeSrc), "and puts the wallet back in pending for one more tap");
-ok(/expired: true/.test(sendSrc), "which the send route flags rather than only wording");
-ok(
-  /}, \[auth\.pendingPay, auth\.user\?\.accountId, packs, txTick\]\)/.test(creditsBare),
-  "and the rebuild is not blocked by the one already built"
-);
-
-/* ---------- the first hop that always failed ---------- */
-// A stored session outlives the wallet's willingness to honour it. The
-// one-tap path checked only that the CHALLENGE was fresh, so someone
-// returning the next day spent a hop being refused and was told the
-// connection had gone stale — every time, with the second attempt
-// working because the failure cleared the session on its way out.
-ok(/connectedAt: String\(Date\.now\(\)\)/.test(dlsrc), "a session records when it was established");
-ok(/connectedAt: Number\(getState/.test(dlsrc), "and hands that back with the session");
-ok(/connectedAt: null/.test(dlsrc), "and it is cleared with everything else on disconnect");
-ok(
-  /session\.connectedAt \|\| 0\) < SESSION_TRUST_MS/.test(auth),
-  "the one-tap path is only taken on a session recent enough to bet a hop on"
-);
-ok(/&&\s*fresh\s*&&/.test(auth), "and that check actually gates it");
-
-/* ---- the signature is derived from the bytes, and must be right ---- */
-// A transaction's id IS its first signature, so it is knowable before
-// broadcasting and survives the same bytes being submitted twice —
-// which is what turns "already been processed" into a success rather
-// than a dead end.
-//
-// This is the assertion that matters: a wrong offset yields a
-// plausible-looking signature for a transaction that was never on
-// chain, and the claim poll would then wait for it forever. So it is
-// checked against a REAL signed transaction rather than a fixture.
-const bs58lib = require(R + "node_modules/bs58");
-const B58 = bs58lib.default || bs58lib;
-const web3 = require(R + "node_modules/@solana/web3.js");
-
-const routeSrc = read("app/api/solana/send/route.js")
-  .replace(/^import[^\n]*$/gm, "")
-  .replace(/^export /gm, "");
-const { firstSignature } = new Function(
-  "bs58",
-  routeSrc + "\nreturn { firstSignature };"
-)(B58);
-
-const payer = web3.Keypair.generate();
-const tx = new web3.Transaction().add(
-  web3.SystemProgram.transfer({
-    fromPubkey: payer.publicKey,
-    toPubkey: web3.Keypair.generate().publicKey,
-    lamports: 1_000_000,
-  }),
-  new web3.TransactionInstruction({
-    keys: [],
-    programId: new web3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
-    data: new TextEncoder().encode("acct_123"),
-  })
-);
-tx.feePayer = payer.publicKey;
-// A real blockhash is not needed to sign, only a syntactically valid
-// one — nothing here touches the network.
-tx.recentBlockhash = B58.encode(web3.Keypair.generate().publicKey.toBytes());
-tx.sign(payer);
-
-const wire = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
-const derived = firstSignature(new Uint8Array(wire));
-const actual = B58.encode(new Uint8Array(tx.signature));
-ok(derived === actual, "the derived id matches the transaction's real signature");
-ok(
-  derived === B58.encode(new Uint8Array(tx.signatures[0].signature)),
-  "and matches the first entry in the signature list"
-);
-
-// Truncated and empty inputs must throw rather than return something
-// that looks like an id.
-let threw = 0;
-for (const junk of [new Uint8Array([1, 2, 3]), new Uint8Array([0]), new Uint8Array(0)]) {
-  try { firstSignature(junk); } catch { threw += 1; }
-}
-ok(threw === 3, "malformed transactions are refused, not guessed at");
-
-/* ---------- the poll that never polled ---------- */
-// A payment that landed on "Still confirming — hold on." and stayed
-// there forever. That string is the claim route's 202, and 202 sits
-// inside the 200–299 band that makes Response.ok true — so the
-// `if (r.ok) return d` above the retry caught it on the first pass and
-// the retry had never once run. The page asked whether the payment had
-// confirmed, was told "not yet", and treated that as the final answer.
-//
-// RUN, not read. The bug was a status code falling into the wrong
-// branch, which is exactly the kind of thing a regex over the source
-// can be made to "prove" while the code still does the wrong thing.
-// Last in the file because it is the only async part of it.
+/* ---------------- the poll that never polled ---------------- */
+// 202 sits inside the 200-299 band that makes Response.ok true, so
+// `if (r.ok) return d` caught it on the first pass and the retry below
+// had never once run. RUN, not read: the bug was a status code landing
+// in the wrong branch, which is exactly what a regex can be made to
+// "prove" while the code still does the wrong thing.
 (async () => {
   const raw = read("app/credits/page.jsx");
   const start = raw.indexOf("async function claim(signature)");
@@ -229,8 +156,7 @@ ok(threw === 3, "malformed transactions are refused, not guessed at");
   const src = raw.slice(start, raw.indexOf("\n  }", endMark) + 4);
   ok(start > 0 && src.length > 200, "the claim poll was found, to be run");
 
-  // Immediate, so twenty passes of three seconds do not go into the suite.
-  const now = (fn) => fn();
+  const now = (fn) => fn(); // immediate, so 20 passes of 3s stay out of the suite
   const build = (fetchImpl) =>
     new Function("fetch", "setTimeout", src + "\nreturn claim;")(fetchImpl, now);
 
@@ -248,7 +174,6 @@ ok(threw === 3, "malformed transactions are refused, not guessed at");
   ok(out?.credits === 15, "and returns the payment once it lands");
   ok(!out?.error, "with no error attached to one that worked");
 
-  // A real answer still ends it, rather than being retried twenty times.
   calls = 0;
   const out2 = await build(async () => {
     calls += 1;
@@ -257,8 +182,22 @@ ok(threw === 3, "malformed transactions are refused, not guessed at");
   ok(calls === 1, `a real answer is not retried (asked ${calls} time)`);
   ok(/failed on-chain/.test(out2?.error || ""), "and is reported as it was given");
 
-  // "all green" exactly — tests/run.cjs greps for it, so a file that
-  // passes every assertion and says anything else still reports FAIL.
+  /* ------------- what the old design left behind ------------- */
+  // Asserted as absences so none of it can quietly come back. Each of
+  // these was a live failure mode, not a tidy-up.
+  const dl = bare(read("lib/deeplink.js"));
+  ok(!/signAndSendTransaction/.test(dl), "the retired Phantom method is gone");
+  ok(!/signTransaction/.test(dl), "and so is the one that made us pick the blockhash");
+  ok(!fs.existsSync(R + "app/api/solana/send/route.js"), "nothing broadcasts on the user's behalf any more");
+  ok(!/payWithDeeplink/.test(bare(read("lib/useAuth.js"))), "and no hook is left to hand a transaction over");
+
+  // The session freshness check STAYS. It is about signing in, not
+  // paying: a stored session outlives the wallet's willingness to
+  // honour it, so the one-tap path was failing every first attempt.
+  const auth = bare(read("lib/useAuth.js"));
+  ok(/session\.connectedAt \|\| 0\) < SESSION_TRUST_MS/.test(auth),
+     "the one-tap sign-in is still only taken on a session worth betting a hop on");
+
   console.log(bad ? `\n${bad} FAILED\n` : "\nall green\n");
   process.exit(bad ? 1 : 0);
 })();
