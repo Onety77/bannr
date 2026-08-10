@@ -62,6 +62,12 @@ export default function CreditsPage() {
   // would climbing buy me", which is a question you only ask once.
   const [openLadder, setOpenLadder] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  // A manual check in progress. Separate from `claiming`, which only
+  // becomes true once a payment has been FOUND — so on its own it left
+  // the button doing nothing visible whenever the answer was "not yet",
+  // which is the answer most of the time and looked exactly like a
+  // broken button.
+  const [checkingPay, setCheckingPay] = useState(false);
   // A transfer request that has been opened in a wallet and not yet
   // seen on chain. { reference, pack } — the reference is what finds
   // it, since nothing comes back through the browser.
@@ -186,11 +192,33 @@ export default function CreditsPage() {
   // DECLARED ABOVE THE EFFECTS THAT CALL IT. const does not hoist, and
   // a hook reading it from further up throws at render — which is what
   // scripts/check-tdz exists to catch.
-  const sweep = useCallback(async () => {
+  // `loud` is for the button. A background poll finding nothing must
+  // stay silent — it runs every two seconds — but a person who just
+  // TAPPED something and is told nothing has no way to tell a working
+  // check from a dead one. So the manual path shows a spinner while it
+  // asks and says what the answer was.
+  //
+  // Returns the response so callers can act on `watching`, which is how
+  // many amounts this account still owes. That is the difference
+  // between "you have nothing outstanding" and "not landed yet".
+  const sweep = useCallback(async (loud = false) => {
+    if (loud) setCheckingPay(true);
     try {
       const r = await fetch("/api/solana/find", { cache: "no-store" });
       const d = await r.json();
-      if (!d?.signature) return false;
+
+      if (!d?.signature) {
+        if (loud) {
+          setMsg(null);
+          setErr(
+            d?.watching
+              ? "No payment yet. If you have just approved it, give it a few seconds."
+              : "Nothing outstanding to collect. Pick a pack to buy credits."
+          );
+        }
+        return d || null;
+      }
+
       setClaiming(true);
       setMsg("Payment received. Confirming…");
       const out = await claim(d.signature);
@@ -201,10 +229,14 @@ export default function CreditsPage() {
         clearPending();
       }
       setClaiming(false);
-      return !out.error;
+      return out.error ? d : { ...d, credited: true };
     } catch {
-      // A dropped request while the phone is switching apps is normal.
-      return false;
+      // A dropped request while the phone is switching apps is normal
+      // and says nothing about the payment.
+      if (loud) setErr("Couldn't check just now. Try again in a moment.");
+      return null;
+    } finally {
+      if (loud) setCheckingPay(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -233,12 +265,20 @@ export default function CreditsPage() {
   //
   // Costs one request per visit, and it is the difference between "we
   // lost your payment" and "it turned up".
+  // It also decides whether the panel is on screen at all. It used to
+  // appear only while the browser still remembered the attempt, which
+  // expired in half an hour — so someone who paid, closed the tab and
+  // came back later saw a normal credits page with no sign that
+  // anything was owed and nothing to press. The SERVER knows what is
+  // outstanding for a day; that is what should decide.
   useEffect(() => {
     if (!auth.user?.accountId) return;
     let live = true;
     (async () => {
-      const found = await sweep();
-      if (live && found) setWatching(null);
+      const d = await sweep();
+      if (!live) return;
+      if (d?.credited) { setWatching(null); return; }
+      if (d?.watching > 0) setWatching((w) => w || { pack: null });
     })();
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -264,7 +304,8 @@ export default function CreditsPage() {
     const tick = async () => {
       if (!live) return;
       tries += 1;
-      if (await sweep()) { if (live) setWatching(null); return; }
+      const d = await sweep();
+      if (d?.credited) { if (live) setWatching(null); return; }
       // Thirty minutes at two seconds, and giving up here costs
       // nothing: the sweep above runs on the next visit too.
       if (tries > 900 && live) {
@@ -395,10 +436,10 @@ export default function CreditsPage() {
           <div className="wcont-row">
             <button
               className="btn small primary"
-              disabled={claiming}
-              onClick={() => { setErr(null); sweep(); }}
+              disabled={claiming || checkingPay}
+              onClick={() => { setErr(null); sweep(true); }}
             >
-              {claiming ? <span className="spinner" /> : "Check now"}
+              {claiming || checkingPay ? <span className="spinner" /> : "Check now"}
             </button>
             <button
               className="btn small"
