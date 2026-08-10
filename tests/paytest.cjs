@@ -112,6 +112,18 @@ const resumeSrc = bare(read("lib/walletResume.js"));
 ok(/result\.type === "signed"/.test(resumeSrc), "the resume expects signed bytes");
 ok(/\/api\/solana\/send/.test(resumeSrc), "and broadcasts them, since the wallet no longer does");
 
+/* ---------- the transaction that expired before it was sent ---------- */
+const sendSrc = bare(read("app/api/solana/send/route.js"));
+ok(/skipPreflight: false/.test(sendSrc), "the node checks the transaction instead of silently dropping it");
+ok(/blockhash not found/i.test(sendSrc), "and an expired one is reported as expired");
+
+const creditsBare = bare(read("app/credits/page.jsx"));
+ok(/setTxTick\(\(t\) => t \+ 1\)/.test(creditsBare), "the waiting transaction is rebuilt on a timer");
+ok(
+  /}, \[auth\.pendingPay, auth\.user\?\.accountId, packs, txTick\]\)/.test(creditsBare),
+  "and the rebuild is not blocked by the one already built"
+);
+
 /* ---------- the first hop that always failed ---------- */
 // A stored session outlives the wallet's willingness to honour it. The
 // one-tap path checked only that the CHALLENGE was fresh, so someone
@@ -185,7 +197,55 @@ for (const junk of [new Uint8Array([1, 2, 3]), new Uint8Array([0]), new Uint8Arr
 }
 ok(threw === 3, "malformed transactions are refused, not guessed at");
 
-// "all green" exactly — tests/run.cjs greps for it, so a file that
-// passes every assertion and says anything else still reports FAIL.
-console.log(bad ? `\n${bad} FAILED\n` : "\nall green\n");
-process.exit(bad ? 1 : 0);
+/* ---------- the poll that never polled ---------- */
+// A payment that landed on "Still confirming — hold on." and stayed
+// there forever. That string is the claim route's 202, and 202 sits
+// inside the 200–299 band that makes Response.ok true — so the
+// `if (r.ok) return d` above the retry caught it on the first pass and
+// the retry had never once run. The page asked whether the payment had
+// confirmed, was told "not yet", and treated that as the final answer.
+//
+// RUN, not read. The bug was a status code falling into the wrong
+// branch, which is exactly the kind of thing a regex over the source
+// can be made to "prove" while the code still does the wrong thing.
+// Last in the file because it is the only async part of it.
+(async () => {
+  const raw = read("app/credits/page.jsx");
+  const start = raw.indexOf("async function claim(signature)");
+  const endMark = raw.indexOf("no need to pay again.", start);
+  const src = raw.slice(start, raw.indexOf("\n  }", endMark) + 4);
+  ok(start > 0 && src.length > 200, "the claim poll was found, to be run");
+
+  // Immediate, so twenty passes of three seconds do not go into the suite.
+  const now = (fn) => fn();
+  const build = (fetchImpl) =>
+    new Function("fetch", "setTimeout", src + "\nreturn claim;")(fetchImpl, now);
+
+  let calls = 0;
+  const replies = [
+    { status: 202, body: { error: "Still confirming — hold on." } },
+    { status: 202, body: { error: "Still confirming — hold on." } },
+    { status: 200, body: { ok: true, credits: 15, user: { id: "u1" } } },
+  ];
+  const out = await build(async () => {
+    const r = replies[Math.min(calls++, replies.length - 1)];
+    return { ok: r.status >= 200 && r.status < 300, status: r.status, json: async () => r.body };
+  })("SIG");
+  ok(calls === 3, `it keeps polling through 202 (asked ${calls} times)`);
+  ok(out?.credits === 15, "and returns the payment once it lands");
+  ok(!out?.error, "with no error attached to one that worked");
+
+  // A real answer still ends it, rather than being retried twenty times.
+  calls = 0;
+  const out2 = await build(async () => {
+    calls += 1;
+    return { ok: false, status: 400, json: async () => ({ error: "That transaction failed on-chain." }) };
+  })("SIG");
+  ok(calls === 1, `a real answer is not retried (asked ${calls} time)`);
+  ok(/failed on-chain/.test(out2?.error || ""), "and is reported as it was given");
+
+  // "all green" exactly — tests/run.cjs greps for it, so a file that
+  // passes every assertion and says anything else still reports FAIL.
+  console.log(bad ? `\n${bad} FAILED\n` : "\nall green\n");
+  process.exit(bad ? 1 : 0);
+})();

@@ -64,6 +64,9 @@ export default function CreditsPage() {
   // the wallet app, and whether a broadcast one is being confirmed.
   const [tx, setTx] = useState(null);
   const [claiming, setClaiming] = useState(false);
+  // Bumped on a timer to rebuild that transaction before its blockhash
+  // dies. See the rebuild effect below for why it has to be a timer.
+  const [txTick, setTxTick] = useState(0);
   const auth = useAuth();
   const wallet = useWallet();
   // No test mode any more. It existed so credits could be topped up
@@ -159,7 +162,7 @@ export default function CreditsPage() {
   // rounds to.
   useEffect(() => {
     const p = auth.pendingPay;
-    if (!p || tx || !packs.length) return;
+    if (!p || !packs.length) return;
     let live = true;
     (async () => {
       const pack = packs.find((x) => x.id === p.payload?.packId);
@@ -171,7 +174,32 @@ export default function CreditsPage() {
       setTx({ transaction: built.transaction, pack });
     })();
     return () => { live = false; };
-  }, [auth.pendingPay, auth.user?.accountId, tx, packs]);
+    // txTick, and NOT tx: this rebuilds on a timer, so a `tx &&` guard
+    // would let the first one stand forever — which is what it did.
+  }, [auth.pendingPay, auth.user?.accountId, packs, txTick]);
+
+  // ══ A BLOCKHASH DIES IN ABOUT A MINUTE ══
+  //
+  // The transaction has to exist BEFORE the tap, because fetching a
+  // blockhash inside the tap spends the gesture and lands the user on
+  // phantom.app instead of in Phantom. So it is built here, on page
+  // load, and then sits waiting — through the tap, the hop out, a
+  // security warning to read, an approval, and the hop back.
+  //
+  // That is comfortably longer than a blockhash lives. The signed
+  // transaction was therefore already expired by the time it was
+  // broadcast: the network dropped it, no money moved, and the page
+  // polled for an id that would never land.
+  //
+  // Rebuilding on a timer keeps it young without ever putting an await
+  // between the tap and the navigation. Forty seconds against a
+  // ~60-second life, so a tap lands on a blockhash with most of its
+  // life left however long the wallet takes.
+  useEffect(() => {
+    if (!auth.pendingPay || claiming) return;
+    const id = setInterval(() => setTxTick((t) => t + 1), 40_000);
+    return () => clearInterval(id);
+  }, [auth.pendingPay, claiming]);
 
   // The wallet broadcast it. All that is left is waiting for the
   // chain, which the existing claim poll already does.
@@ -209,11 +237,23 @@ export default function CreditsPage() {
         body: JSON.stringify({ signature }),
       });
       const d = await r.json();
+      // ══ 202 IS CHECKED FIRST BECAUSE 202 IS "ok" ══
+      //
+      // Response.ok is true for anything from 200 to 299, so a 202 was
+      // being caught by the r.ok line below and returned on the very
+      // first pass. The retry underneath it had never once run: the
+      // page asked whether the payment had landed, was told "still
+      // confirming", treated that as the final answer and displayed it
+      // as an error — which is precisely what it looks like from the
+      // outside, a payment stuck on "Still confirming" forever.
+      //
+      // Everything else, ok or not, is a real answer.
+      if (r.status === 202) {
+        await new Promise((res) => setTimeout(res, 3000));
+        continue;
+      }
       if (r.ok) return d;
-      // 202 means "not confirmed yet" — the only status worth waiting
-      // on. Everything else is a real answer.
-      if (r.status !== 202) return { error: d.error || "Couldn't confirm that payment." };
-      await new Promise((res) => setTimeout(res, 3000));
+      return { error: d.error || "Couldn't confirm that payment." };
     }
     return {
       error: "Still confirming. Your credits will appear automatically — no need to pay again.",

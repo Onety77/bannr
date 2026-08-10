@@ -99,11 +99,24 @@ export async function POST(req) {
         params: [
           tx,
           {
-            // The wallet just built this against a blockhash it was
-            // given; preflight against a node that may be a slot
-            // behind is a source of spurious failures on a path where
-            // a spurious failure looks like losing money.
-            skipPreflight: true,
+            // ══ PREFLIGHT ON, AND THIS WAS LEARNED THE HARD WAY ══
+            //
+            // It was off, reasoning that preflight against a node a
+            // slot behind causes spurious failures on the money path.
+            // The real failure was worse and silent: with preflight
+            // off the node ACCEPTS a transaction whose blockhash has
+            // already expired, hands back a signature, and drops it.
+            // Nothing reaches the chain, no money moves, and the
+            // client is left polling for an id that will never exist.
+            //
+            // A blockhash lives about a minute. This one is signed
+            // across two app-hops — out to the wallet, a security
+            // warning to read, an approval, and back — so expiry is
+            // not an edge case here, it is the normal amount of time
+            // a careful person takes. Preflight turns that into
+            // "blockhash not found", which is mapped below into
+            // something true and actionable.
+            skipPreflight: false,
             encoding: "base58",
             maxRetries: 3,
             preflightCommitment: "confirmed",
