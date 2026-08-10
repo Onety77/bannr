@@ -12,6 +12,7 @@
 
 import sharp from "sharp";
 import { NextResponse } from "next/server";
+import { fetchPublic } from "@/lib/safeFetch";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -85,15 +86,31 @@ async function dexscreenerLookup(addr) {
   }
 }
 
-// Download the logo and hand it back as a PNG data URL (≤ ~5MB in).
+// Download the logo and hand it back as a PNG data URL.
+//
+// ══ THIS URL WAS CHOSEN BY WHOEVER MINTED THE TOKEN ══
+//
+// Which is anybody. A logo URL comes out of on-chain metadata, so
+// "fetch this address" is an instruction from a stranger, and a server
+// that follows it can be aimed at localhost, at a private address on
+// the same network, or at a cloud metadata endpoint. See lib/safeFetch.
+//
+// The old size check ran AFTER the whole body was in memory, so a
+// reply that lied about its length could be any size at all. fetchPublic
+// counts while it reads.
+//
+// limitInputPixels is the other half: five megabytes of PNG can decode
+// to gigabytes of bitmap, and sharp will try. The cap is generous for a
+// logo and nowhere near enough to hurt.
 async function fetchLogo(url) {
   if (!url) return null;
   try {
-    const res = await fetchWithTimeout(url, {}, 12_000);
-    if (!res.ok) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > 5 * 1024 * 1024) return null;
-    const png = await sharp(buf).resize(800, 800, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
+    const buf = await fetchPublic(url, { maxBytes: 5 * 1024 * 1024, timeoutMs: 12_000 });
+    if (!buf) return null;
+    const png = await sharp(buf, { limitInputPixels: 40_000_000 })
+      .resize(800, 800, { fit: "inside", withoutEnlargement: true })
+      .png()
+      .toBuffer();
     return `data:image/png;base64,${png.toString("base64")}`;
   } catch {
     return null;
