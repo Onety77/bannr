@@ -221,6 +221,30 @@ executes; it does not ideate. Concepts are written together in one text call
 and required to be compositionally unlike each other. The PFP maker
 deliberately has no such pass — there is nothing to ideate.
 
+**RUN THE REAL PIPELINE AND LOOK AT THE PICTURE. IT IS 3p AND IT IS THE ONLY
+THING THAT SETTLES ANYTHING.** `lib/openai.js` can be loaded in a script with
+the key from `.env.local`, given a deliberately unmistakable logo, and pointed
+at the real director, the real references and the real image call. Three runs
+found three things that no amount of reading the prompt would have:
+
+1. The director was proposing *"a semi-transparent triangular prism with the
+   name etched into its surface"* — a product render with engraved type, right
+   after being told "this is design, not a render". Two gaps let it through:
+   **"an object or material study"** in its archetype list licensed the object,
+   and the type-finish ban enumerated gold/chrome/bevel but never
+   **engraved, etched, embossed, carved or cut INTO** anything. Same failure
+   arriving as a manufacturing process rather than a filter.
+2. `generateConcepts` returned **nothing** on a 200 with `content: null` — and
+   the run carried on **undirected, silently, at full price**. That is the
+   mark-left/name-right output the whole pass exists to prevent. One retry now
+   fires on an empty 200 only; a bad status still returns immediately, because
+   the 429 rule stands.
+3. The banner came back **without the project name on it**, and clipped at the
+   left edge. Both were licensed by the mood, which said text may be *"partially
+   cropped… or omitted entirely"* — directly contradicting the framing block's
+   80px margin and the entire purpose of a DEX banner. Removed. The name now
+   always appears, whole and legible; a supporting line may still be dropped.
+
 **A REFERENCE CONTAINING A LOGO WILL HAVE THAT LOGO DRAWN INTO SOMEBODY'S
 BANNER.** Not might. It happened twice, to a real client, and the ban against it
 was in the prompt on both occasions. `01-google-voxel-pattern.jpg` was nothing
