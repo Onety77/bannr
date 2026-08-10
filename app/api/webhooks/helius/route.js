@@ -1,17 +1,39 @@
 // ============================================================
-// POST /api/webhooks/helius
-// Phase 2: Helius pushes every transaction that touches the
-// treasury wallet. We verify the auth header, match the sender
-// to a linked wallet, and credit their account — idempotently
-// (doc id = tx signature, so replays can never double-credit).
+// POST /api/webhooks/helius — Helius pushes every transaction that
+// touches the treasury wallet, and this credits it.
 //
-// Fully wired; activates once env vars + Firebase are set.
+// ══ THE PRIMARY PATH, NOT THE BACKSTOP ══
+//
+// It used to attribute a payment by looking the SENDER up among
+// wallets registered to accounts. That was right when paying required
+// a linked wallet. It does not any more — buying takes a signature and
+// nothing else — so most senders are strangers to us, and this path
+// filed their payments as "unclaimed" and credited nobody until a
+// browser turned up to finish the job.
+//
+// It now asks by AMOUNT first. The exact lamports were reserved for
+// one account before the wallet was ever opened, and they carry the
+// quote, so this can credit the right person the right number with no
+// session and without the browser ever coming back. See
+// lib/payIntents.js.
+//
+// That makes the ORDER of arrival stop mattering: whichever of this
+// and /api/pay/claim gets there first credits, and the other finds the
+// payment attributed and does nothing. Both write the same
+// payments/{signature}, which is what makes a double credit
+// impossible.
+//
+// The sender rule is still here underneath, for SOL sent by hand to
+// the treasury address by someone whose wallet we do know.
+//
+// Activates once HELIUS_WEBHOOK_AUTH and Firebase are set.
 // ============================================================
 
 import { NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { creditsForPayment } from "@/lib/packs";
 import { solUsd } from "@/lib/solPrice";
+import { intentForAmount, consumeIntent } from "@/lib/payIntents";
 
 export const runtime = "nodejs";
 
@@ -56,11 +78,56 @@ export async function POST(req) {
 
     const payRef = db.collection("payments").doc(sig);
 
-    await db.runTransaction(async (tx) => {
+    // ══ WHOSE PAYMENT IS THIS? ASKED BY AMOUNT, BEFORE ANYTHING ELSE ══
+    //
+    // The old first question was "is the sender a wallet registered to
+    // an account", which fails for every first-time buyer — buying
+    // stopped requiring a linked wallet, so most senders are strangers
+    // to us. Those payments were filed as "unclaimed" and credited to
+    // nobody until a browser turned up to claim them.
+    //
+    // The amount answers it directly. It was reserved for one account
+    // before the wallet was ever opened, and it carries the quote, so
+    // this path can credit the right person the right number without a
+    // session and without the browser ever coming back.
+    //
+    // Read outside the transaction on purpose: reads inside one must
+    // all precede its writes, and this is two lookups. It is safe
+    // because payments/{signature} is the thing that actually decides,
+    // and it is re-read inside the transaction below.
+    const lamports = Math.round(transfer.amount);
+    const blockTimeMs = (ev.timestamp || 0) * 1000;
+    const owned = await intentForAmount(lamports, blockTimeMs).catch(() => null);
+
+    const outcome = await db.runTransaction(async (tx) => {
       const existing = await tx.get(payRef);
-      if (existing.exists) return; // idempotency: already processed
+      // Attributed already — by a browser claim, or by an earlier
+      // delivery of this same webhook. An UNATTRIBUTED record is not
+      // done: it is a payment waiting for exactly this.
+      if (existing.exists && existing.data()?.accountId) return;
 
       const sender = transfer.fromUserAccount;
+
+      // The reserved amount wins over everything below it. It is the
+      // only route that knows both who paid and what they were
+      // promised.
+      if (owned) {
+        const e = owned.entry;
+        const userRef = db.collection("users").doc(owned.accountId);
+        const userSnap = await tx.get(userRef);
+        if (userSnap.exists) {
+          tx.update(userRef, { credits: (userSnap.data().credits || 0) + e.credits });
+          tx.set(payRef, {
+            accountId: owned.accountId, userId: owned.accountId,
+            wallet: sender, amountSol: lamports / 1e9, sol: lamports / 1e9,
+            usd: +(e.usd || 0).toFixed(2), solUsdRate: e.rate ?? rate,
+            discount: e.discount || 0,
+            packId: e.packId, creditsGranted: e.credits,
+            status: "credited", via: "webhook", priced: "quoted", ts: Date.now(),
+          });
+          return "quoted";
+        }
+      }
       // Pricing lives in lib/packs.js so the page and the payout can
       // never disagree. Off-tier amounts are credited at the best rate
       // they qualify for — see the note there.
@@ -146,6 +213,15 @@ export async function POST(req) {
         status: "credited", via: "webhook", ts: Date.now(),
       });
     });
+
+    // Spend the reserved amount, so the same number cannot identify a
+    // later payment. After the transaction and best-effort, exactly as
+    // in /api/pay/claim: what actually prevents a double credit is
+    // payments/{signature}, and failing here can only leave a used
+    // number matchable, which that catches.
+    if (outcome === "quoted" && owned) {
+      await consumeIntent(owned.accountId, lamports, sig).catch(() => {});
+    }
 
     results.push(sig);
   }

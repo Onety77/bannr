@@ -258,6 +258,32 @@ const hook = bare(read("app/api/webhooks/helius/route.js"));
 ok(/creditsGranted: 0, creditsQuoted: pack\.credits, status: "unclaimed"/.test(hook),
    "an uncredited payment records zero credits granted");
 
+/* ------------- the webhook can finish the job alone ------------- */
+// It attributed a payment by looking the SENDER up among registered
+// wallets. That was right when paying required a linked wallet, and
+// wrong the moment it stopped — most senders are strangers now, so
+// their payments were filed "unclaimed" and credited to nobody until a
+// browser came back. Asking by AMOUNT needs no session and no browser.
+ok(/intentForAmount\(lamports, blockTimeMs\)/.test(hook), "the webhook asks who reserved this amount");
+ok(/tx\.update\(userRef, \{ credits:/.test(hook), "and credits that account itself");
+ok(/priced: "quoted"/.test(hook), "at the price that was quoted, not one it re-derives");
+{
+  // Order matters: the reserved amount has to be consulted before the
+  // sender rule, or a linked wallet paying for a DIFFERENT account
+  // would be credited to the wrong one.
+  const byAmount = hook.indexOf("intentForAmount(");
+  const bySender = hook.indexOf('array-contains", sender');
+  ok(byAmount > 0 && bySender > byAmount, "and asks that before falling back to the sender");
+}
+// An unattributed record is a payment waiting, not a payment done.
+ok(/existing\.exists && existing\.data\(\)\?\.accountId/.test(hook),
+   "an existing but unattributed record does not stop it crediting");
+ok(/consumeIntent\(owned\.accountId, lamports, sig\)/.test(hook), "a used amount is spent here too");
+// lib/payIntents has to answer without an account, which is the whole
+// reason the amount index is global.
+ok(/export async function intentForAmount/.test(intents), "the amount index answers without a session");
+ok(/collection\(AMOUNTS\)\.doc\(String\(lamports\)\)/.test(intents), "keyed by the amount itself");
+
 /* ------------- checking again cannot mint credits ------------- */
 // The whole safety of a "check now" button, and of sweeping on every
 // visit, rests on this: the claim keys on the signature.
