@@ -11,6 +11,7 @@ import AdminToken from "@/components/AdminToken";
 import AdminFeed from "@/components/AdminFeed";
 import AdminFunnel from "@/components/AdminFunnel";
 import AdminBuybacks from "@/components/AdminBuybacks";
+import AdminUnclaimed from "@/components/AdminUnclaimed";
 import AdminGrant from "@/components/AdminGrant";
 import AdminTierGrant from "@/components/AdminTierGrant";
 import AttachCa from "@/components/AttachCa";
@@ -413,6 +414,9 @@ export default function AdminPage() {
       {tab === "money" && (
         <div className="swap" key="money">
           <AdminBuybacks user={user} />
+          {/* Above Give credits, because it is the reason to use it.
+              Renders nothing at all when there is nothing owed. */}
+          <AdminUnclaimed user={user} />
           <AdminGrant user={user} />
           {/* Below Give credits, and separate from it. A balance and a
               standing are two different ladders, and one form that
