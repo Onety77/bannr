@@ -1,32 +1,70 @@
-// GET /api/solana/find?reference=… — has the transfer request been paid?
+// GET /api/solana/find?since=… — has this account's payment landed?
 //
 // A transfer request gives us no redirect and no signature: the wallet
 // builds, signs and sends the transaction on its own, and the browser
-// never sees any of it. What we do have is the REFERENCE — 32 bytes we
-// generated and attached to the request as a read-only account key —
-// and an account key is searchable. getSignaturesForAddress on it
-// returns the transaction the moment it lands.
+// never sees any of it. So the payment has to be found on the chain.
 //
-// This route only turns a reference into a signature. Whether that
-// signature actually paid bannr, for how much, and for whose account,
-// is decided by /api/pay/claim reading the transaction back off the
-// chain. Nothing here grants anything.
+// ══ IT LOOKS AT THE TREASURY, NOT AT THE REFERENCE ══
+//
+// Solana Pay's own answer is the `reference` — 32 bytes attached to
+// the request as a read-only account key, then searched for with
+// getSignaturesForAddress. It is still attached, and on a node that
+// indexes it this would work.
+//
+// Ours does not. Measured, after a real payment landed and the page
+// waited for it forever: asked about the reference our node returns
+// ZERO rows, while asked about the treasury it returns that exact
+// transaction. Read-only marker accounts are simply not in its index —
+// which is a property of the provider, not of the payment, and not
+// something a retry or a longer wait was ever going to fix.
+//
+// The treasury is indexed, because it holds money and is written to.
+// So the question is turned around: instead of "where did this
+// reference go", it asks "has anything paid the treasury for THIS
+// account since I started watching".
+//
+// ══ THE MEMO COMES BACK FOR FREE ══
+//
+// getSignaturesForAddress returns each row's memo inline, so matching
+// costs no extra call — no getTransaction per candidate, one request
+// per poll however busy the treasury gets.
+//
+// The account id is taken from the SESSION COOKIE, never from the
+// query string. Otherwise anyone could ask "has account X paid" and be
+// handed a signature to claim.
+//
+// This route decides nothing about money. Whether that signature
+// really paid, how much, and for whom is settled by /api/pay/claim
+// reading the transaction back off the chain.
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PUBLIC_FALLBACK = "https://api.mainnet-beta.solana.com";
 
+// Far enough back to cover a slow approval, a phone call in the middle
+// and the walk back to the browser; not so far that yesterday's
+// payment is re-offered to today's watcher. Matches the 30 minutes
+// lib/solanaPay.js keeps a pending attempt for.
+const MAX_WINDOW_MS = 35 * 60 * 1000;
+
 export async function GET(req) {
-  const reference = (req.nextUrl.searchParams.get("reference") || "").trim();
-  // Base58, 32 bytes, which lands between 32 and 44 characters. Refused
-  // rather than passed on: an address the node cannot parse is an error
-  // that would surface as "couldn't reach the network".
-  if (!reference || reference.length < 32 || reference.length > 44 ||
-      /[^1-9A-HJ-NP-Za-km-z]/.test(reference)) {
-    return NextResponse.json({ error: "That payment reference wasn't readable." }, { status: 400 });
+  const session = requireUser(req);
+  if (!session?.accountId) {
+    return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
+  const treasury = process.env.NEXT_PUBLIC_TREASURY_WALLET;
+  if (!treasury) {
+    return NextResponse.json({ error: "Payments aren't switched on yet." }, { status: 503 });
+  }
+
+  // When the watch started, so a payment from an earlier attempt is not
+  // handed back as if it were this one. Clamped rather than trusted.
+  const asked = Number(req.nextUrl.searchParams.get("since")) || 0;
+  const floor = Date.now() - MAX_WINDOW_MS;
+  const since = Math.max(asked, floor);
 
   const rpc = process.env.HELIUS_RPC_URL || PUBLIC_FALLBACK;
   try {
@@ -37,33 +75,36 @@ export async function GET(req) {
         jsonrpc: "2.0",
         id: "bannr",
         method: "getSignaturesForAddress",
-        // A reference is used once, so there is never a second page to
-        // walk. "confirmed" rather than "finalized" because the claim
-        // that follows reads at confirmed too, and waiting for
-        // finality here would add half a minute to every purchase.
-        params: [reference, { limit: 10, commitment: "confirmed" }],
+        // Enough to see past other people paying at the same moment.
+        // "confirmed" rather than "finalized" because the claim that
+        // follows reads at confirmed too, and waiting for finality
+        // would add half a minute to every purchase.
+        params: [treasury, { limit: 50, commitment: "confirmed" }],
       }),
     });
     const data = await res.json();
     if (data?.error) throw new Error(data.error.message || "rpc error");
 
     const rows = Array.isArray(data?.result) ? data.result : [];
-    // The node returns newest first, so pop() takes the OLDEST — and a
-    // reference is generated per attempt, so the oldest success is the
-    // payment itself rather than anything that touched the key after.
-    // Failed transactions are skipped: a rejected one leaves a row and
-    // handing that to the claim would report a payment that never was.
-    const hit = rows.filter((r) => r?.signature && !r.err).pop();
+    const hit = rows.find(
+      (r) =>
+        r?.signature &&
+        // A rejected transaction still leaves a row. Reporting one as a
+        // payment would send the claim looking for money that never
+        // moved.
+        !r.err &&
+        (r.blockTime || 0) * 1000 >= since &&
+        // The node prefixes the memo with its length — "[22] acct_x" —
+        // so this looks for the id inside rather than equal to it.
+        typeof r.memo === "string" &&
+        r.memo.includes(session.accountId)
+    );
 
-    // `node` and `rows` are diagnostics, and they are here because a
-    // payment that had LANDED read as pending forever and there was no
-    // way to tell from outside whether the lookup was answering from
-    // Helius or from the public fallback, nor whether it had seen the
-    // transaction and rejected it or never seen it at all. Neither
-    // value says anything secret — no key, no URL, just which of two
-    // known nodes replied and how many rows it gave.
+    // `node` and `rows` stay: a payment that had landed once read as
+    // pending forever, and from outside there was no way to tell
+    // whether the lookup had seen the transaction and rejected it or
+    // never seen it at all. Neither value is secret.
     const node = process.env.HELIUS_RPC_URL ? "helius" : "public";
-
     if (!hit) {
       return NextResponse.json({ ok: true, pending: true, node, rows: rows.length }, { status: 200 });
     }

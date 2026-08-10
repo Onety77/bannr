@@ -135,13 +135,32 @@ ok(!/buildTreasuryTx/.test(credits), "no transaction is built for the phone path
 ok(!/startWalletDeeplink\("buy"/.test(credits), "and no wallet flow is started to pay");
 
 /* ---------------- finding it on the chain ---------------- */
+// ══ THE TREASURY, NOT THE REFERENCE ══
+//
+// Solana Pay says to search for the reference. Our RPC provider does
+// not index read-only marker accounts, which is exactly what a
+// reference is — measured after a real payment landed and the page
+// waited for it forever: asked about the reference the node returns
+// ZERO rows, asked about the treasury it returns that same
+// transaction. No retry and no longer wait was going to fix that.
 const find = bare(read("app/api/solana/find/route.js"));
-ok(/getSignaturesForAddress/.test(find), "the payment is found by its reference");
-ok(/limit: 10, commitment: "confirmed"/.test(find), "at confirmed, since the claim reads at confirmed too");
-// A rejected transaction still leaves a row against the reference.
-// Handing that to the claim would report a payment that never was.
+ok(/getSignaturesForAddress/.test(find), "the payment is found on the chain");
+ok(/NEXT_PUBLIC_TREASURY_WALLET/.test(find), "by watching the treasury, which the node does index");
+ok(!/searchParams\.get\("reference"\)/.test(find), "and not by the reference, which it does not");
+ok(/commitment: "confirmed"/.test(find), "at confirmed, since the claim reads at confirmed too");
+// The memo is what ties a payment to an account, and the node returns
+// it inline — so matching costs no extra call per candidate.
+ok(/r\.memo\.includes\(session\.accountId\)/.test(find), "matched by the memo that names the account");
+ok(/requireUser\(req\)/.test(find), "whose id comes from the session cookie");
+ok(!/searchParams\.get\("accountId"\)/.test(find),
+   "never from the query string, or anyone could ask whether anyone had paid");
+// A rejected transaction still leaves a row. Reporting one as a
+// payment would send the claim looking for money that never moved.
 ok(/!r\.err/.test(find), "failed transactions are skipped, not reported as payments");
-ok(/\.pop\(\)/.test(find), "and the oldest success is taken, not the latest thing to touch the key");
+// Without a floor, an abandoned attempt from an hour ago would be
+// handed to today's watcher as though it were this purchase.
+ok(/blockTime \|\| 0\) \* 1000 >= since/.test(find), "and only payments made since the watch began");
+ok(/Math\.max\(asked, floor\)/.test(find), "with a window the client cannot widen");
 
 /* ---------------- the poll that never polled ---------------- */
 // 202 sits inside the 200-299 band that makes Response.ok true, so

@@ -137,8 +137,11 @@ export default function CreditsPage() {
           accountId: auth.user.accountId,
           message: `${pack.credits} credits`,
         });
-        savePending({ reference, packId: pack.id, sol: pack.sol });
-        setWatching({ reference, pack });
+        // `since` bounds the search so an earlier payment from a
+        // previous attempt is never handed back as if it were this one.
+        const since = Date.now();
+        savePending({ reference, packId: pack.id, sol: pack.sol, since });
+        setWatching({ since, pack });
         window.location.href = url;
       } catch (e) {
         setErr(e?.message || "Couldn't open your wallet app.");
@@ -181,7 +184,7 @@ export default function CreditsPage() {
     const p = readPending();
     if (!p) return;
     const pack = packs.find((x) => x.id === p.packId) || null;
-    setWatching({ reference: p.reference, pack });
+    setWatching({ since: p.since || p.at || 0, pack });
   }, [packs, watching]);
 
   // ══ THE PAYMENT ARRIVES ON THE CHAIN, NOT IN THE BROWSER ══
@@ -199,7 +202,7 @@ export default function CreditsPage() {
   // person reading a warning about their own money — was never ours
   // to hurry.
   useEffect(() => {
-    if (!watching?.reference || claiming) return;
+    if (!watching?.since || claiming) return;
     let live = true;
     let tries = 0;
 
@@ -215,7 +218,7 @@ export default function CreditsPage() {
       tries += 1;
       try {
         const r = await fetch(
-          `/api/solana/find?reference=${encodeURIComponent(watching.reference)}`,
+          `/api/solana/find?since=${encodeURIComponent(watching.since)}`,
           { cache: "no-store" }
         );
         const d = await r.json();
