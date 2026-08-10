@@ -55,8 +55,19 @@ export async function GET(req) {
     // handing that to the claim would report a payment that never was.
     const hit = rows.filter((r) => r?.signature && !r.err).pop();
 
-    if (!hit) return NextResponse.json({ ok: true, pending: true }, { status: 200 });
-    return NextResponse.json({ ok: true, signature: hit.signature });
+    // `node` and `rows` are diagnostics, and they are here because a
+    // payment that had LANDED read as pending forever and there was no
+    // way to tell from outside whether the lookup was answering from
+    // Helius or from the public fallback, nor whether it had seen the
+    // transaction and rejected it or never seen it at all. Neither
+    // value says anything secret — no key, no URL, just which of two
+    // known nodes replied and how many rows it gave.
+    const node = process.env.HELIUS_RPC_URL ? "helius" : "public";
+
+    if (!hit) {
+      return NextResponse.json({ ok: true, pending: true, node, rows: rows.length }, { status: 200 });
+    }
+    return NextResponse.json({ ok: true, signature: hit.signature, node });
   } catch (e) {
     console.error("[find]", e.message);
     return NextResponse.json(
