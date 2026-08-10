@@ -322,15 +322,28 @@ ok(!/checkingPay|setCheckingPay|sweep\(true\)/.test(credits),
 // bury the page in messages.
 ok(/const sweep = useCallback\(async \(\)/.test(credits), "automatic confirmation stays silent and focused");
 
-// ══ AND THE PANEL HAS TO BE REACHABLE ══
+// ══ AND NO PANEL AT ALL ══
 //
-// It used to appear only while the BROWSER still remembered the
-// attempt, which expires in half an hour. Someone who paid, closed the
-// tab and came back later saw an ordinary credits page with no sign
-// anything was owed and nothing to press. The server knows what is
-// outstanding for a full day, so the server decides.
-ok(/if \(d\?\.watching > 0\) setWatching\(\(w\) => w \|\| \{ pack: null \}\)/.test(credits),
-   "an outstanding amount opens the panel even with nothing remembered locally");
+// There was one: "Waiting", a paragraph promising the credits would
+// arrive on their own, and a button to dismiss it. It described
+// machinery. The balance at the top of the page already answers the
+// only question anyone has, and it updates when the payment lands.
+ok(!/wcont-step">Waiting/.test(credits), "nothing announces that a payment is in progress");
+ok(!/Stop waiting|Check now/.test(credits), "and there is nothing to dismiss or press");
+
+// ══ BUT THE POLL MUST NOT RUN FOR EVERYONE ══
+//
+// An amount is reserved for EVERY pack the moment this page prices
+// itself, so "the server says something is outstanding" is true for
+// anyone who merely opened the page. Polling on that alone would have
+// every visitor asking every two seconds for half an hour having
+// bought nothing. The local flag is written when a wallet is actually
+// opened, and it is the only thing that tells looking from buying.
+ok(/const started = Boolean\(readPending\(\)\)/.test(credits), "polling starts only after a wallet was opened");
+ok(/if \(started\) timer = setInterval\(tick, 2000\)/.test(credits), "and only then is a timer set");
+// The single look still happens for everyone, because a payment may
+// have landed while the tab was shut.
+ok(/tick\(\);\n    if \(started\)/.test(credits), "while every visit still checks once");
 
 // Paying by hand was taken back out. It was a workaround for the
 // wallet not carrying a memo, and the amount solves that properly for

@@ -132,7 +132,14 @@ console.log("\n5. THE SECOND WALLET PROMPT IS ANNOUNCED BEFORE THE FIRST TAP");
       const lines = (bare(msg).match(/^\s*"[^"]*",?$/gm) || []).length;
       ok(lines <= 5, "kept short — a long message in a wallet sheet reads as fine print (" + lines + " lines)");
     }
-    ok(CR.includes("${watching.pack.credits} credits for ${watching.pack.sol} SOL"), "the payment states the deal and stops");
+    // The waiting panel is gone. It announced "Waiting", explained
+    // that credits would arrive on their own, and offered a button to
+    // dismiss itself — all of it describing machinery rather than
+    // anything anyone could act on. The balance at the top of the page
+    // is the answer to "did it work", and the only line worth printing
+    // is the one that says it worked.
+    ok(!/wcont-step">Waiting/.test(CR), "no panel narrating that a payment is in progress");
+    ok(CR.includes("${out.credits} credits added. Thank you."), "the payment states the deal and stops");
   }
 }
 

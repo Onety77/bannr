@@ -62,10 +62,6 @@ export default function CreditsPage() {
   // would climbing buy me", which is a question you only ask once.
   const [openLadder, setOpenLadder] = useState(false);
   const [claiming, setClaiming] = useState(false);
-  // A transfer request that has been opened in a wallet and not yet
-  // seen on chain. Nothing comes back through the browser, so it is
-  // found on chain by the amount reserved for this account.
-  const [watching, setWatching] = useState(null);
   const auth = useAuth();
   const wallet = useWallet();
   // No test mode any more. It existed so credits could be topped up
@@ -141,8 +137,11 @@ export default function CreditsPage() {
           sol: pack.sol,
           message: `${pack.credits} credits`,
         });
+        // Written down before leaving, because this tab may be
+        // discarded while the wallet is open. Nothing is shown for it:
+        // the poll below picks it up on return and the balance at the
+        // top of the page is the answer.
         savePending({ packId: pack.id, sol: pack.sol });
-        setWatching({ pack });
         window.location.href = url;
       } catch (e) {
         setErr(e?.message || "Couldn't open your wallet app.");
@@ -190,8 +189,9 @@ export default function CreditsPage() {
   // /api/pay/claim keys on payments/{signature}, so a second attempt
   // returns "already" and grants nothing.
   //
-  // Returns the response so callers can act on `watching`, which is how
-  // many amounts this account still owes.
+  // Returns the response, so the caller can tell "credited" from
+  // "nothing yet" and stop polling once there is nothing left to wait
+  // for.
   //
   // DECLARED ABOVE THE EFFECTS THAT CALL IT. const does not hoist, and
   // a hook reading it from further up throws at render — which is what
@@ -222,84 +222,57 @@ export default function CreditsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ══ PICK THE WATCH BACK UP ON LOAD ══
+  // ══ IT WATCHES, IT DOES NOT NARRATE ══
   //
-  // Opening a `solana:` URL switches apps, and iOS may discard the tab
-  // behind it. So a page that finds a saved attempt resumes watching,
-  // whether it was backgrounded for ten seconds or reloaded from
-  // nothing.
-  useEffect(() => {
-    if (watching || !packs.length) return;
-    const p = readPending();
-    if (!p) return;
-    setWatching({ pack: packs.find((x) => x.id === p.packId) || null });
-  }, [packs, watching]);
-
-  // ══ ONE LOOK ON EVERY VISIT, WHETHER OR NOT ANYONE IS WAITING ══
+  // There was a panel here — "Waiting", a paragraph explaining that
+  // credits would arrive on their own, and a button to dismiss it. All
+  // of it described machinery rather than telling anyone anything they
+  // could act on. The payment lands by itself; the balance at the top
+  // of this page is the only answer to "did it work", and it updates
+  // when it does.
   //
-  // Stopping the wait must not be able to cost someone their money.
-  // The amounts this account owes are reserved SERVER-side and live for
-  // a day, so a payment that arrived after the tab was closed — or
-  // while the phone was asleep, or during a failed poll — is still
-  // sitting there to be found. Opening the credits page at any point in
-  // the next twenty-four hours finds it and credits it.
-  //
-  // Costs one request per visit, and it is the difference between "we
-  // lost your payment" and "it turned up".
-  // It also decides whether the panel is on screen at all. It used to
-  // appear only while the browser still remembered the attempt, which
-  // expired in half an hour — so someone who paid, closed the tab and
-  // came back later saw a normal credits page with no sign that
-  // anything was owed and nothing to press. The SERVER knows what is
-  // outstanding for a day; that is what should decide.
+  // So the watching stayed and the panel went. What is left is
+  // invisible until it has something to say, which is the credits
+  // arriving.
   useEffect(() => {
     if (!auth.user?.accountId) return;
     let live = true;
-    (async () => {
-      const d = await sweep();
-      if (!live) return;
-      if (d?.credited) { setWatching(null); return; }
-      if (d?.watching > 0) setWatching((w) => w || { pack: null });
-    })();
-    return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.user?.accountId]);
-
-  // ══ THE PAYMENT ARRIVES ON THE CHAIN, NOT IN THE BROWSER ══
-  //
-  // A transfer request gives no redirect and no signature — the wallet
-  // builds and sends on its own, and Phantom strips the memo and the
-  // reference on the way. So it is recognised by its exact amount,
-  // reserved for this account before the wallet was opened. See
-  // lib/payIntents.js.
-  //
-  // No deadline anywhere in here. The old flow had sixty seconds from
-  // building a transaction to broadcasting it, and the part in the
-  // middle — a person reading a warning about their own money — was
-  // never ours to hurry.
-  useEffect(() => {
-    if (!watching || claiming) return;
-    let live = true;
     let tries = 0;
+    let timer = null;
+
+    // ══ WHY THE LOCAL FLAG STILL EARNS ITS PLACE ══
+    //
+    // The obvious version polls while the server says something is
+    // outstanding. It cannot: an amount is reserved for EVERY pack the
+    // moment this page prices itself, so "something outstanding" is
+    // true for anyone who merely opened the page, and every visitor
+    // would poll every two seconds for half an hour having bought
+    // nothing.
+    //
+    // savePending is written when a wallet is actually opened. That is
+    // the only thing that distinguishes looking from buying.
+    const started = Boolean(readPending());
 
     const tick = async () => {
       if (!live) return;
-      tries += 1;
       const d = await sweep();
-      if (d?.credited) { if (live) setWatching(null); return; }
-      // Thirty minutes at two seconds, and giving up here costs
-      // nothing: the sweep above runs on the next visit too.
-      if (tries > 900 && live) {
-        clearPending();
-        setWatching(null);
-        setErr("Haven't seen that payment yet. If you approved it, it will be picked up automatically.");
-      }
+      if (!live) return;
+      if (d?.credited) { clearPending(); live = false; clearInterval(timer); return; }
+      // Thirty minutes at two seconds, then stop. Giving up costs
+      // nothing: the single look below runs on every later visit, and
+      // the reservation lives a full day.
+      if ((tries += 1) > 900) { live = false; clearInterval(timer); clearPending(); }
     };
 
-    const id = setInterval(tick, 2000);
-    return () => { live = false; clearInterval(id); };
-  }, [watching, claiming]);
-
+    // One look on arrival regardless, because a payment may have landed
+    // while the tab was closed, the phone asleep, or a poll failing.
+    // Opening this page any time in the next twenty-four hours collects
+    // it, for the cost of a single request.
+    tick();
+    if (started) timer = setInterval(tick, 2000);
+    return () => { live = false; if (timer) clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.user?.accountId]);
 
   // Poll the claim endpoint until the transaction lands. The webhook
   // is still running as a backstop, and both paths write the same
@@ -397,32 +370,6 @@ export default function CreditsPage() {
           back is the user's move — a panel that implied otherwise
           would leave someone sitting in Phantom waiting for a hop
           that is never going to happen. */}
-      {watching && (
-        <div className="wcont page-gap-top">
-          <span className="wcont-lead">
-            <b className="wcont-step">Waiting</b>
-            {watching.pack
-              ? `${watching.pack.credits} credits for ${watching.pack.sol} SOL`
-              : "Approve the payment in your wallet"}
-          </span>
-          {/* Hiding this cannot cost anyone money, and the line above
-              says so rather than leaving it to be guessed: the amount
-              is reserved server-side for a day and swept on every
-              visit, so a payment that lands later is still collected. */}
-          <p className="hint">
-            Approve it in your wallet, then come back here. We&apos;ll add your
-            credits automatically as soon as the transfer confirms.
-          </p>
-          <div className="wcont-row">
-            <button
-              className="btn small"
-              onClick={() => { clearPending(); setWatching(null); setMsg(null); }}
-            >
-              Hide
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* One line, and only when there is one. A discount nobody has
           is not worth a row of chrome. */}
