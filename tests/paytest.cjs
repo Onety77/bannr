@@ -134,6 +134,28 @@ ok(/window\.location\.href = url;/.test(credits), "the page navigates to the req
 ok(!/buildTreasuryTx/.test(credits), "no transaction is built for the phone path at all");
 ok(!/startWalletDeeplink\("buy"/.test(credits), "and no wallet flow is started to pay");
 
+/* ---------------- paying by hand ---------------- */
+// A solana: link is routed by the PHONE to whichever wallet registered
+// the scheme, and the site gets no say in which — which is why there
+// is no "choose your wallet" here: both buttons would build the same
+// URL and the same app would open. The way out is the three fields
+// needed to send it from anywhere.
+ok(/paybox/.test(credits), "the waiting panel offers a manual payment");
+ok(/NEXT_PUBLIC_TREASURY_WALLET/.test(credits), "showing where the money goes");
+ok(/watching\.pack\.sol\} SOL/.test(credits), "the exact amount");
+ok(/auth\.user\?\.accountId/.test(credits), "and the memo that names the account");
+// A base58 address cannot be retyped on a phone. Copying is the only
+// way anyone actually does this.
+ok(/navigator\.clipboard\.writeText/.test(credits), "each field can be copied");
+ok(/document\.execCommand\("copy"\)/.test(credits),
+   "with the old path too, since wallet browsers block the async API");
+// The memo ties the payment to the account. A wallet that cannot set
+// one still works IF it is linked, because the claim falls back to
+// matching the sender — so the prompt to link appears only when there
+// is no wallet on the account at all.
+ok(/\(auth\.user\?\.wallets \|\| \[\]\)\.length === 0/.test(credits),
+   "and linking is only offered to someone with no wallet to fall back on");
+
 /* ---------------- finding it on the chain ---------------- */
 // ══ THE TREASURY, NOT THE REFERENCE ══
 //

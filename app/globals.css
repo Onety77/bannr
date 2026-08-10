@@ -3263,6 +3263,44 @@ textarea::placeholder {
 .wcont .hint { font-size: 11.5px; margin: 0; }
 .wcont-row { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* ============================================================
+   PAYING BY HAND
+   A solana: link goes to whichever wallet the phone registered for
+   the scheme, and the site gets no say in which. When the wrong app
+   opens, or none does, these three fields are the way out.
+   Inset rather than another card: it belongs to the waiting panel
+   above it, and a second bordered box inside a bordered box reads as
+   a separate thing to deal with.
+   ============================================================ */
+.paybox {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 4px; padding: 10px 12px;
+  border-radius: var(--r-sm, 9px);
+  background: color-mix(in srgb, var(--hairline-2) 22%, transparent);
+}
+.paybox-lead {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--muted);
+}
+.payrow { display: flex; align-items: center; gap: 8px; }
+.payrow-label {
+  flex: none; width: 58px;
+  font-size: 11.5px; color: var(--muted);
+}
+/* The address is 44 characters and must not push the Copy button off
+   a narrow screen, so it truncates. Nobody reads it — they copy it. */
+.payrow-value {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12.5px; color: var(--text);
+}
+.payrow-value.mono { font-family: var(--mono); font-size: 11.5px; }
+.paybox-link {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 2px;
+}
+
 
 @media (max-width: 560px) {
   .fcard-actions { gap: 4px; }

@@ -29,8 +29,55 @@ import { setUser } from "@/lib/credits";
 import { useAuth } from "@/lib/useAuth";
 import { useWallet, short } from "@/lib/wallet";
 import { newReference, transferUrl, savePending, readPending, clearPending } from "@/lib/solanaPay";
+import WalletContinue from "@/components/WalletContinue";
 
 const NUM = (n) => (Number(n) || 0).toLocaleString("en-US");
+
+// One field of a payment, with a copy button. Three of them are needed
+// and a phone cannot retype a base58 address, so copying is the only
+// realistic way anyone pays by hand.
+//
+// The textarea fallback is not belt and braces: wallet in-app browsers
+// routinely block navigator.clipboard, and people paying by hand are
+// disproportionately in one. Same approach as components/TokenBar.
+function CopyRow({ label, value, mono = true }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const id = setTimeout(() => setCopied(false), 1600);
+    return () => clearTimeout(id);
+  }, [copied]);
+
+  async function copy() {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(String(value));
+      setCopied(true);
+      return;
+    } catch {}
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = String(value);
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:absolute;left:-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+    } catch {}
+  }
+
+  return (
+    <div className="payrow">
+      <span className="payrow-label">{label}</span>
+      <span className={mono ? "payrow-value mono" : "payrow-value"}>{value}</span>
+      <button className="btn small" onClick={() => copy()}>
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </div>
+  );
+}
 
 // Every row the ladder compares, in the order they matter.
 //
@@ -366,6 +413,53 @@ export default function CreditsPage() {
             Approve it in your wallet, then come back here. Credits land on
             their own — this page is watching for the payment.
           </p>
+          {/* PAYING BY HAND.
+              A solana: link is routed by the phone to whichever wallet
+              registered the scheme, and the site has no say in which.
+              So when the wrong app opens — or none does — these are
+              the three things needed to send it from any wallet at
+              all. Not hidden behind a toggle: someone reading this
+              panel is already stuck. */}
+          {watching.pack && (
+            <div className="paybox">
+              <span className="paybox-lead">Or send it yourself</span>
+              <CopyRow label="To" value={process.env.NEXT_PUBLIC_TREASURY_WALLET} />
+              <CopyRow label="Amount" value={`${watching.pack.sol} SOL`} />
+              <CopyRow label="Memo" value={auth.user?.accountId} />
+              {/* The memo is what ties a payment to an account. A wallet
+                  that cannot set one still works IF it is linked, because
+                  the claim falls back to matching the sender — see
+                  /api/pay/claim. So the prompt to link only appears for
+                  someone who has no wallet on the account at all, which
+                  is the only case where a memo-less payment is stranded. */}
+              {(auth.user?.wallets || []).length === 0 && (
+                <div className="paybox-link">
+                  <p className="hint">
+                    Include the memo, or link the wallet you are paying from.
+                  </p>
+                  {auth.pendingSign ? (
+                    <WalletContinue auth={auth} />
+                  ) : auth.needsDeeplink ? (
+                    <button
+                      className="btn small"
+                      disabled={auth.busy}
+                      onClick={() => auth.startWalletDeeplink("link")}
+                    >
+                      {auth.busy ? "Opening…" : "Link a wallet"}
+                    </button>
+                  ) : auth.walletAvailable ? (
+                    <button
+                      className="btn small"
+                      disabled={auth.busy}
+                      onClick={() => { auth.linkWallet(); }}
+                    >
+                      Link a wallet
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          )}
           <div className="wcont-row">
             <button
               className="btn small"
