@@ -32,6 +32,7 @@ import { creditsForPayment } from "@/lib/packs";
 import { solUsd } from "@/lib/solPrice";
 import { resolveEntitlements } from "@/lib/entitlements";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { matchIntent, consumeIntent } from "@/lib/payIntents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -149,6 +150,11 @@ export async function POST(req) {
   }
 
   const sol = treasuryGain(tx, treasury);
+  // The same figure in lamports, unrounded, because that is what a
+  // payment intent is matched on. Going via `sol` and back would put a
+  // float in the middle of an exact-integer comparison.
+  const lamports = Math.round(sol * LAMPORTS);
+  const blockTimeMs = (tx?.blockTime || 0) * 1000;
   if (sol <= 0) {
     return NextResponse.json({ error: "That transaction didn't pay bannr." }, { status: 400 });
   }
@@ -158,11 +164,27 @@ export async function POST(req) {
   if (memo && memo.trim() !== session.accountId) {
     return NextResponse.json({ error: "That transaction belongs to another account." }, { status: 409 });
   }
+  // ══ NO MEMO IS THE NORMAL CASE NOW, NOT THE ODD ONE ══
+  //
+  // Phantom takes a Solana Pay transfer request and sends a bare
+  // transfer, discarding the memo AND the reference. Read off the
+  // chain, on real purchases: Solflare carries both, Phantom neither.
+  // So a payment arriving with nothing in it that names an account is
+  // not a hand-sent oddity — it is what the biggest wallet does every
+  // time, and refusing it refused most purchases.
+  //
+  // The amount is what names it instead. Those exact lamports were
+  // reserved for this account before the wallet was opened, and an
+  // intent only counts if it was armed BEFORE the money moved — see
+  // lib/payIntents.js.
+  let intent = null;
   if (!memo) {
-    // No memo at all: an old client, or a hand-sent transfer. Fall back
-    // to the sender being a wallet already registered to this account,
-    // which is the pre-existing webhook rule. Anything else waits for
-    // the manual claim flow rather than being handed out on trust.
+    intent = await matchIntent(session.accountId, lamports, blockTimeMs).catch(() => null);
+  }
+  if (!memo && !intent) {
+    // Still nothing: an old client, or a genuinely hand-sent transfer.
+    // Fall back to the sender being a wallet already registered to
+    // this account, which is the pre-existing webhook rule.
     const sender = (tx?.transaction?.message?.accountKeys || [])
       .map((k) => (typeof k === "string" ? k : k?.pubkey))
       .find(Boolean);
@@ -239,6 +261,11 @@ export async function POST(req) {
   }
 
   await grantCredits(session.accountId, pack.credits);
+
+  // Spend the reserved amount, so the same number cannot match a
+  // second payment later. Only after the credits actually landed:
+  // consuming it earlier would strand the payment if the grant threw.
+  if (intent) await consumeIntent(session.accountId, lamports, signature);
 
   // Remember the address so a later hand-sent transfer from the same
   // wallet still finds its way home through the webhook.

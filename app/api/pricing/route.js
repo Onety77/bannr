@@ -25,6 +25,7 @@
 // back to a number. There is no safe default rate; see lib/solPrice.js.
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import { armIntents } from "@/lib/payIntents";
 import { PACKS, priceUsd } from "@/lib/packs";
 import { solUsd, solForUsd } from "@/lib/solPrice";
 import { resolveEntitlements } from "@/lib/entitlements";
@@ -89,11 +90,47 @@ export async function GET(req) {
     };
   });
 
+  // ══ RESERVE THE EXACT AMOUNTS, HERE, BEFORE ANYONE TAPS ══
+  //
+  // A wallet cannot be relied on to carry anything into the
+  // transaction — Phantom discards the memo and the reference from a
+  // transfer request and sends a bare transfer — so the amount is the
+  // only thing left that can name an account. See lib/payIntents.js.
+  //
+  // It happens in THIS route rather than its own because the tap that
+  // opens the wallet may not await anything, so the number has to
+  // already exist by the time a pack is chosen; because this route is
+  // what the page loads first anyway; and because arming anywhere else
+  // risks reserving an amount that disagrees with the price shown one
+  // line above.
+  //
+  // Signed out, nothing is armed. There is no account to bind to, and
+  // the page cannot buy anything in that state either.
+  let payable = packs;
+  if (session?.accountId && rate !== null) {
+    try {
+      const armed = await armIntents(session.accountId, packs);
+      payable = packs.map((p) =>
+        armed[p.id]
+          ? // `sol` becomes the EXACT figure the wallet will be asked
+            // for, so what is displayed, what is approved and what is
+            // matched are one number rather than three.
+            { ...p, sol: armed[p.id] / 1e9, lamports: armed[p.id] }
+          : p
+      );
+    } catch (e) {
+      // Selling at a round number beats not selling. The payment then
+      // needs the memo or a linked wallet to be matched, which is
+      // where this started — degraded, not broken.
+      console.error("[pricing] arm", e.message);
+    }
+  }
+
   return NextResponse.json(
     {
       solUsd: rate,
       generationCost: GENERATION_COST,
-      packs,
+      packs: payable,
       discount,
       // ══ THE LADDER, AND WHY FREE IS PART OF IT ══
       //

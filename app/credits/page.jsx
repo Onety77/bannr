@@ -29,55 +29,8 @@ import { setUser } from "@/lib/credits";
 import { useAuth } from "@/lib/useAuth";
 import { useWallet, short } from "@/lib/wallet";
 import { newReference, transferUrl, savePending, readPending, clearPending } from "@/lib/solanaPay";
-import WalletContinue from "@/components/WalletContinue";
 
 const NUM = (n) => (Number(n) || 0).toLocaleString("en-US");
-
-// One field of a payment, with a copy button. Three of them are needed
-// and a phone cannot retype a base58 address, so copying is the only
-// realistic way anyone pays by hand.
-//
-// The textarea fallback is not belt and braces: wallet in-app browsers
-// routinely block navigator.clipboard, and people paying by hand are
-// disproportionately in one. Same approach as components/TokenBar.
-function CopyRow({ label, value, mono = true }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const id = setTimeout(() => setCopied(false), 1600);
-    return () => clearTimeout(id);
-  }, [copied]);
-
-  async function copy() {
-    if (!value) return;
-    try {
-      await navigator.clipboard.writeText(String(value));
-      setCopied(true);
-      return;
-    } catch {}
-    try {
-      const ta = document.createElement("textarea");
-      ta.value = String(value);
-      ta.setAttribute("readonly", "");
-      ta.style.cssText = "position:absolute;left:-9999px";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      setCopied(true);
-    } catch {}
-  }
-
-  return (
-    <div className="payrow">
-      <span className="payrow-label">{label}</span>
-      <span className={mono ? "payrow-value mono" : "payrow-value"}>{value}</span>
-      <button className="btn small" onClick={() => copy()}>
-        {copied ? "Copied" : "Copy"}
-      </button>
-    </div>
-  );
-}
 
 // Every row the ladder compares, in the order they matter.
 //
@@ -220,90 +173,111 @@ export default function CreditsPage() {
 
   // ---------- the transfer-request half ----------
 
+  // Ask whether any payment this account is owed has landed, and credit
+  // it. Shared by the poll, the visit sweep and the Check now button,
+  // so all three behave identically — a manual check that worked
+  // differently from the automatic one would be a second thing to
+  // debug.
+  //
+  // Crediting twice is impossible however often this runs:
+  // /api/pay/claim keys on payments/{signature}, so a second attempt
+  // returns "already" and grants nothing.
+  //
+  // DECLARED ABOVE THE EFFECTS THAT CALL IT. const does not hoist, and
+  // a hook reading it from further up throws at render — which is what
+  // scripts/check-tdz exists to catch.
+  const sweep = useCallback(async () => {
+    try {
+      const r = await fetch("/api/solana/find", { cache: "no-store" });
+      const d = await r.json();
+      if (!d?.signature) return false;
+      setClaiming(true);
+      setMsg("Payment received. Confirming…");
+      const out = await claim(d.signature);
+      if (out.error) { setErr(out.error); setMsg(null); }
+      else {
+        setUser(out.user);
+        setMsg(out.already ? "That payment was already credited." : `${out.credits} credits added. Thank you.`);
+        clearPending();
+      }
+      setClaiming(false);
+      return !out.error;
+    } catch {
+      // A dropped request while the phone is switching apps is normal.
+      return false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ══ PICK THE WATCH BACK UP ON LOAD ══
   //
   // Opening a `solana:` URL switches apps, and iOS may discard the tab
-  // behind it. So a page that finds a saved reference resumes watching
-  // for it, whether it was backgrounded for ten seconds or reloaded
-  // from nothing.
+  // behind it. So a page that finds a saved attempt resumes watching,
+  // whether it was backgrounded for ten seconds or reloaded from
+  // nothing.
   useEffect(() => {
     if (watching || !packs.length) return;
     const p = readPending();
     if (!p) return;
-    const pack = packs.find((x) => x.id === p.packId) || null;
-    setWatching({ since: p.since || p.at || 0, pack });
+    setWatching({ pack: packs.find((x) => x.id === p.packId) || null });
   }, [packs, watching]);
+
+  // ══ ONE LOOK ON EVERY VISIT, WHETHER OR NOT ANYONE IS WAITING ══
+  //
+  // Stopping the wait must not be able to cost someone their money.
+  // The amounts this account owes are reserved SERVER-side and live for
+  // a day, so a payment that arrived after the tab was closed — or
+  // while the phone was asleep, or during a failed poll — is still
+  // sitting there to be found. Opening the credits page at any point in
+  // the next twenty-four hours finds it and credits it.
+  //
+  // Costs one request per visit, and it is the difference between "we
+  // lost your payment" and "it turned up".
+  useEffect(() => {
+    if (!auth.user?.accountId) return;
+    let live = true;
+    (async () => {
+      const found = await sweep();
+      if (live && found) setWatching(null);
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.user?.accountId]);
 
   // ══ THE PAYMENT ARRIVES ON THE CHAIN, NOT IN THE BROWSER ══
   //
   // A transfer request gives no redirect and no signature — the wallet
-  // builds and sends on its own. What we have is the reference we
-  // attached, which is an account key, and account keys are
-  // searchable. So this asks "has anything referencing this landed
-  // yet" until something has, then hands the signature to the same
-  // claim that every other payment path uses.
+  // builds and sends on its own, and Phantom strips the memo and the
+  // reference on the way. So it is recognised by its exact amount,
+  // reserved for this account before the wallet was opened. See
+  // lib/payIntents.js.
   //
-  // No deadline anywhere in here. That is the entire point of the
-  // rewrite: the old flow had about sixty seconds from building a
-  // transaction to broadcasting it, and the part in the middle — a
-  // person reading a warning about their own money — was never ours
-  // to hurry.
+  // No deadline anywhere in here. The old flow had sixty seconds from
+  // building a transaction to broadcasting it, and the part in the
+  // middle — a person reading a warning about their own money — was
+  // never ours to hurry.
   useEffect(() => {
-    if (!watching?.since || claiming) return;
+    if (!watching || claiming) return;
     let live = true;
     let tries = 0;
-
-    const stop = (patch) => {
-      clearPending();
-      if (!live) return;
-      setWatching(null);
-      if (patch) patch();
-    };
 
     const tick = async () => {
       if (!live) return;
       tries += 1;
-      try {
-        const r = await fetch(
-          `/api/solana/find?since=${encodeURIComponent(watching.since)}`,
-          { cache: "no-store" }
-        );
-        const d = await r.json();
-        if (!live) return;
-
-        if (d.signature) {
-          setClaiming(true);
-          setMsg("Payment received. Confirming…");
-          const out = await claim(d.signature);
-          if (!live) return;
-          if (out.error) { setErr(out.error); setMsg(null); }
-          else {
-            setUser(out.user);
-            setMsg(`${out.credits} credits added. Thank you.`);
-          }
-          setClaiming(false);
-          stop();
-          return;
-        }
-      } catch {
-        // A dropped request while the phone was switching apps is
-        // normal. Keep watching rather than declaring failure.
-      }
-
-      // Thirty minutes at two seconds. Generous on purpose: the cost
-      // of giving up early is someone paying and being told nothing
-      // happened, which is far worse than a page that waits.
-      if (tries > 900) {
-        stop(() => setErr(
-          "Haven't seen that payment yet. If you approved it, your credits will appear on their own."
-        ));
+      if (await sweep()) { if (live) setWatching(null); return; }
+      // Thirty minutes at two seconds, and giving up here costs
+      // nothing: the sweep above runs on the next visit too.
+      if (tries > 900 && live) {
+        clearPending();
+        setWatching(null);
+        setErr("Haven't seen that payment yet. If you approved it, it will be picked up automatically.");
       }
     };
 
     const id = setInterval(tick, 2000);
-    tick();
     return () => { live = false; clearInterval(id); };
   }, [watching, claiming]);
+
 
   // Poll the claim endpoint until the transaction lands. The webhook
   // is still running as a backstop, and both paths write the same
@@ -409,63 +383,28 @@ export default function CreditsPage() {
               ? `${watching.pack.credits} credits for ${watching.pack.sol} SOL`
               : "Approve the payment in your wallet"}
           </span>
+          {/* Stopping used to read as "give up on the money". It never
+              was: the amount is reserved server-side for a day and
+              swept on every visit. Both buttons say so — one checks
+              now, the other says what happens if you do not. */}
           <p className="hint">
             Approve it in your wallet, then come back here. Credits land on
-            their own — this page is watching for the payment.
+            their own, and a payment that arrives later is picked up next
+            time you open this page.
           </p>
-          {/* PAYING BY HAND.
-              A solana: link is routed by the phone to whichever wallet
-              registered the scheme, and the site has no say in which.
-              So when the wrong app opens — or none does — these are
-              the three things needed to send it from any wallet at
-              all. Not hidden behind a toggle: someone reading this
-              panel is already stuck. */}
-          {watching.pack && (
-            <div className="paybox">
-              <span className="paybox-lead">Or send it yourself</span>
-              <CopyRow label="To" value={process.env.NEXT_PUBLIC_TREASURY_WALLET} />
-              <CopyRow label="Amount" value={`${watching.pack.sol} SOL`} />
-              <CopyRow label="Memo" value={auth.user?.accountId} />
-              {/* The memo is what ties a payment to an account. A wallet
-                  that cannot set one still works IF it is linked, because
-                  the claim falls back to matching the sender — see
-                  /api/pay/claim. So the prompt to link only appears for
-                  someone who has no wallet on the account at all, which
-                  is the only case where a memo-less payment is stranded. */}
-              {(auth.user?.wallets || []).length === 0 && (
-                <div className="paybox-link">
-                  <p className="hint">
-                    Include the memo, or link the wallet you are paying from.
-                  </p>
-                  {auth.pendingSign ? (
-                    <WalletContinue auth={auth} />
-                  ) : auth.needsDeeplink ? (
-                    <button
-                      className="btn small"
-                      disabled={auth.busy}
-                      onClick={() => auth.startWalletDeeplink("link")}
-                    >
-                      {auth.busy ? "Opening…" : "Link a wallet"}
-                    </button>
-                  ) : auth.walletAvailable ? (
-                    <button
-                      className="btn small"
-                      disabled={auth.busy}
-                      onClick={() => { auth.linkWallet(); }}
-                    >
-                      Link a wallet
-                    </button>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          )}
           <div className="wcont-row">
+            <button
+              className="btn small primary"
+              disabled={claiming}
+              onClick={() => { setErr(null); sweep(); }}
+            >
+              {claiming ? <span className="spinner" /> : "Check now"}
+            </button>
             <button
               className="btn small"
               onClick={() => { clearPending(); setWatching(null); setMsg(null); }}
             >
-              Stop waiting
+              Hide
             </button>
           </div>
         </div>

@@ -1,54 +1,47 @@
-// GET /api/solana/find?since=… — has this account's payment landed?
+// GET /api/solana/find — has this account's payment landed?
 //
-// A transfer request gives us no redirect and no signature: the wallet
-// builds, signs and sends the transaction on its own, and the browser
-// never sees any of it. So the payment has to be found on the chain.
+// A transfer request gives no redirect and no signature: the wallet
+// builds, signs and sends on its own and the browser never sees it. So
+// the payment has to be recognised on the chain.
 //
-// ══ IT LOOKS AT THE TREASURY, NOT AT THE REFERENCE ══
+// ══ THREE WAYS OF RECOGNISING IT HAVE FAILED ══
 //
-// Solana Pay's own answer is the `reference` — 32 bytes attached to
-// the request as a read-only account key, then searched for with
-// getSignaturesForAddress. It is still attached, and on a node that
-// indexes it this would work.
+// By REFERENCE — Solana Pay's own answer, a key attached to the
+// request. Our RPC provider does not index read-only marker accounts:
+// asked about the reference it returns zero rows while asked about the
+// treasury it returns that exact transaction.
 //
-// Ours does not. Measured, after a real payment landed and the page
-// waited for it forever: asked about the reference our node returns
-// ZERO rows, while asked about the treasury it returns that exact
-// transaction. Read-only marker accounts are simply not in its index —
-// which is a property of the provider, not of the payment, and not
-// something a retry or a longer wait was ever going to fix.
+// By MEMO — worked on Solflare, which carries it. Phantom discards
+// both the memo and the reference and sends a bare transfer, so on
+// Phantom there is nothing in the transaction naming an account at all.
 //
-// The treasury is indexed, because it holds money and is written to.
-// So the question is turned around: instead of "where did this
-// reference go", it asks "has anything paid the treasury for THIS
-// account since I started watching".
+// By SENDER — only works for a wallet already linked, which a
+// first-time buyer has not got.
 //
-// ══ THE MEMO COMES BACK FOR FREE ══
+// ══ SO IT IS RECOGNISED BY ITS AMOUNT ══
 //
-// getSignaturesForAddress returns each row's memo inline, so matching
-// costs no extra call — no getTransaction per candidate, one request
-// per poll however busy the treasury gets.
+// The exact lamports were reserved for this account before the wallet
+// was ever opened — see lib/payIntents.js. A transfer of that number is
+// this account's payment, and it needs nothing whatsoever from the
+// wallet. The account comes from the session cookie, never the query
+// string.
 //
-// The account id is taken from the SESSION COOKIE, never from the
-// query string. Otherwise anyone could ask "has account X paid" and be
-// handed a signature to claim.
-//
-// This route decides nothing about money. Whether that signature
-// really paid, how much, and for whom is settled by /api/pay/claim
-// reading the transaction back off the chain.
+// This route grants nothing. /api/pay/claim reads the transaction back
+// off the chain and decides.
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import { liveIntents } from "@/lib/payIntents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PUBLIC_FALLBACK = "https://api.mainnet-beta.solana.com";
 
-// Far enough back to cover a slow approval, a phone call in the middle
-// and the walk back to the browser; not so far that yesterday's
-// payment is re-offered to today's watcher. Matches the 30 minutes
-// lib/solanaPay.js keeps a pending attempt for.
-const MAX_WINDOW_MS = 35 * 60 * 1000;
+// getSignaturesForAddress does not carry amounts, so a candidate costs
+// one getTransaction. Bounded so a busy treasury cannot turn a poll
+// into a burst of calls; the window means there are normally none or
+// one. Oldest first, so the earliest unclaimed payment is found first.
+const MAX_LOOKUPS = 12;
 
 export async function GET(req) {
   const session = requireUser(req);
@@ -60,55 +53,68 @@ export async function GET(req) {
     return NextResponse.json({ error: "Payments aren't switched on yet." }, { status: 503 });
   }
 
-  // When the watch started, so a payment from an earlier attempt is not
-  // handed back as if it were this one. Clamped rather than trusted.
-  const asked = Number(req.nextUrl.searchParams.get("since")) || 0;
-  const floor = Date.now() - MAX_WINDOW_MS;
-  const since = Math.max(asked, floor);
+  const intents = await liveIntents(session.accountId).catch(() => []);
+  if (!intents.length) {
+    return NextResponse.json({ ok: true, pending: true, watching: 0 }, { status: 200 });
+  }
+  const wanted = new Map(intents.map((e) => [e.lamports, e]));
+  // A minute of slack, because an intent's timestamp is our clock and
+  // blockTime is the cluster's, and they are not the same clock.
+  const earliest = Math.min(...intents.map((e) => e.at)) - 60_000;
 
   const rpc = process.env.HELIUS_RPC_URL || PUBLIC_FALLBACK;
-  try {
+  const call = async (method, params) => {
     const res = await fetch(rpc, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "bannr",
-        method: "getSignaturesForAddress",
-        // Enough to see past other people paying at the same moment.
-        // "confirmed" rather than "finalized" because the claim that
-        // follows reads at confirmed too, and waiting for finality
-        // would add half a minute to every purchase.
-        params: [treasury, { limit: 50, commitment: "confirmed" }],
-      }),
+      body: JSON.stringify({ jsonrpc: "2.0", id: "bannr", method, params }),
     });
     const data = await res.json();
     if (data?.error) throw new Error(data.error.message || "rpc error");
+    return data.result;
+  };
 
-    const rows = Array.isArray(data?.result) ? data.result : [];
-    const hit = rows.find(
-      (r) =>
-        r?.signature &&
-        // A rejected transaction still leaves a row. Reporting one as a
-        // payment would send the claim looking for money that never
-        // moved.
-        !r.err &&
-        (r.blockTime || 0) * 1000 >= since &&
-        // The node prefixes the memo with its length — "[22] acct_x" —
-        // so this looks for the id inside rather than equal to it.
-        typeof r.memo === "string" &&
-        r.memo.includes(session.accountId)
-    );
+  try {
+    const rows = (await call("getSignaturesForAddress", [
+      treasury,
+      { limit: 50, commitment: "confirmed" },
+    ])) || [];
 
-    // `node` and `rows` stay: a payment that had landed once read as
-    // pending forever, and from outside there was no way to tell
-    // whether the lookup had seen the transaction and rejected it or
-    // never seen it at all. Neither value is secret.
-    const node = process.env.HELIUS_RPC_URL ? "helius" : "public";
-    if (!hit) {
-      return NextResponse.json({ ok: true, pending: true, node, rows: rows.length }, { status: 200 });
+    const candidates = rows
+      // A rejected transaction still leaves a row. Chasing one would
+      // send the claim looking for money that never moved.
+      .filter((r) => r?.signature && !r.err && (r.blockTime || 0) * 1000 >= earliest)
+      .reverse()
+      .slice(0, MAX_LOOKUPS);
+
+    for (const row of candidates) {
+      const tx = await call("getTransaction", [
+        row.signature,
+        { encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 0 },
+      ]);
+      if (!tx || tx.meta?.err) continue;
+
+      // What the treasury actually gained, from the balances rather
+      // than by reading instructions. A transfer can arrive in more
+      // than one shape; the balance delta is the same in all of them.
+      const keys = (tx.transaction?.message?.accountKeys || []).map((k) =>
+        typeof k === "string" ? k : k?.pubkey
+      );
+      const i = keys.indexOf(treasury);
+      if (i < 0) continue;
+      const gained = (tx.meta?.postBalances?.[i] || 0) - (tx.meta?.preBalances?.[i] || 0);
+      if (gained <= 0) continue;
+
+      const hit = wanted.get(gained);
+      if (hit) {
+        return NextResponse.json({ ok: true, signature: row.signature, packId: hit.packId });
+      }
     }
-    return NextResponse.json({ ok: true, signature: hit.signature, node });
+
+    return NextResponse.json(
+      { ok: true, pending: true, watching: intents.length, seen: candidates.length },
+      { status: 200 }
+    );
   } catch (e) {
     console.error("[find]", e.message);
     return NextResponse.json(

@@ -134,27 +134,90 @@ ok(/window\.location\.href = url;/.test(credits), "the page navigates to the req
 ok(!/buildTreasuryTx/.test(credits), "no transaction is built for the phone path at all");
 ok(!/startWalletDeeplink\("buy"/.test(credits), "and no wallet flow is started to pay");
 
-/* ---------------- paying by hand ---------------- */
-// A solana: link is routed by the PHONE to whichever wallet registered
-// the scheme, and the site gets no say in which — which is why there
-// is no "choose your wallet" here: both buttons would build the same
-// URL and the same app would open. The way out is the three fields
-// needed to send it from anywhere.
-ok(/paybox/.test(credits), "the waiting panel offers a manual payment");
-ok(/NEXT_PUBLIC_TREASURY_WALLET/.test(credits), "showing where the money goes");
-ok(/watching\.pack\.sol\} SOL/.test(credits), "the exact amount");
-ok(/auth\.user\?\.accountId/.test(credits), "and the memo that names the account");
-// A base58 address cannot be retyped on a phone. Copying is the only
-// way anyone actually does this.
-ok(/navigator\.clipboard\.writeText/.test(credits), "each field can be copied");
-ok(/document\.execCommand\("copy"\)/.test(credits),
-   "with the old path too, since wallet browsers block the async API");
-// The memo ties the payment to the account. A wallet that cannot set
-// one still works IF it is linked, because the claim falls back to
-// matching the sender — so the prompt to link appears only when there
-// is no wallet on the account at all.
-ok(/\(auth\.user\?\.wallets \|\| \[\]\)\.length === 0/.test(credits),
-   "and linking is only offered to someone with no wallet to fall back on");
+/* ------------- the amount IS the identifier ------------- */
+// Everything that used to identify a payment came from the wallet, and
+// the wallet cannot be relied on to send any of it. Read off the chain
+// on real purchases:
+//
+//   Solflare — memo YES, reference YES
+//   Phantom  — memo NO,  reference NO
+//
+// Phantom takes a transfer request and sends a bare transfer. So on the
+// biggest wallet, nothing in the transaction names an account, and both
+// the reference lookup AND the memo check were dead ends.
+//
+// The exact lamports are reserved for the account BEFORE the wallet is
+// opened, and that is what a payment is recognised by.
+const intents = bare(read("lib/payIntents.js"));
+{
+  const I = new Function(
+    intents
+      .replace(/^import[^\n]*$/gm, "")
+      .replace(/^export /gm, "") +
+      "\nreturn { lamportsFor, INTENT_TTL_MS };"
+  )();
+  ok(I.lamportsFor(0.0712) === 71_200_000, "SOL converts to whole lamports");
+  ok(I.lamportsFor(1) === 1e9, "and a whole SOL is a billion of them");
+  ok(I.INTENT_TTL_MS === 24 * 60 * 60 * 1000, "an intent lives a day, so a slow payment is not lost");
+}
+// The tail is what stops two people buying the same pack at the same
+// second from colliding. Chosen by the SERVER: a caller who could name
+// their own amount could name someone else's and take their payment.
+ok(/Math\.floor\(Math\.random\(\) \* TAIL_SPACE\)/.test(intents), "the amount carries a random tail");
+ok(/TAIL_SPACE = 100_000/.test(intents), "big enough that guessing is not a strategy");
+ok(!/req|searchParams|body/.test(intents), "and nothing about it comes from the caller");
+// An intent armed AFTER the money moved could be used to claim a
+// payment that had already landed — someone else's.
+ok(/blockTimeMs >= e\.at - 60_000/.test(intents), "an intent only matches a payment made after it was armed");
+ok(/!e\.signature/.test(intents), "and a spent one never matches again");
+
+// Armed in /api/pricing, because the tap that opens the wallet may not
+// await anything and the number must already exist by then.
+const pricing = bare(read("app/api/pricing/route.js"));
+ok(/armIntents\(session\.accountId, packs\)/.test(pricing), "the amounts are reserved when the page prices itself");
+ok(/session\?\.accountId && rate !== null/.test(pricing), "only for someone signed in, at a rate we trust");
+ok(/lamports: armed\[p\.id\]/.test(pricing), "and the exact figure travels to the page");
+
+// The claim has to accept a payment with no memo, or it refuses most
+// purchases — that was the state of things.
+const claimSrc = bare(read("app/api/pay/claim/route.js"));
+ok(/matchIntent\(session\.accountId, lamports, blockTimeMs\)/.test(claimSrc),
+   "the claim recognises a payment by its reserved amount");
+ok(/if \(!memo && !intent\)/.test(claimSrc), "and only falls back to the sender when there is neither");
+ok(/consumeIntent\(session\.accountId, lamports, signature\)/.test(claimSrc), "a used amount is spent");
+{
+  // Ordering matters: consuming before the credits land would strand
+  // the payment if the grant threw.
+  const g = claimSrc.indexOf("await grantCredits(");
+  const c = claimSrc.indexOf("consumeIntent(session.accountId");
+  ok(g > 0 && c > g, "and spent only after the credits actually landed");
+}
+
+/* ------------- checking again cannot mint credits ------------- */
+// The whole safety of a "check now" button, and of sweeping on every
+// visit, rests on this: the claim keys on the signature.
+ok(/db\.collection\("payments"\)\.doc\(signature\)/.test(claimSrc), "a payment is keyed by its signature");
+ok(/payRef\.create\(/.test(claimSrc), "created, not set, so a second writer throws instead of granting again");
+ok(/already: true/.test(claimSrc), "and a repeat claim answers 'already' rather than crediting");
+{
+  // The poll, the visit sweep and the button all go through one
+  // function. A manual check that behaved differently from the
+  // automatic one would be a second thing to debug.
+  const calls = (credits.match(/\/api\/solana\/find/g) || []).length;
+  ok(calls === 1, `the lookup is called from exactly one place (${calls})`);
+}
+
+/* ------------- stopping must not cost anyone money ------------- */
+ok(/const found = await sweep\(\)/.test(credits), "every visit checks for a payment that landed while away");
+ok(/onClick=\{\(\) => \{ setErr\(null\); sweep\(\); \}\}/.test(credits), "and there is a button to check on demand");
+ok(!/Stop waiting/.test(credits), "the wait no longer reads as giving up on the money");
+
+// Paying by hand was taken back out. It was a workaround for the
+// wallet not carrying a memo, and the amount solves that properly for
+// every wallet — so the panel is one thing again rather than a payment
+// screen with a second payment screen inside it.
+ok(!/paybox|CopyRow|payrow/.test(credits), "no manual payment block");
+ok(!/paybox|payrow/.test(read("app/globals.css")), "and none of its styles left behind");
 
 /* ---------------- finding it on the chain ---------------- */
 // ══ THE TREASURY, NOT THE REFERENCE ══
@@ -170,19 +233,29 @@ ok(/getSignaturesForAddress/.test(find), "the payment is found on the chain");
 ok(/NEXT_PUBLIC_TREASURY_WALLET/.test(find), "by watching the treasury, which the node does index");
 ok(!/searchParams\.get\("reference"\)/.test(find), "and not by the reference, which it does not");
 ok(/commitment: "confirmed"/.test(find), "at confirmed, since the claim reads at confirmed too");
-// The memo is what ties a payment to an account, and the node returns
-// it inline — so matching costs no extra call per candidate.
-ok(/r\.memo\.includes\(session\.accountId\)/.test(find), "matched by the memo that names the account");
+// Not the memo either. That worked on Solflare and never on Phantom,
+// which sends a bare transfer. The reserved amount is the only thing
+// that works on both, because it needs nothing from the wallet.
+ok(/liveIntents\(session\.accountId\)/.test(find), "matched against the amounts reserved for this account");
+ok(!/r\.memo/.test(find), "and not by a memo the wallet may never send");
+// getSignaturesForAddress carries no amounts, so a candidate costs one
+// getTransaction. Bounded, or a busy treasury turns a poll into a
+// burst of calls.
+ok(/postBalances\?\.\[i\] \|\| 0\) - \(tx\.meta\?\.preBalances/.test(find),
+   "reading what the treasury actually gained, from the balances");
+ok(/MAX_LOOKUPS = 12/.test(find), "with the number of lookups per poll bounded");
 ok(/requireUser\(req\)/.test(find), "whose id comes from the session cookie");
 ok(!/searchParams\.get\("accountId"\)/.test(find),
    "never from the query string, or anyone could ask whether anyone had paid");
 // A rejected transaction still leaves a row. Reporting one as a
 // payment would send the claim looking for money that never moved.
 ok(/!r\.err/.test(find), "failed transactions are skipped, not reported as payments");
-// Without a floor, an abandoned attempt from an hour ago would be
-// handed to today's watcher as though it were this purchase.
-ok(/blockTime \|\| 0\) \* 1000 >= since/.test(find), "and only payments made since the watch began");
-ok(/Math\.max\(asked, floor\)/.test(find), "with a window the client cannot widen");
+// The window is derived from when the intents were armed, not from
+// anything the client says — and the clock slack is deliberate,
+// because our timestamp and the cluster's blockTime are two clocks.
+ok(/Math\.min\(\.\.\.intents\.map\(\(e\) => e\.at\)\) - 60_000/.test(find),
+   "searching back only as far as the oldest reserved amount");
+ok(!/searchParams/.test(find), "and taking no part of the window from the caller");
 
 /* ---------------- the poll that never polled ---------------- */
 // 202 sits inside the 200-299 band that makes Response.ok true, so
