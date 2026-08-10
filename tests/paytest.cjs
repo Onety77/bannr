@@ -209,7 +209,7 @@ ok(/already: true/.test(claimSrc), "and a repeat claim answers 'already' rather 
 
 /* ------------- stopping must not cost anyone money ------------- */
 ok(/const d = await sweep\(\)/.test(credits), "every visit checks for a payment that landed while away");
-ok(/onClick=\{\(\) => \{ setErr\(null\); sweep\(true\); \}\}/.test(credits), "and there is a button to check on demand");
+ok(!/Check now/.test(credits), "no manual confirmation button interrupts checkout");
 ok(!/Stop waiting/.test(credits), "the wait no longer reads as giving up on the money");
 
 // ══ A BUTTON THAT ANSWERS ══
@@ -219,17 +219,11 @@ ok(!/Stop waiting/.test(credits), "the wait no longer reads as giving up on the 
 // answer was "not yet" — which is the answer most of the time —
 // changed nothing on screen and was indistinguishable from a dead
 // button. It has its own progress state and it says what it found.
-ok(/const \[checkingPay, setCheckingPay\] = useState\(false\)/.test(credits),
-   "the manual check has its own progress state");
-ok(/disabled=\{claiming \|\| checkingPay\}/.test(credits), "which disables the button while it asks");
-ok(/claiming \|\| checkingPay \? <span className="spinner"/.test(credits), "and spins while it does");
-ok(/if \(loud\) setCheckingPay\(true\)/.test(credits), "set only for the manual path");
-ok(/No payment yet\./.test(credits), "a manual check that finds nothing says so");
-ok(/Nothing outstanding to collect\./.test(credits),
-   "and tells apart 'not landed yet' from 'you owe nothing', which the server knows");
+ok(!/checkingPay|setCheckingPay|sweep\(true\)/.test(credits),
+   "manual checking state and its dead-end action are removed");
 // The background poll runs every two seconds. If it spoke, it would
 // bury the page in messages.
-ok(/const sweep = useCallback\(async \(loud = false\)/.test(credits), "silent by default, so the poll stays quiet");
+ok(/const sweep = useCallback\(async \(\)/.test(credits), "automatic confirmation stays silent and focused");
 
 // ══ AND THE PANEL HAS TO BE REACHABLE ══
 //

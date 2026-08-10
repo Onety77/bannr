@@ -67,7 +67,6 @@ export default function CreditsPage() {
   // the button doing nothing visible whenever the answer was "not yet",
   // which is the answer most of the time and looked exactly like a
   // broken button.
-  const [checkingPay, setCheckingPay] = useState(false);
   // A transfer request that has been opened in a wallet and not yet
   // seen on chain. { reference, pack } — the reference is what finds
   // it, since nothing comes back through the browser.
@@ -202,23 +201,12 @@ export default function CreditsPage() {
   // Returns the response so callers can act on `watching`, which is how
   // many amounts this account still owes. That is the difference
   // between "you have nothing outstanding" and "not landed yet".
-  const sweep = useCallback(async (loud = false) => {
-    if (loud) setCheckingPay(true);
+  const sweep = useCallback(async () => {
     try {
       const r = await fetch("/api/solana/find", { cache: "no-store" });
       const d = await r.json();
 
-      if (!d?.signature) {
-        if (loud) {
-          setMsg(null);
-          setErr(
-            d?.watching
-              ? "No payment yet. If you have just approved it, give it a few seconds."
-              : "Nothing outstanding to collect. Pick a pack to buy credits."
-          );
-        }
-        return d || null;
-      }
+      if (!d?.signature) return d || null;
 
       setClaiming(true);
       setMsg("Payment received. Confirming…");
@@ -232,12 +220,9 @@ export default function CreditsPage() {
       setClaiming(false);
       return out.error ? d : { ...d, credited: true };
     } catch {
-      // A dropped request while the phone is switching apps is normal
-      // and says nothing about the payment.
-      if (loud) setErr("Couldn't check just now. Try again in a moment.");
+      // A dropped request while the phone is switching apps is normal;
+      // automatic confirmation retries on the next pass.
       return null;
-    } finally {
-      if (loud) setCheckingPay(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -430,18 +415,10 @@ export default function CreditsPage() {
               swept on every visit. Both buttons say so — one checks
               now, the other says what happens if you do not. */}
           <p className="hint">
-            Approve it in your wallet, then come back here. Credits land on
-            their own, and a payment that arrives later is picked up next
-            time you open this page.
+            Approve it in your wallet, then come back here. We&apos;ll add your
+            credits automatically as soon as the transfer confirms.
           </p>
           <div className="wcont-row">
-            <button
-              className="btn small primary"
-              disabled={claiming || checkingPay}
-              onClick={() => { setErr(null); sweep(true); }}
-            >
-              {claiming || checkingPay ? <span className="spinner" /> : "Check now"}
-            </button>
             <button
               className="btn small"
               onClick={() => { clearPending(); setWatching(null); setMsg(null); }}
