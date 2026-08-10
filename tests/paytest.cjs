@@ -96,6 +96,95 @@ ok(
   "the credits page looks the pack up by the id that travelled"
 );
 
+/* ------------- Phantom retired signAndSendTransaction ------------- */
+// It was deprecated in July 2025 and has since been switched off. The
+// app-hop came back with the wallet's own "method not supported" AFTER
+// the user approved — the worst place in the flow to fail, because it
+// reads as a payment gone wrong rather than as us asking for the wrong
+// thing. signTransaction is the replacement: same payload, but the
+// wallet hands the signed bytes BACK and submitting them is ours.
+const dlsrc = bare(read("lib/deeplink.js"));
+ok(!/signAndSendTransaction/.test(dlsrc), "the deeplink no longer calls the retired method");
+ok(/\/signTransaction\?/.test(dlsrc), "it hops to signTransaction instead");
+ok(/type: "signed"/.test(dlsrc), "and reports signed bytes, not a signature");
+
+const resumeSrc = bare(read("lib/walletResume.js"));
+ok(/result\.type === "signed"/.test(resumeSrc), "the resume expects signed bytes");
+ok(/\/api\/solana\/send/.test(resumeSrc), "and broadcasts them, since the wallet no longer does");
+
+/* ---------- the first hop that always failed ---------- */
+// A stored session outlives the wallet's willingness to honour it. The
+// one-tap path checked only that the CHALLENGE was fresh, so someone
+// returning the next day spent a hop being refused and was told the
+// connection had gone stale — every time, with the second attempt
+// working because the failure cleared the session on its way out.
+ok(/connectedAt: String\(Date\.now\(\)\)/.test(dlsrc), "a session records when it was established");
+ok(/connectedAt: Number\(getState/.test(dlsrc), "and hands that back with the session");
+ok(/connectedAt: null/.test(dlsrc), "and it is cleared with everything else on disconnect");
+ok(
+  /session\.connectedAt \|\| 0\) < SESSION_TRUST_MS/.test(auth),
+  "the one-tap path is only taken on a session recent enough to bet a hop on"
+);
+ok(/&&\s*fresh\s*&&/.test(auth), "and that check actually gates it");
+
+/* ---- the signature is derived from the bytes, and must be right ---- */
+// A transaction's id IS its first signature, so it is knowable before
+// broadcasting and survives the same bytes being submitted twice —
+// which is what turns "already been processed" into a success rather
+// than a dead end.
+//
+// This is the assertion that matters: a wrong offset yields a
+// plausible-looking signature for a transaction that was never on
+// chain, and the claim poll would then wait for it forever. So it is
+// checked against a REAL signed transaction rather than a fixture.
+const bs58lib = require(R + "node_modules/bs58");
+const B58 = bs58lib.default || bs58lib;
+const web3 = require(R + "node_modules/@solana/web3.js");
+
+const routeSrc = read("app/api/solana/send/route.js")
+  .replace(/^import[^\n]*$/gm, "")
+  .replace(/^export /gm, "");
+const { firstSignature } = new Function(
+  "bs58",
+  routeSrc + "\nreturn { firstSignature };"
+)(B58);
+
+const payer = web3.Keypair.generate();
+const tx = new web3.Transaction().add(
+  web3.SystemProgram.transfer({
+    fromPubkey: payer.publicKey,
+    toPubkey: web3.Keypair.generate().publicKey,
+    lamports: 1_000_000,
+  }),
+  new web3.TransactionInstruction({
+    keys: [],
+    programId: new web3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+    data: new TextEncoder().encode("acct_123"),
+  })
+);
+tx.feePayer = payer.publicKey;
+// A real blockhash is not needed to sign, only a syntactically valid
+// one — nothing here touches the network.
+tx.recentBlockhash = B58.encode(web3.Keypair.generate().publicKey.toBytes());
+tx.sign(payer);
+
+const wire = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+const derived = firstSignature(new Uint8Array(wire));
+const actual = B58.encode(new Uint8Array(tx.signature));
+ok(derived === actual, "the derived id matches the transaction's real signature");
+ok(
+  derived === B58.encode(new Uint8Array(tx.signatures[0].signature)),
+  "and matches the first entry in the signature list"
+);
+
+// Truncated and empty inputs must throw rather than return something
+// that looks like an id.
+let threw = 0;
+for (const junk of [new Uint8Array([1, 2, 3]), new Uint8Array([0]), new Uint8Array(0)]) {
+  try { firstSignature(junk); } catch { threw += 1; }
+}
+ok(threw === 3, "malformed transactions are refused, not guessed at");
+
 // "all green" exactly — tests/run.cjs greps for it, so a file that
 // passes every assertion and says anything else still reports FAIL.
 console.log(bad ? `\n${bad} FAILED\n` : "\nall green\n");

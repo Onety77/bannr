@@ -359,7 +359,11 @@ console.log("\n7a. THE GESTURE RULE — WHY THE FIRST VERSION LANDED ON A DOWNLO
   const pay = A.slice(A.indexOf("const payWithDeeplink"), A.indexOf("const finishFlow"));
   ok(!/^\s*const payWithDeeplink = useCallback\(async/m.test(A), "payWithDeeplink is not async either");
   ok(!/await|fetch\(|import\(/.test(bare(pay)), "and awaits nothing before handing the transaction over");
-  ok(pay.includes("mods.DeepLink.signAndSendTransaction("), "it just goes");
+  // signTransaction since Phantom retired signAndSendTransaction —
+  // see tests/paytest.cjs. The gesture rule is unchanged by that: the
+  // navigation still has to happen inside the tap, and broadcasting
+  // now happens later, on the way back, where an await is free.
+  ok(pay.includes("mods.DeepLink.signTransaction("), "it just goes");
   {
     const CR = read("app/credits/page.jsx");
     ok(CR.includes('auth.startWalletDeeplink("buy", "phantom", { packId: pack.id });'),
