@@ -22,6 +22,7 @@ import { aiEnabled, editImage } from "@/lib/openai";
 import { publicError, isPolicyError } from "@/lib/errors";
 import { recordRefusal } from "@/lib/refusals";
 import { requireUser } from "@/lib/auth";
+import { rateLimit } from "@/lib/rateLimit";
 import { consumeEdit, refundCredits, getUser, publicUser, EDIT_COST } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -39,14 +40,11 @@ const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_REFS = 5;
 
 
-const hits = new Map();
-function rateLimited(ip) {
-  const now = Date.now();
-  const arr = (hits.get(ip) || []).filter((t) => now - t < 60_000);
-  arr.push(now);
-  hits.set(ip, arr);
-  return arr.length > 10;
-}
+// Shared across instances and across deploys — see lib/rateLimit.
+// The map that used to live here counted per serverless instance,
+// so the real ceiling was this number times however many were
+// running, and every deploy reset it to zero.
+const RATE = { limit: 10, windowMs: 60_000 };
 
 export async function POST(req) {
   // Hoisted so the catch can record what was actually asked for.
@@ -64,8 +62,12 @@ export async function POST(req) {
         { status: 401 }
       );
     }
-    if (rateLimited(session.accountId)) {
-      return NextResponse.json({ error: "Slow down — too many edits in one minute." }, { status: 429 });
+    const rl = await rateLimit("edit", session.accountId, RATE);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Slow down — too many edits in one minute." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+      );
     }
 
     if (!aiEnabled()) {

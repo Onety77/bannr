@@ -27,6 +27,7 @@ import { buildPfpPrompt, PFP_SIZE, PFP_MAX, PFP_COST, PFP_TEXT_MAX, PFP_WANTS_MA
 import { publicError } from "@/lib/errors";
 import { recordRefusal } from "@/lib/refusals";
 import { requireUser } from "@/lib/auth";
+import { rateLimit } from "@/lib/rateLimit";
 import { spendCredits, refundCredits, getUser } from "@/lib/users";
 import { bump } from "@/lib/stats";
 
@@ -42,14 +43,11 @@ export const maxDuration = 120;
 const MAX_BYTES = 4 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
-const hits = new Map();
-function rateLimited(id) {
-  const now = Date.now();
-  const arr = (hits.get(id) || []).filter((t) => now - t < 60_000);
-  arr.push(now);
-  hits.set(id, arr);
-  return arr.length > 8;
-}
+// Shared across instances and across deploys — see lib/rateLimit.
+// The map that used to live here counted per serverless instance,
+// so the real ceiling was this number times however many were
+// running, and every deploy reset it to zero.
+const RATE = { limit: 8, windowMs: 60_000 };
 
 export async function POST(req) {
   let charged = null;
@@ -68,8 +66,12 @@ export async function POST(req) {
         { status: 401 }
       );
     }
-    if (rateLimited(session.accountId)) {
-      return NextResponse.json({ error: "Slow down — too many in one minute." }, { status: 429 });
+    const rl = await rateLimit("pfp", session.accountId, RATE);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Slow down — too many in one minute." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+      );
     }
     if (!aiEnabled()) {
       return NextResponse.json({ error: "Image generation is not configured." }, { status: 503 });

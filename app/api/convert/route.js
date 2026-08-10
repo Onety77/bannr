@@ -11,6 +11,7 @@
 
 import sharp from "sharp";
 import { NextResponse } from "next/server";
+import { rateLimit, callerIp } from "@/lib/rateLimit";
 import { getTemplate, X_BANNER_W, BANNER_H } from "@/lib/templates";
 import { composeBanner } from "@/lib/engine/compose";
 
@@ -37,8 +38,21 @@ const MAX_BG_B64 = 12 * 1024 * 1024;
 const MAX_LOGO_BYTES = 8 * 1024 * 1024;
 const MAX_PIXELS = 40_000_000;
 
+// Image work costs CPU and memory whether or not anyone paid for it,
+// and this route takes both without a session. The caps above bound
+// one call; this bounds how many.
+const RATE = { limit: 15, windowMs: 60_000 };
+
 export async function POST(req) {
   try {
+    const rl = await rateLimit("convert", callerIp(req), RATE);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Slow down — too many conversions in one minute." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+      );
+    }
+
     const form = await req.formData();
     const templateId = String(form.get("templateId") || "");
     const textMode = String(form.get("textMode") || "composited");

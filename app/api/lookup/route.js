@@ -13,6 +13,7 @@
 import sharp from "sharp";
 import { NextResponse } from "next/server";
 import { fetchPublic } from "@/lib/safeFetch";
+import { rateLimit, callerIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -117,7 +118,25 @@ async function fetchLogo(url) {
   }
 }
 
+// Signed out on purpose — pasting a contract address is the first
+// thing anyone does, and putting a sign-in in front of it would cost
+// more than the abuse does. So it is limited by caller instead.
+//
+// Every call spends a Helius lookup, a DexScreener call and an image
+// download, none of which are ours to give away. Twenty a minute is
+// far more than anyone importing a token will ever use and far less
+// than a script would like.
+const RATE = { limit: 20, windowMs: 60_000 };
+
 export async function GET(req) {
+  const rl = await rateLimit("lookup", callerIp(req), RATE);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: "Slow down — too many lookups in one minute." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    );
+  }
+
   const ca = (new URL(req.url).searchParams.get("ca") || "").trim();
 
   let kind = null;

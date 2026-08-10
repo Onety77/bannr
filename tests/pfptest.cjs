@@ -250,7 +250,11 @@ console.log("\n9. THE MONEY");
   ok(/if \(!images\.length\) throw/.test(ROUTE), "  but zero is a real failure");
 
   ok(/requireUser\(req\)/.test(ROUTE), "identity comes from the signed session");
-  ok(/rateLimited\(session\.accountId\)/.test(ROUTE), "rate limited per account");
+  // Shared across instances now — see tests/ratetest. The per-instance
+  // map this replaced reset on every deploy and did not span the
+  // instances Vercel runs, so the real ceiling was this number times
+  // however many were up.
+  ok(/rateLimit\("pfp", session\.accountId, RATE\)/.test(ROUTE), "rate limited per account");
   ok(/Math\.min\(Math\.max\(parseInt/.test(ROUTE), "count is clamped, not trusted");
   ok(/\/\^#\[0-9a-fA-F\]\{6\}\$\/\.test\(rawColor\)/.test(ROUTE), "colour is validated as hex");
   // That string lands inside a prompt. An unbounded field there is

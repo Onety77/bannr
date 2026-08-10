@@ -36,6 +36,7 @@ import { publicError, isPolicyError } from "@/lib/errors";
 import { recordRefusal } from "@/lib/refusals";
 import { bump } from "@/lib/stats";
 import { requireUser } from "@/lib/auth";
+import { rateLimit } from "@/lib/rateLimit";
 import {
   refundGeneration, consumeGeneration, refundCredits, partialRefundCredits,
   spendCredits, getUser, publicUser, getSettings, GENERATION_COST, REROLL_COST,
@@ -64,14 +65,11 @@ const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_REFS = 5;
 
 
-const hits = new Map();
-function rateLimited(ip) {
-  const now = Date.now();
-  const arr = (hits.get(ip) || []).filter((t) => now - t < 60_000);
-  arr.push(now);
-  hits.set(ip, arr);
-  return arr.length > 6;
-}
+// Shared across instances and across deploys — see lib/rateLimit.
+// The map that used to live here counted per serverless instance,
+// so the real ceiling was this number times however many were
+// running, and every deploy reset it to zero.
+const RATE = { limit: 6, windowMs: 60_000 };
 
 export async function POST(req) {
   // Hoisted so the catch below can record exactly which brief was
@@ -99,11 +97,16 @@ export async function POST(req) {
       );
     }
 
-    // Rate limit per account now rather than per IP. The old in-memory
-    // IP map never worked on serverless anyway (each invocation can be
-    // a fresh instance); an account is a far more meaningful bucket.
-    if (rateLimited(session.accountId)) {
-      return NextResponse.json({ error: "Slow down — too many generations in one minute." }, { status: 429 });
+    // Per account, and shared across instances — see lib/rateLimit.
+    // The comment that stood here said the in-memory map "never worked
+    // on serverless anyway", which was true and was left as an
+    // observation rather than fixed. It is fixed now.
+    const rl = await rateLimit("generate", session.accountId, RATE);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Slow down — too many generations in one minute." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+      );
     }
 
     // ══ HOW MANY FREE RUNS THIS ACCOUNT HAS ══
