@@ -62,14 +62,9 @@ export default function CreditsPage() {
   // would climbing buy me", which is a question you only ask once.
   const [openLadder, setOpenLadder] = useState(false);
   const [claiming, setClaiming] = useState(false);
-  // A manual check in progress. Separate from `claiming`, which only
-  // becomes true once a payment has been FOUND — so on its own it left
-  // the button doing nothing visible whenever the answer was "not yet",
-  // which is the answer most of the time and looked exactly like a
-  // broken button.
   // A transfer request that has been opened in a wallet and not yet
-  // seen on chain. { reference, pack } — the reference is what finds
-  // it, since nothing comes back through the browser.
+  // seen on chain. Nothing comes back through the browser, so it is
+  // found on chain by the amount reserved for this account.
   const [watching, setWatching] = useState(null);
   const auth = useAuth();
   const wallet = useWallet();
@@ -180,27 +175,27 @@ export default function CreditsPage() {
   // ---------- the transfer-request half ----------
 
   // Ask whether any payment this account is owed has landed, and credit
-  // it. Shared by the poll, the visit sweep and the Check now button,
-  // so all three behave identically — a manual check that worked
-  // differently from the automatic one would be a second thing to
-  // debug.
+  // it. Shared by the poll and the visit sweep, so both behave
+  // identically.
+  //
+  // SILENT WHEN IT FINDS NOTHING. There was a "Check now" button here
+  // that made this speak up, and it is gone: the automatic path
+  // confirms fast enough that a manual one was a button whose honest
+  // answer was almost always "not yet" — which reads as a fault rather
+  // than as an answer. Nothing is lost by removing it, because the
+  // sweep below runs on every visit and the amounts stay reserved for a
+  // day.
   //
   // Crediting twice is impossible however often this runs:
   // /api/pay/claim keys on payments/{signature}, so a second attempt
   // returns "already" and grants nothing.
   //
+  // Returns the response so callers can act on `watching`, which is how
+  // many amounts this account still owes.
+  //
   // DECLARED ABOVE THE EFFECTS THAT CALL IT. const does not hoist, and
   // a hook reading it from further up throws at render — which is what
   // scripts/check-tdz exists to catch.
-  // `loud` is for the button. A background poll finding nothing must
-  // stay silent — it runs every two seconds — but a person who just
-  // TAPPED something and is told nothing has no way to tell a working
-  // check from a dead one. So the manual path shows a spinner while it
-  // asks and says what the answer was.
-  //
-  // Returns the response so callers can act on `watching`, which is how
-  // many amounts this account still owes. That is the difference
-  // between "you have nothing outstanding" and "not landed yet".
   const sweep = useCallback(async () => {
     try {
       const r = await fetch("/api/solana/find", { cache: "no-store" });
@@ -410,10 +405,10 @@ export default function CreditsPage() {
               ? `${watching.pack.credits} credits for ${watching.pack.sol} SOL`
               : "Approve the payment in your wallet"}
           </span>
-          {/* Stopping used to read as "give up on the money". It never
-              was: the amount is reserved server-side for a day and
-              swept on every visit. Both buttons say so — one checks
-              now, the other says what happens if you do not. */}
+          {/* Hiding this cannot cost anyone money, and the line above
+              says so rather than leaving it to be guessed: the amount
+              is reserved server-side for a day and swept on every
+              visit, so a payment that lands later is still collected. */}
           <p className="hint">
             Approve it in your wallet, then come back here. We&apos;ll add your
             credits automatically as soon as the transfer confirms.
