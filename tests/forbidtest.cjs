@@ -151,12 +151,61 @@ console.log("\n2b. GLOW IS SOFT, NOT A LINE");
 console.log("\n3. AND THE CONCEPT WRITER CANNOT PROPOSE ONE");
 {
   const design = O.slice(O.indexOf("  design: {"), O.indexOf("  meme: {"));
-  ok(/ALSO FORBIDDEN, and this list is not negotiable/.test(design), "the director's ban is unhedged");
-  ok(/circuit boards, circuit traces or PCB patterns in any role/.test(design), "and covers every role, not just backgrounds");
-  ok(/A CRYPTO OR INFRASTRUCTURE PROJECT IS NOT A LICENCE/.test(design),
+  ok(/NONE OF THIS, however well you think you could execute one/.test(design),
+     "the director's ban is unhedged");
+  ok(/circuit boards, traces or PCB patterns in any role/.test(design),
+     "and covers every role, not just backgrounds");
+  ok(/crypto or infrastructure brief is the one that attracts all of it/.test(design),
      "with the brief that attracts it called out by name");
-  ok(/could be described as "a technical-looking surface", you have not had an idea/.test(design),
+  // The self-test moved and generalised. "A technical-looking surface"
+  // only caught tech clichés; this catches the whole failure — a
+  // concept that is not about THIS client.
+  ok(/could be pitched to any other client in the category is a failed concept/.test(design),
      "and a test the writer can apply to its own concept");
+}
+
+console.log("\n3z. THE DIRECTOR MUST NOT GROW BACK INTO A CHECKLIST");
+{
+  // ══ MEASURED, BECAUSE IT HAPPENED TWICE ══
+  //
+  // HIM was cut back for this and the note is in its own comment:
+  // "each failure found in testing added a rule and none ever removed
+  // one, until this was 886 words of checklist against the design
+  // director's 248 — and a director reading a checklist stops
+  // directing and starts complying."
+  //
+  // Design then did the same thing, reaching 1,407 words across 16
+  // bullets, 75% of them prohibitions — the longest and most negative
+  // brief in the product. Aminu spotted the symptom before the cause:
+  // Default recognised the client's chain and designed around it while
+  // Tek "just did its own thing". Same model, same picture. Tek was
+  // too busy complying to think.
+  //
+  // A ceiling is the only thing that stops it happening a third time,
+  // because every single addition looks justified on its own.
+  const palette = (name) => {
+    const i = O.indexOf(`  ${name}: {`);
+    const s = O.indexOf("palette: `", i) + 10;
+    return O.slice(s, O.indexOf("`,", s));
+  };
+  const words = (s) => s.split(/\s+/).filter(Boolean).length;
+
+  const design = palette("design");
+  const def = palette("default");
+
+  ok(words(design) < 1000,
+     `design is ${words(design)} words — a brief, not a checklist (was 1,407)`);
+  ok(words(design) < words(def) * 1.4,
+     `and stays within reach of default's ${words(def)} (it was nearly double)`);
+  ok(design.split(/\n- /).length <= 10,
+     `${design.split(/\n- /).length} bullets, not sixteen`);
+  // The fix for Aminu's question: it now leads by working out what the
+  // project IS, the way default always did, instead of opening with a
+  // list of things not to do.
+  ok(/^- WORK OUT WHAT THIS PROJECT ACTUALLY IS/.test(design.trim()),
+     "AND IT OPENS BY THINKING, not by prohibiting");
+  ok(/use what you actually know about the world/i.test(design),
+     "with permission to use real knowledge of the chain or company");
 }
 
 console.log("\n3a. HIM CAN SEE THE SUBJECT NOW");
@@ -230,9 +279,9 @@ console.log("\n3a. HIM CAN SEE THE SUBJECT NOW");
   // HANDOFF's rule is that a contradiction gets resolved at random.
   ok(!/YOU HAVE NOT SEEN THE LOGO/.test(design),
      "AND THE PARAGRAPH SAYING IT HAD NOT IS GONE, not left to contradict the picture");
-  ok(/THE CLIENT'S MARK IS ATTACHED, AND IT TELLS YOU WHAT THIS IS — NEVER WHERE IT GOES/.test(design),
+  ok(/TELLS YOU WHAT THIS IS — NEVER WHERE IT GOES/.test(design),
      "the two jobs are separated out loud, the way HIM had to learn");
-  ok(/it may still CONTRAST with the mark rather than echo it/.test(design),
+  ok(/the ground is yours to invent and may CONTRAST with it rather than echo it/.test(design),
      "and the original worry — echoing the logo — is answered rather than dropped");
   {
     // Vision is opted into per director so that if it turns out to
@@ -300,7 +349,8 @@ console.log("\nX. THE STYLE REFERENCES POINT THE RIGHT WAY");
 
   // The director wrote the concept BEFORE the renderer sees anything,
   // so an ornate brass door has to be stopped there too.
-  ok(/A NAME IS NOT A SUBJECT/.test(b), "the director is told a name is not a subject");
+  ok(/THE IDEA COMES FROM WHAT IT DOES, NEVER FROM WHAT IT IS CALLED/.test(b),
+     "the director is told a name is not a subject");
   ok(!/or from what it is named after/.test(b),
      "and the licence that permitted illustrating the name is gone");
   ok(/THE GROUND IS ONE THING AND IT IS QUIET/.test(b), "and every concept must name a quiet ground");

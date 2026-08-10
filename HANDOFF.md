@@ -221,6 +221,28 @@ executes; it does not ideate. Concepts are written together in one text call
 and required to be compositionally unlike each other. The PFP maker
 deliberately has no such pass — there is nothing to ideate.
 
+**A DIRECTOR READING A CHECKLIST STOPS DIRECTING AND STARTS COMPLYING — AND
+THIS HAS NOW HAPPENED TWICE.** HIM was cut back for it once, and the note is
+still in its own comment complaining that it had reached "886 words of
+checklist against the design director's 248". Design then did the same thing
+and reached **1,407 words across 16 bullets, 75% of them prohibitions** — the
+longest and most negative brief in the product, roughly double Default's.
+
+Aminu found the symptom before anyone found the cause: Default recognised the
+client's chain and designed around it while Tek "just did its own thing". Same
+model — `gpt-4o` for every director — same picture, same brief. Tek was too
+busy complying to think.
+
+Two fixes, and the second is the one that lasts. Design now **opens by working
+out what the project is**, the diagnostic bullet Default always had and it
+never did; and it was consolidated back to **851 words across 8 bullets**, with
+all 37 rules checked off one by one before committing. `forbidtest` now asserts
+a word ceiling and a bullet count, because every individual addition looks
+justified on its own — which is exactly how it grew both times.
+
+**Measure before rewriting a brief.** Word count, bullet count, and what share
+are prohibitions. The numbers made an argument that reading it could not.
+
 **RUN THE REAL PIPELINE AND LOOK AT THE PICTURE. IT IS 3p AND IT IS THE ONLY
 THING THAT SETTLES ANYTHING.** `lib/openai.js` can be loaded in a script with
 the key from `.env.local`, given a deliberately unmistakable logo, and pointed
