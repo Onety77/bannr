@@ -214,20 +214,41 @@ console.log("\n3a. HIM CAN SEE THE SUBJECT NOW");
   // meant to be judged side by side and reverted if it is worse.
   ok(/ONE FLAG\. Set this to false and everything reverts/.test(him), "reverting is one line, and says so");
 
-  // The blind directors stay blind, and design says why.
+  // ══ DESIGN CAN SEE NOW, AND THE OLD PARAGRAPH HAD TO GO WITH IT ══
+  //
+  // It was blind on purpose — a director who sees the mark tends to
+  // echo it, and echoing is most of what makes a banner look
+  // assembled. What settled it was an unplanned A/B: the same brief, a
+  // liquidity launchpad on Robinhood, through Default (sees) and Tek
+  // (did not). Default recognised the Robinhood mark and built
+  // concepts around it; Tek invented a world and the renderer bolted
+  // the logo on afterwards. That is what a blind director must do.
   const design = O.slice(O.indexOf("  design: {"), O.indexOf("  meme: {"));
-  ok(!/vision: true/.test(design), "design is still deliberately blind");
-  ok(/YOU HAVE NOT SEEN THE LOGO, AND THAT IS DELIBERATE/.test(design), "  …and still explains why");
+  ok(/vision: true/.test(design), "design sees the mark");
+  // Flipping the flag while leaving the paragraph would have told it,
+  // in one prompt, both that it has and has not seen the logo — and
+  // HANDOFF's rule is that a contradiction gets resolved at random.
+  ok(!/YOU HAVE NOT SEEN THE LOGO/.test(design),
+     "AND THE PARAGRAPH SAYING IT HAD NOT IS GONE, not left to contradict the picture");
+  ok(/THE CLIENT'S MARK IS ATTACHED, AND IT TELLS YOU WHAT THIS IS — NEVER WHERE IT GOES/.test(design),
+     "the two jobs are separated out loud, the way HIM had to learn");
+  ok(/it may still CONTRAST with the mark rather than echo it/.test(design),
+     "and the original worry — echoing the logo — is answered rather than dropped");
   {
     // Vision is opted into per director so that if it turns out to
     // help we know WHICH change did what. This count is the guard
     // against it quietly spreading — raise it deliberately or not at
-    // all. pov joined because it cannot work blind: whether a subject
-    // has a back to shoot is unanswerable from a name.
+    // all. `design` joined last, on the evidence above.
     const on = [...O.matchAll(/^  ([a-z]+): \{\n(?:\s*\/\/[^\n]*\n)*\s*vision: true/gm)].map((m) => m[1]);
-    ok(on.length === 3 && on.includes("default") && on.includes("him") && on.includes("pov"),
-       "exactly three directors see the image: " + on.join(", "));
+    ok(on.length === 4 && ["default", "design", "him", "pov"].every((d) => on.includes(d)),
+       "exactly four directors see the image: " + on.join(", "));
   }
+  // The renderer used to claim it was the ONLY stage that could see
+  // the mark. Now that the concept was written by someone looking at
+  // the same picture, that is false and worth more than a stale line:
+  // a colour the concept names is a decision, not a guess to override.
+  ok(!/ONLY STAGE THAT CAN SEE THIS MARK/.test(O), "the renderer no longer claims sole sight of the mark");
+  ok(/written by someone who could also see this mark/.test(O), "it defers to the concept's colour calls");
 }
 
 console.log("\n4. THE OTHER BAN THAT ALREADY HOLDS IS UNTOUCHED");

@@ -189,10 +189,32 @@ the subject was photographed in. Fixed by separating the two jobs explicitly:
 the image answers *what this is*, where it goes is still invented, and the
 levers are listed one by one.
 
-**Three directors have `vision: true`** — `default`, `him`, `pov` — and there
-is a test asserting exactly three. It is opt-in per director so that when it
-helps we know which change did it. POV needs it for *topology*: whether a
-subject has a back to shoot is unanswerable from a name.
+**Four directors have `vision: true`** — `default`, `design`, `him`, `pov` —
+and there is a test asserting exactly four. It is opt-in per director so that
+when it helps we know which change did it. **Every director runs the same
+model** (`gpt-4o`); sight is the only difference between them, which is worth
+knowing before anyone concludes one director is "smarter" than another.
+
+POV needs it for *topology*: whether a subject has a back to shoot is
+unanswerable from a name. **`design` joined last, on an A/B nobody planned.**
+The same brief — a liquidity launchpad on Robinhood — went through Default
+(sees) and Tek (was blind). Default recognised the Robinhood mark, knew what
+the chain was, and built concepts around it. Tek invented a world and the
+renderer bolted the logo on afterwards, which is what a blind director *must*
+do. Aminu's description was "it just does its own thing".
+
+Design was blind on purpose and the reasoning was real — a director that sees
+the mark tends to echo it, and echoing is most of what makes a banner look
+assembled rather than designed. That worry is now answered in the brief rather
+than by blindness: the ground is still invented and may still contrast. HIM's
+lesson applies and is applied — showing a model an image makes it *describe and
+continue* unless the two jobs are separated out loud, so the brief says plainly
+that the picture answers **what this is**, never where it goes.
+
+Two things had to move with the flag, and both would have been silent
+contradictions: the paragraph telling `design` it had **not** seen the logo, and
+the renderer's claim to be the **only** stage that could see the mark. A prompt
+that asserts both sides of a fact gets resolved at random.
 
 **The art-director pass is where diversity comes from.** An image model
 executes; it does not ideate. Concepts are written together in one text call
