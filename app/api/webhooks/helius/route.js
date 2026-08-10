@@ -110,10 +110,21 @@ export async function POST(req) {
       );
 
       if (userSnap.empty) {
+        // ══ creditsGranted IS ZERO, BECAUSE NOTHING WAS GRANTED ══
+        //
+        // It used to carry the full pack figure on a record credited to
+        // nobody. Two things went wrong with that. Every reader that
+        // sums this field — billing history, admin stats — counted
+        // credits that had never been issued. And /api/pay/claim read
+        // it back and reported it to the payer as though their balance
+        // had moved.
+        //
+        // What the pack WOULD be worth is still recorded, under a name
+        // that does not claim it happened.
         tx.set(payRef, {
           wallet: sender, amountSol: pack.sol, packId: pack.id,
           usd: +(pack.usd || 0).toFixed(2), solUsdRate: rate,
-          creditsGranted: pack.credits, status: "unclaimed",
+          creditsGranted: 0, creditsQuoted: pack.credits, status: "unclaimed",
           note: "Payment from unlinked wallet — claimable by proving ownership.",
           ts: Date.now(),
         });

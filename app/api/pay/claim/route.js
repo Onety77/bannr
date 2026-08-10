@@ -113,19 +113,37 @@ export async function POST(req) {
     return NextResponse.json({ error: "That doesn't look like a transaction." }, { status: 400 });
   }
 
-  // Already recorded? Say so plainly rather than pretending to credit
-  // again — the client polls this, so "already done" is a normal,
-  // expected answer and not an error.
+  // ══ RECORDED IS NOT THE SAME AS CREDITED ══
+  //
+  // This used to treat the document existing as the job being done.
+  // It is not, and the gap is a payment that vanishes:
+  //
+  // The webhook writes this same document. When it sees SOL from a
+  // wallet that belongs to no account — which is now the NORMAL case,
+  // because buying stopped requiring a linked wallet — it records
+  // `status: "unclaimed"` with a creditsGranted figure and credits
+  // NOBODY. It cannot; it has no account to credit.
+  //
+  // The browser then claimed, found the document, and answered
+  // "already" with that same figure. The page said the credits had
+  // been added. The balance had never moved, the money was in the
+  // treasury, and nothing anywhere said it had gone wrong.
+  //
+  // So the question is not "does a record exist" but "has anyone
+  // actually been credited". A record with no accountId is a payment
+  // waiting to be attributed, and the session asking is exactly the
+  // attribution it was waiting for — so it falls through and is
+  // claimed properly below.
   const payRef = db.collection("payments").doc(signature);
   const existing = await payRef.get();
-  if (existing.exists) {
-    const d = existing.data();
-    if (d.accountId && d.accountId !== session.accountId) {
-      return NextResponse.json({ error: "That transaction belongs to another account." }, { status: 409 });
-    }
+  const prior = existing.exists ? existing.data() : null;
+  if (prior?.accountId && prior.accountId !== session.accountId) {
+    return NextResponse.json({ error: "That transaction belongs to another account." }, { status: 409 });
+  }
+  if (prior?.accountId === session.accountId) {
     const u = await getUser(session.accountId);
     return NextResponse.json({
-      ok: true, already: true, credits: d.creditsGranted || 0,
+      ok: true, already: true, credits: prior.creditsGranted || 0,
       user: publicUser(u, await identitiesFor(session.accountId)),
     });
   }
@@ -226,33 +244,67 @@ export async function POST(req) {
   const { ent } = await resolveEntitlements(session.accountId).catch(() => ({ ent: { discount: 0 } }));
   const pack = { ...creditsForPayment(sol, rate, ent.discount), sol };
 
-  // create() rather than set(): if the webhook wrote this signature
-  // between our read above and here, this throws instead of granting a
-  // second time.
+  // ══ TAKING THE PAYMENT, ATOMICALLY ══
+  //
+  // This was `create()`, which throws if the document exists — fine
+  // when the only writer that mattered was another claim, and wrong
+  // once the webhook records unattributed payments. A payment the
+  // webhook had already filed as "unclaimed" could then never be
+  // claimed by anybody: create threw, and the caller was told it was
+  // already done.
+  //
+  // A transaction instead, because "is it still unattributed" and
+  // "take it" have to be one step. Two browsers claiming at once, or a
+  // claim racing the webhook, must produce exactly one winner — the
+  // read-then-write it replaces had a gap between them wide enough for
+  // both to pass.
+  //
+  // Losing is not an error. It means somebody else attributed this
+  // payment first, which for the same account is simply the answer
+  // arriving twice.
+  let won = true;
   try {
-    await payRef.create({
-      accountId: session.accountId,
-      sol,
-      // The dollar figures are recorded, not recomputed later. A
-      // payment graded at one rate and displayed at another is a
-      // support conversation nobody can win, and the rate at the
-      // moment of grading is the only honest record of the deal.
-      usd: +(pack.usd || 0).toFixed(2),
-      solUsdRate: rate,
-      discount: ent.discount || 0,
-      // The SAME number under the webhook's name for it. These two
-      // paths write the same document and had drifted: the webhook
-      // writes `amountSol`, this writes `sol`, and /settings reads
-      // only `amountSol` — so every payment claimed here (which is
-      // the main path) showed a blank amount in billing history.
-      amountSol: sol,
-      packId: pack.id,
-      creditsGranted: pack.credits,
-      status: "credited",
-      via: "claim",
-      ts: Date.now(),
+    await db.runTransaction(async (t) => {
+      const snap = await t.get(payRef);
+      const cur = snap.exists ? snap.data() : null;
+      if (cur?.accountId) { won = false; return; }
+      t.set(payRef, {
+        accountId: session.accountId,
+        sol,
+        // The dollar figures are recorded, not recomputed later. A
+        // payment graded at one rate and displayed at another is a
+        // support conversation nobody can win, and the rate at the
+        // moment of grading is the only honest record of the deal.
+        usd: +(pack.usd || 0).toFixed(2),
+        solUsdRate: rate,
+        discount: ent.discount || 0,
+        // The SAME number under the webhook's name for it. These two
+        // paths write the same document and had drifted: the webhook
+        // writes `amountSol`, this writes `sol`, and /settings reads
+        // only `amountSol` — so every payment claimed here (which is
+        // the main path) showed a blank amount in billing history.
+        amountSol: sol,
+        packId: pack.id,
+        creditsGranted: pack.credits,
+        status: "credited",
+        via: "claim",
+        // Kept when adopting a record the webhook filed first, so the
+        // history still shows when the money actually arrived.
+        ts: cur?.ts || Date.now(),
+        ...(cur ? { adoptedFrom: cur.status || "unknown", adoptedAt: Date.now() } : {}),
+      });
     });
-  } catch {
+  } catch (e) {
+    // A transaction that could not run at all is not a claim that
+    // lost. Saying "already credited" here would be the same silent
+    // zero this whole change exists to remove.
+    console.error("[pay/claim] tx", e.message);
+    return NextResponse.json(
+      { ok: false, pending: true, error: "Confirming — this is taking a moment." },
+      { status: 202 }
+    );
+  }
+  if (!won) {
     const u = await getUser(session.accountId);
     return NextResponse.json({
       ok: true, already: true, credits: pack.credits,

@@ -193,11 +193,51 @@ ok(/consumeIntent\(session\.accountId, lamports, signature\)/.test(claimSrc), "a
   ok(g > 0 && c > g, "and spent only after the credits actually landed");
 }
 
+/* ------------- recorded is not the same as credited ------------- */
+// The silent zero. The webhook writes payments/{signature} too, and
+// when SOL arrives from a wallet belonging to no account — the NORMAL
+// case now that buying needs no linked wallet — it files the payment
+// and credits nobody, because it has no account to credit.
+//
+// The claim then found the document, answered "already", and the page
+// said the credits were added. The balance had never moved. Money in
+// the treasury, a record saying 15 credits, and nothing anywhere
+// saying it had gone wrong.
+ok(/prior\?\.accountId === session\.accountId/.test(claimSrc),
+   "a payment counts as done only when an ACCOUNT was credited");
+ok(!/if \(existing\.exists\) \{/.test(claimSrc),
+   "not merely when a record exists, which is what lost the money");
+// An unattributed record is a payment waiting for exactly the session
+// that is now asking, so it must fall through and be claimed.
+ok(/adoptedFrom: cur\.status/.test(claimSrc), "an unclaimed record is adopted rather than refused");
+// "Still unattributed?" and "take it" have to be one step, or two
+// browsers — or a claim racing the webhook — both pass the check.
+ok(/db\.runTransaction\(async \(t\) => \{/.test(claimSrc), "and taken atomically");
+ok(/if \(cur\?\.accountId\) \{ won = false; return; \}/.test(claimSrc), "with exactly one winner");
+{
+  // A transaction that could not RUN is not a claim that lost. Calling
+  // that "already credited" would be the same silent zero again.
+  const i = claimSrc.indexOf('console.error("[pay/claim] tx"');
+  ok(i > 0 && /status: 202/.test(claimSrc.slice(i, i + 300)),
+     "a failed transaction retries rather than reporting success");
+}
+// The webhook must not record credits it did not issue: every reader
+// that sums this field counted them.
+const hook = bare(read("app/api/webhooks/helius/route.js"));
+ok(/creditsGranted: 0, creditsQuoted: pack\.credits, status: "unclaimed"/.test(hook),
+   "an uncredited payment records zero credits granted");
+
 /* ------------- checking again cannot mint credits ------------- */
 // The whole safety of a "check now" button, and of sweeping on every
 // visit, rests on this: the claim keys on the signature.
 ok(/db\.collection\("payments"\)\.doc\(signature\)/.test(claimSrc), "a payment is keyed by its signature");
-ok(/payRef\.create\(/.test(claimSrc), "created, not set, so a second writer throws instead of granting again");
+// It was create(), which throws when the document exists. That was
+// right while the only other writer was another claim, and wrong once
+// the webhook files unattributed payments — a payment it had recorded
+// could then never be claimed by anyone. The transaction above does
+// the same job without refusing a record that belongs to nobody yet.
+ok(/t\.get\(payRef\)/.test(claimSrc), "the take re-reads inside the transaction");
+ok(!/payRef\.create\(/.test(claimSrc), "rather than refusing any record that already exists");
 ok(/already: true/.test(claimSrc), "and a repeat claim answers 'already' rather than crediting");
 {
   // The poll, the visit sweep and the button all go through one
