@@ -15,3 +15,8 @@ build/
 .DS_Store
 Thumbs.db
 payments-backup-*.json
+
+# Readable dumps of what the model actually receives, for comparing
+# prompt versions by eye. Regenerated on demand; never part of a build.
+PROMPT-*.txt
+DIRECTOR-*.txt
