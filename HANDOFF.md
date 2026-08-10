@@ -221,6 +221,27 @@ executes; it does not ideate. Concepts are written together in one text call
 and required to be compositionally unlike each other. The PFP maker
 deliberately has no such pass — there is nothing to ideate.
 
+**A REFERENCE CONTAINING A LOGO WILL HAVE THAT LOGO DRAWN INTO SOMEBODY'S
+BANNER.** Not might. It happened twice, to a real client, and the ban against it
+was in the prompt on both occasions. `01-google-voxel-pattern.jpg` was nothing
+but Google's G repeated across the frame; `04-mark-on-a-horizon.jpg` was a
+four-panel mark glowing over a dark plain. Both were drawn into finished banners
+for a project called RHEA.
+
+No wording survives this. You are asking a model to look hard at a picture and
+then un-see the most salient thing in it. **The rule lives in the files, not the
+prompt:** nothing in `references/` may contain a logo, icon, emblem or monogram.
+A wordmark set as typography is tolerable — type is the lesson there — but a
+symbol is not. The prompt keeps a ban that now names the failure out loud, but
+it is the belt, not the fix.
+
+**A reference must also AGREE with the brief.** Two of the six were dark
+cinematic renders — a satellite over Earth, a mark on a night horizon — pulling
+directly against Tek's new "this is design, not a render". A reference that
+contradicts the written brief does not balance it; it makes the instruction
+ambiguous, and ambiguity is resolved at random. The set is down to two and needs
+rebuilding; the bar is written down in `references/README.md`.
+
 **A STYLE REFERENCE MUST TRANSMIT DESIGN, NEVER CONTENT — AND THE FIRST VERSION
 HAD IT EXACTLY BACKWARDS.** It forbade copying a reference's "layout,
 composition, subject matter, colour palette, LIGHTING, overall darkness or

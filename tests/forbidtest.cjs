@@ -306,6 +306,48 @@ console.log("\nX. THE STYLE REFERENCES POINT THE RIGHT WAY");
   ok(/THE GROUND IS ONE THING AND IT IS QUIET/.test(b), "and every concept must name a quiet ground");
 }
 
+console.log("\nX2. NO REFERENCE HANDS OVER A LOGO");
+{
+  // ══ THIS SHIPPED ANOTHER COMPANY'S MARK TO A CUSTOMER ══
+  //
+  // The set opened with a file that was nothing but Google's G
+  // repeated across the frame, and another whose subject was a
+  // four-panel mark glowing over a dark plain. Both were drawn into
+  // finished banners for a client called RHEA — and the ban against
+  // copying a reference's logo was in the prompt the whole time.
+  //
+  // No wording survives an image whose entire subject is a famous
+  // logo: it asks a model to look hard at a picture and un-see the
+  // most salient thing in it. The rule has to live in the FILES.
+  const dir = R + "references/tech";
+  const files = fs.existsSync(dir)
+    ? fs.readdirSync(dir).filter((f) => /\.(jpe?g|png|webp)$/i.test(f))
+    : [];
+
+  ok(files.length > 0, "the tech set still has references");
+  // Named for what they leaked, so re-adding one fails loudly rather
+  // than quietly costing somebody a run.
+  for (const gone of ["google", "apple", "mark-on-a-horizon", "cinematic"]) {
+    ok(!files.some((f) => f.toLowerCase().includes(gone)),
+       `no reference named "${gone}" is in rotation`);
+  }
+  // The loader ignores directories, which is what parks _review.
+  ok(!files.includes("_review"), "the parked folder is not loaded as a file");
+
+  const RM = fs.readFileSync(R + "references/README.md", "utf8");
+  ok(/NO RECOGNISABLE MARK, EVER/.test(RM),
+     "and the README states the rule where somebody adding a file will read it");
+
+  // The prompt still names the failure, because the files being clean
+  // is the fix and the ban is the belt.
+  const b = fs.readFileSync(R + "lib/openai.js", "utf8").replace(/\r\n/g, "\n")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok(/BECAUSE IT HAS ALREADY HAPPENED TWICE/.test(b),
+     "the prompt names the actual failure rather than stating a preference");
+  ok(/ONLY mark permitted anywhere in the frame is the client's own/.test(b),
+     "and says which mark is allowed, rather than only which are not");
+}
+
 console.log("\nY. TEK BANS WHAT ACTUALLY CAME BACK");
 {
   // Scoped here rather than reusing the `tech` from the block at the
