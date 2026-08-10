@@ -40,38 +40,40 @@ const nextConfig = {
   // itself bannr.vercel.app. Same for the icon and the manifest, which
   // wallets fetch from whatever origin asked.
   //
-  // ══ WHY THIS IS NARROW ON PURPOSE ══
+  // ══ KEYED ON THE BUILD, NOT ON A HOSTNAME ══
   //
-  // Matching *.vercel.app would swallow every PREVIEW deployment and
-  // bounce it to production, which would make previews untestable —
-  // the branch you wanted to check would redirect to main. So it
-  // matches the ONE stable production alias and nothing else.
+  // The obvious version of this reads VERCEL_PROJECT_PRODUCTION_URL and
+  // redirects that one host. It does not work, and the site proved it:
+  // once a custom domain is attached that variable becomes the CUSTOM
+  // domain, so the rule either never matches or, without a guard,
+  // redirects getbannr.com to itself forever. app/layout.jsx documents
+  // the same trap for metadataBase.
   //
-  // ══ AND WHY IT CANNOT LOOP ══
+  // So the source is any *.vercel.app host, and previews are protected
+  // by VERCEL_ENV instead. A preview build is `preview` and emits no
+  // rule at all, so preview URLs keep working and stay testable. Only
+  // the production build emits one, which is the build that answers on
+  // bannr.vercel.app — and on the per-deployment URL too, which should
+  // also point home.
   //
-  // VERCEL_PROJECT_PRODUCTION_URL sometimes becomes the CUSTOM domain
-  // once one is attached — see app/layout.jsx, which is bitten by the
-  // same thing. If that happened here we would redirect getbannr.com
-  // to getbannr.com forever. Hence both guards: the source must be a
-  // real vercel.app host, and it must differ from the destination.
-  // If either fails, no redirect is emitted at all.
+  // The destination still cannot be a vercel.app host, or a production
+  // build with no custom domain configured would redirect to itself.
   //
   // Temporary (307), not permanent: a 308 is cached by the browser
   // essentially forever, and that is not something to hand out while
   // the canonical host is still settling.
   // ------------------------------------------------------------
   async redirects() {
-    const from = String(process.env.VERCEL_PROJECT_PRODUCTION_URL || "").trim();
-    const to = String(process.env.NEXT_PUBLIC_SITE_URL || "")
+    if (process.env.VERCEL_ENV !== "production") return [];
+    const to = String(process.env.NEXT_PUBLIC_SITE_URL || "https://getbannr.com")
       .trim()
       .replace(/^https?:\/\//i, "")
       .replace(/\/+$/, "");
-    if (!from.endsWith(".vercel.app")) return [];
-    if (!to || !to.includes(".") || to === from) return [];
+    if (!to.includes(".") || to.endsWith(".vercel.app")) return [];
     return [
       {
         source: "/:path*",
-        has: [{ type: "host", value: from }],
+        has: [{ type: "host", value: "(?<vhost>.*\\.vercel\\.app)" }],
         destination: `https://${to}/:path*`,
         permanent: false,
       },
