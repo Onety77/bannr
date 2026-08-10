@@ -28,7 +28,7 @@ import { useCallback, useEffect, useState } from "react";
 import { setUser } from "@/lib/credits";
 import { useAuth } from "@/lib/useAuth";
 import { useWallet, short } from "@/lib/wallet";
-import { newReference, transferUrl, savePending, readPending, clearPending } from "@/lib/solanaPay";
+import { transferUrl, savePending, readPending, clearPending } from "@/lib/solanaPay";
 
 const NUM = (n) => (Number(n) || 0).toLocaleString("en-US");
 
@@ -134,20 +134,21 @@ export default function CreditsPage() {
     // Synchronous, and the last thing to run: the navigation has to
     // happen inside this tap or iOS opens the wallet's WEBSITE.
     if (auth.needsDeeplink) {
+      // Mobile transfers have no dependable memo/reference return path, so
+      // they may only use an amount the server reserved for this account.
+      // Refusing before the wallet opens is infinitely better than accepting
+      // money we cannot safely attribute.
+      if (!pack.lamports) {
+        return setErr("Checkout is still preparing. Refresh the page and try again.");
+      }
       try {
-        const reference = newReference();
         const url = transferUrl({
           treasury: process.env.NEXT_PUBLIC_TREASURY_WALLET,
           sol: pack.sol,
-          reference,
-          accountId: auth.user.accountId,
           message: `${pack.credits} credits`,
         });
-        // `since` bounds the search so an earlier payment from a
-        // previous attempt is never handed back as if it were this one.
-        const since = Date.now();
-        savePending({ reference, packId: pack.id, sol: pack.sol, since });
-        setWatching({ since, pack });
+        savePending({ packId: pack.id, sol: pack.sol });
+        setWatching({ pack });
         window.location.href = url;
       } catch (e) {
         setErr(e?.message || "Couldn't open your wallet app.");

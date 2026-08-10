@@ -37,6 +37,12 @@ export default function SignInModal() {
   return (
     <Modal title="Sign in" onClose={closeModal}>
       <div className="signin-opts">
+        {/* An account is required to hold credits, not a wallet. Google is
+            therefore the easy default; a wallet remains an equal option for
+            people who deliberately want wallet-based identity. */}
+        <button className="btn block primary" disabled={auth.busy} onClick={auth.signInWithGoogle}>
+          {auth.busy ? <span className="spinner" /> : <><GoogleMark />Continue with Google</>}
+        </button>
         {walletPossible && (
           <button
             className="btn block"
@@ -46,9 +52,6 @@ export default function SignInModal() {
             {auth.busy ? <span className="spinner" /> : "Continue with Phantom"}
           </button>
         )}
-        <button className="btn block" disabled={auth.busy} onClick={auth.signInWithGoogle}>
-          {auth.busy ? <span className="spinner" /> : <><GoogleMark />Continue with Google</>}
-        </button>
       </div>
       {auth.error && <p className="modal-err">{auth.error}</p>}
     </Modal>
