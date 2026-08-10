@@ -192,12 +192,25 @@ export default function CreditsPage() {
   // polled for an id that would never land.
   //
   // Rebuilding on a timer keeps it young without ever putting an await
-  // between the tap and the navigation. Forty seconds against a
-  // ~60-second life, so a tap lands on a blockhash with most of its
-  // life left however long the wallet takes.
+  // between the tap and the navigation.
+  //
+  // ══ TEN SECONDS, AND FORTY WAS NOT ENOUGH ══
+  //
+  // The budget is about sixty seconds — measured, not assumed: a
+  // blockhash 400 slots old comes back "Blockhash not found" while a
+  // fresh one simulates fine. EVERYTHING has to fit inside it: however
+  // long this sits waiting for the tap, plus the hop out, plus Phantom
+  // starting, plus a security warning to read, plus the approval, plus
+  // Safari opening a new tab and loading this page again from nothing
+  // before it can broadcast.
+  //
+  // At forty seconds the wait alone could eat two thirds of the budget
+  // before the user had even tapped, and the rest of that list does
+  // not fit in twenty. Ten leaves roughly fifty for the wallet, which
+  // is enough to read the warning rather than race it.
   useEffect(() => {
     if (!auth.pendingPay || claiming) return;
-    const id = setInterval(() => setTxTick((t) => t + 1), 40_000);
+    const id = setInterval(() => setTxTick((t) => t + 1), 10_000);
     return () => clearInterval(id);
   }, [auth.pendingPay, claiming]);
 
@@ -338,7 +351,12 @@ export default function CreditsPage() {
             <button
               className="btn small primary"
               disabled={!tx || auth.busy}
-              onClick={() => auth.payWithDeeplink(tx.transaction)}
+              // Clears the previous attempt's message on the way out.
+              // After an expiry this button is offered again with the
+              // explanation still on screen, and carrying it into the
+              // next hop would leave someone reading "that expired"
+              // while a fresh approval was already succeeding.
+              onClick={() => { setErr(null); auth.payWithDeeplink(tx.transaction); }}
             >
               {!tx || auth.busy ? <span className="spinner" /> : "Approve payment"}
             </button>

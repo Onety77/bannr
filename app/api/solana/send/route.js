@@ -135,9 +135,17 @@ export async function POST(req) {
       if (/already been processed|AlreadyProcessed/i.test(msg)) {
         return NextResponse.json({ ok: true, signature, duplicate: true }, { status: 200 });
       }
+      // Flagged rather than just worded, because the caller can do
+      // something about this one: the signature is dead but the
+      // WALLET is still connected, so a rebuilt transaction and one
+      // more approval is all it needs. Anything else here ends the
+      // attempt.
       if (/blockhash not found|BlockhashNotFound/i.test(msg)) {
         return NextResponse.json(
-          { error: "That payment expired before it was sent. Nothing was charged — try again." },
+          {
+            expired: true,
+            error: "That took a moment too long, so the payment expired. Nothing was charged — approve it once more.",
+          },
           { status: 400 }
         );
       }

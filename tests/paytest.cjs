@@ -119,6 +119,19 @@ ok(/blockhash not found/i.test(sendSrc), "and an expired one is reported as expi
 
 const creditsBare = bare(read("app/credits/page.jsx"));
 ok(/setTxTick\(\(t\) => t \+ 1\)/.test(creditsBare), "the waiting transaction is rebuilt on a timer");
+// The budget is about sixty seconds end to end — measured against the
+// network, where 400 slots old reads "Blockhash not found" and a fresh
+// one simulates fine. The wait for the tap is only the FIRST item in
+// that budget; the hop out, the wallet starting, the warning, the
+// approval and a cold page load on the way back all come out of the
+// same minute. Forty seconds left nothing for them.
+ok(/setInterval\(\(\) => setTxTick\(\(t\) => t \+ 1\), 10_000\)/.test(creditsBare),
+   "and rebuilt often enough to leave the wallet most of the minute");
+// An expiry keeps the wallet connected, so it costs one approval
+// rather than starting the whole flow again at the connect hop.
+ok(/out\.expired/.test(resumeSrc), "an expired payment is told apart from a failed one");
+ok(/pendingPay: live\?\.publicKey/.test(resumeSrc), "and puts the wallet back in pending for one more tap");
+ok(/expired: true/.test(sendSrc), "which the send route flags rather than only wording");
 ok(
   /}, \[auth\.pendingPay, auth\.user\?\.accountId, packs, txTick\]\)/.test(creditsBare),
   "and the rebuild is not blocked by the one already built"

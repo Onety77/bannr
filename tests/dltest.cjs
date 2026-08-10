@@ -370,7 +370,13 @@ console.log("\n7a. THE GESTURE RULE — WHY THE FIRST VERSION LANDED ON A DOWNLO
        "the pack travels with the flow, because this tab will be gone");
     ok(CR.includes("const built = await buildTreasuryTx(pack.sol, auth.user?.accountId, p.address);"),
        "and the transaction is built on page load");
-    ok(CR.includes("onClick={() => auth.payWithDeeplink(tx.transaction)}"), "then handed over on a tap");
+    // The handler clears the previous attempt's message first, since
+    // an expired payment now offers this same button again with the
+    // explanation still on screen. Still synchronous, which is the
+    // part that matters: nothing may be awaited before the navigation.
+    ok(CR.includes("auth.payWithDeeplink(tx.transaction);"), "then handed over on a tap");
+    ok(/onClick=\{\(\) => \{ setErr\(null\); auth\.payWithDeeplink/.test(CR),
+       "and nothing is awaited inside that handler");
     ok(!/onClick=\{async[^}]*payWithDeeplink/.test(CR), "not from an async handler");
     // The builder is shared, so the injected path and the deeplink
     // path cannot drift on something as load-bearing as the memo.
