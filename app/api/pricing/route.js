@@ -109,7 +109,9 @@ export async function GET(req) {
   let payable = packs;
   if (session?.accountId && rate !== null) {
     try {
-      const armed = await armIntents(session.accountId, packs);
+      // The rate and discount travel with it, so the claim can honour
+      // the deal that was on screen rather than re-striking it later.
+      const armed = await armIntents(session.accountId, packs, { rate, discount });
       payable = packs.map((p) =>
         armed[p.id]
           ? // `sol` becomes the EXACT figure the wallet will be asked

@@ -195,10 +195,12 @@ export async function POST(req) {
   // reserved for this account before the wallet was opened, and an
   // intent only counts if it was armed BEFORE the money moved — see
   // lib/payIntents.js.
-  let intent = null;
-  if (!memo) {
-    intent = await matchIntent(session.accountId, lamports, blockTimeMs).catch(() => null);
-  }
+  //
+  // Looked up whether or not there is a memo, because it does two jobs
+  // now. It says whose payment this is, and it carries the QUOTE — the
+  // credits and dollars this exact amount was offered at. A payment
+  // with a memo still deserves the price it was promised.
+  const intent = await matchIntent(session.accountId, lamports, blockTimeMs).catch(() => null);
   if (!memo && !intent) {
     // Still nothing: an old client, or a genuinely hand-sent transfer.
     // Fall back to the sender being a wallet already registered to
@@ -230,8 +232,22 @@ export async function POST(req) {
   //   undiscounted price it would land outside its own pack's
   //   tolerance band and be credited at the tier below — a holder
   //   getting fewer credits per dollar than a stranger, silently.
-  const rate = await solUsd();
-  if (rate === null) {
+  // ══ A QUOTED PAYMENT IS NOT RE-PRICED ══
+  //
+  // When the amount was reserved, the deal was written down with it:
+  // these credits, these dollars, at this rate, with this discount. The
+  // payer sent exactly that amount. Grading it again against a later
+  // rate is re-running the sum with different inputs and hoping for the
+  // same answer — and over a day-long intent and an 8% band, SOL moves
+  // far enough that it is not the same answer.
+  //
+  // Honouring the quote also means a payment can be credited while the
+  // price feed is down. There is nothing to look up: the price was
+  // agreed before it went away.
+  const quoted = intent?.credits > 0 ? intent : null;
+
+  const rate = quoted ? quoted.rate : await solUsd();
+  if (!quoted && rate === null) {
     // Nothing is lost by waiting: the transaction is on chain and the
     // client polls this endpoint. 202 is the "not yet" status it
     // already understands.
@@ -241,8 +257,12 @@ export async function POST(req) {
       { status: 202 }
     );
   }
-  const { ent } = await resolveEntitlements(session.accountId).catch(() => ({ ent: { discount: 0 } }));
-  const pack = { ...creditsForPayment(sol, rate, ent.discount), sol };
+  const { ent } = quoted
+    ? { ent: { discount: quoted.discount || 0 } }
+    : await resolveEntitlements(session.accountId).catch(() => ({ ent: { discount: 0 } }));
+  const pack = quoted
+    ? { id: quoted.packId, credits: quoted.credits, usd: quoted.usd, sol }
+    : { ...creditsForPayment(sol, rate, ent.discount), sol };
 
   // ══ TAKING THE PAYMENT, ATOMICALLY ══
   //
@@ -288,6 +308,10 @@ export async function POST(req) {
         creditsGranted: pack.credits,
         status: "credited",
         via: "claim",
+        // Whether this was honoured against the quote it was sold at or
+        // graded from the amount. Worth knowing a month later when
+        // someone asks why a payment is worth what it is.
+        priced: quoted ? "quoted" : "graded",
         // Kept when adopting a record the webhook filed first, so the
         // history still shows when the money actually arrived.
         ts: cur?.ts || Date.now(),

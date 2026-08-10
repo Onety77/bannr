@@ -174,7 +174,7 @@ ok(/!e\.signature/.test(intents), "and a spent one never matches again");
 // Armed in /api/pricing, because the tap that opens the wallet may not
 // await anything and the number must already exist by then.
 const pricing = bare(read("app/api/pricing/route.js"));
-ok(/armIntents\(session\.accountId, packs\)/.test(pricing), "the amounts are reserved when the page prices itself");
+ok(/armIntents\(session\.accountId, packs/.test(pricing), "the amounts are reserved when the page prices itself");
 ok(/session\?\.accountId && rate !== null/.test(pricing), "only for someone signed in, at a rate we trust");
 ok(/lamports: armed\[p\.id\]/.test(pricing), "and the exact figure travels to the page");
 
@@ -192,6 +192,37 @@ ok(/consumeIntent\(session\.accountId, lamports, signature\)/.test(claimSrc), "a
   const c = claimSrc.indexOf("consumeIntent(session.accountId");
   ok(g > 0 && c > g, "and spent only after the credits actually landed");
 }
+
+/* ------------- the deal is written down when it is offered ------------- */
+// A payment used to be graded at CLAIM time: take the SOL that
+// arrived, look up today's rate, work out which pack that is. That is
+// re-running the sum with different inputs and hoping for the same
+// answer. Over a day-long intent and an 8% tolerance band it is not
+// the same answer — pay for Studio, come back after a swing, and the
+// same transaction grades as something else while the payer sent
+// exactly what was asked for.
+ok(/const quoteOf = \(pack, quote\)/.test(intents), "an amount is reserved with the deal attached");
+ok(/credits: pack\.credits/.test(intents) && /usd: pack\.usd/.test(intents),
+   "carrying the credits and the dollars it was offered at");
+ok(/rate: quote\.rate/.test(intents) && /discount: quote\.discount/.test(intents),
+   "and the rate and discount it was struck with");
+// The price is re-struck on every page load, so a REUSED amount has to
+// be re-stamped or the payer is graded against a quote nobody showed
+// them.
+ok(/Object\.assign\(current, quoteOf\(pack, quote\)\)/.test(intents), "a reused amount is re-quoted, not left stale");
+ok(/armIntents\(session\.accountId, packs, \{ rate, discount \}\)/.test(pricing),
+   "the page passes the rate and discount it displayed");
+
+ok(/const quoted = intent\?\.credits > 0 \? intent : null/.test(claimSrc), "the claim honours a quote when there is one");
+ok(/credits: quoted\.credits, usd: quoted\.usd/.test(claimSrc), "paying out what was promised, not what it re-prices to");
+ok(/discount: quoted\.discount \|\| 0/.test(claimSrc), "at the discount that was on screen");
+// Nothing to look up means nothing to be down. A quoted payment is
+// creditable even when the price feed is not answering.
+ok(/if \(!quoted && rate === null\)/.test(claimSrc), "and a quoted payment does not wait on the price feed");
+ok(/priced: quoted \? "quoted" : "graded"/.test(claimSrc), "the record says which way it was priced");
+// An unquoted payment — hand-sent, or from before intents existed —
+// still has to be graded, so that path cannot be dropped.
+ok(/creditsForPayment\(sol, rate, ent\.discount\)/.test(claimSrc), "an unquoted payment is still graded from the amount");
 
 /* ------------- recorded is not the same as credited ------------- */
 // The silent zero. The webhook writes payments/{signature} too, and
