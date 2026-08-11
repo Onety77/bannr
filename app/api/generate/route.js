@@ -25,7 +25,7 @@
 import sharp from "sharp";
 import { NextResponse } from "next/server";
 import {
-  getTemplate, autoTemplate, buildPrompt, directorBrief, directorLimits, distributeStyles,
+  getTemplate, autoTemplate, buildPrompt, distributeStyles,
   VARIANT_SEASONING, REASSURANCE, ASSIST_NUDGE, AUTO_ID, AUTO_NAME,
   BANNER_W, BANNER_H,
 } from "@/lib/templates";
@@ -402,20 +402,9 @@ export async function POST(req) {
             // polite variation of the thing being replaced.
             // Default has no house style to work inside — that is the
             // whole point of it — so it gets the brief and nothing else.
-            // directorBrief, not tpl.mood: a leanBrief style adds the
-            // instruction that this concept IS the brief, because its
-            // renderer will not be sent the project description or the
-            // reasoning behind the style. See lib/templates.js.
             styleBrief: isDefault
               ? "No house style. You are choosing the direction yourself, from the project alone."
-              : directorBrief(tpl),
-            // Emitted LAST, after the palette and right before the
-            // output instruction. The same rules sat inside styleBrief
-            // first and were ignored — the mark specified as "a
-            // recurring motif", a name given as "Honey" written back
-            // as "HONEY". Nothing was wrong with the wording; a ban
-            // buried mid-prose loses to everything printed after it.
-            mustObey: isDefault ? "" : directorLimits(tpl),
+              : tpl.mood,
             count: indices.length,
             constraints: [
               buildDirection(styleId, settings),

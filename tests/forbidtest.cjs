@@ -1,6 +1,17 @@
 // The circuit-board ban: it existed twice already and lost anyway.
 // This checks the two things that were actually wrong — WHERE it sat
 // and HOW it was phrased — by building a real prompt.
+// ══ TEK WAS ROLLED BACK TO 6 AUGUST ══
+//
+// Three sections used to live here and are gone with the code they
+// described: the design director's unhedged circuit-board ban, the
+// style-reference rewrite, and the mood rules added on the 10th
+// (ornate machinery, do-not-illustrate-the-name, one committed idea).
+//
+// They were removed rather than rewritten. A test asserting the older
+// behaviour would be inventing a claim nobody made — the old prompt is
+// simply what it was. Everything below is still true of the code.
+//
 const fs = require("fs");
 const R = require("path").join(__dirname, "..") + "/";
 const read = (f) => fs.readFileSync(R + f, "utf8").replace(/\r\n/g, "\n");
@@ -148,22 +159,6 @@ console.log("\n2b. GLOW IS SOFT, NOT A LINE");
   }
 }
 
-console.log("\n3. AND THE CONCEPT WRITER CANNOT PROPOSE ONE");
-{
-  const design = O.slice(O.indexOf("  design: {"), O.indexOf("  meme: {"));
-  ok(/NONE OF THIS, however well you think you could execute one/.test(design),
-     "the director's ban is unhedged");
-  ok(/circuit boards, traces or PCB patterns in any role/.test(design),
-     "and covers every role, not just backgrounds");
-  ok(/crypto or infrastructure brief is the one that attracts all of it/.test(design),
-     "with the brief that attracts it called out by name");
-  // The self-test moved and generalised. "A technical-looking surface"
-  // only caught tech clichés; this catches the whole failure — a
-  // concept that is not about THIS client.
-  ok(/could be pitched to any other client in the category is a failed concept/.test(design),
-     "and a test the writer can apply to its own concept");
-}
-
 console.log("\n3z. THE DIRECTOR MUST NOT GROW BACK INTO A CHECKLIST");
 {
   // ══ MEASURED, BECAUSE IT HAPPENED TWICE ══
@@ -199,13 +194,6 @@ console.log("\n3z. THE DIRECTOR MUST NOT GROW BACK INTO A CHECKLIST");
      `and stays within reach of default's ${words(def)} (it was nearly double)`);
   ok(design.split(/\n- /).length <= 10,
      `${design.split(/\n- /).length} bullets, not sixteen`);
-  // The fix for Aminu's question: it now leads by working out what the
-  // project IS, the way default always did, instead of opening with a
-  // list of things not to do.
-  ok(/^- WORK OUT WHAT THIS PROJECT ACTUALLY IS/.test(design.trim()),
-     "AND IT OPENS BY THINKING, not by prohibiting");
-  ok(/use what you actually know about the world/i.test(design),
-     "with permission to use real knowledge of the chain or company");
 }
 
 console.log("\n3a. HIM CAN SEE THE SUBJECT NOW");
@@ -272,32 +260,6 @@ console.log("\n3a. HIM CAN SEE THE SUBJECT NOW");
   // (did not). Default recognised the Robinhood mark and built
   // concepts around it; Tek invented a world and the renderer bolted
   // the logo on afterwards. That is what a blind director must do.
-  const design = O.slice(O.indexOf("  design: {"), O.indexOf("  meme: {"));
-  ok(/vision: true/.test(design), "design sees the mark");
-  // Flipping the flag while leaving the paragraph would have told it,
-  // in one prompt, both that it has and has not seen the logo — and
-  // HANDOFF's rule is that a contradiction gets resolved at random.
-  ok(!/YOU HAVE NOT SEEN THE LOGO/.test(design),
-     "AND THE PARAGRAPH SAYING IT HAD NOT IS GONE, not left to contradict the picture");
-  ok(/TELLS YOU WHAT THIS IS — NEVER WHERE IT GOES/.test(design),
-     "the two jobs are separated out loud, the way HIM had to learn");
-  ok(/the ground is yours to invent and may CONTRAST with it rather than echo it/.test(design),
-     "and the original worry — echoing the logo — is answered rather than dropped");
-  {
-    // Vision is opted into per director so that if it turns out to
-    // help we know WHICH change did what. This count is the guard
-    // against it quietly spreading — raise it deliberately or not at
-    // all. `design` joined last, on the evidence above.
-    const on = [...O.matchAll(/^  ([a-z]+): \{\n(?:\s*\/\/[^\n]*\n)*\s*vision: true/gm)].map((m) => m[1]);
-    ok(on.length === 4 && ["default", "design", "him", "pov"].every((d) => on.includes(d)),
-       "exactly four directors see the image: " + on.join(", "));
-  }
-  // The renderer used to claim it was the ONLY stage that could see
-  // the mark. Now that the concept was written by someone looking at
-  // the same picture, that is false and worth more than a stale line:
-  // a colour the concept names is a decision, not a guess to override.
-  ok(!/ONLY STAGE THAT CAN SEE THIS MARK/.test(O), "the renderer no longer claims sole sight of the mark");
-  ok(/written by someone who could also see this mark/.test(O), "it defers to the concept's colour calls");
 }
 
 console.log("\n4. THE OTHER BAN THAT ALREADY HOLDS IS UNTOUCHED");
@@ -311,67 +273,6 @@ console.log("\n4. THE OTHER BAN THAT ALREADY HOLDS IS UNTOUCHED");
   }
   ok(tech.includes("If the client has explicitly asked for metallic or dimensional lettering, give it to them"),
      "including its own escape hatch for the client");
-}
-
-console.log("\nX. THE STYLE REFERENCES POINT THE RIGHT WAY");
-{
-  // ══ THIS ONE COST SIXTEEN UNUSABLE BANNERS ══
-  //
-  // The block forbade copying a reference's "layout, composition,
-  // subject matter, colour palette, LIGHTING, overall darkness or
-  // brightness, mood, typeface" and said a banner resembling one "in
-  // any of those respects has failed" — then asked, in the abstract,
-  // for "the STANDARD".
-  //
-  // Every file in references/tech is flat, light, restrained and
-  // typographic. So the instruction read as: do not be restrained, do
-  // not be light, do not be typographic. Sixteen banners came back
-  // dark, ornate and maximalist, and Tek — the only style WITH
-  // references — was the worst style in the product. The model was
-  // obeying.
-  // Comments stripped, because the code above the block explains the
-  // old wording by quoting it — and matching that comment instead of
-  // the code is the failure mode this suite keeps rediscovering.
-  const b = fs.readFileSync(R + "lib/openai.js", "utf8").replace(/\r\n/g, "\n")
-    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-
-  ok(!/in any of those respects has failed/.test(b),
-     "resembling a reference is no longer declared a failure");
-  ok(!/colour palette, LIGHTING, overall darkness or brightness, mood/.test(b),
-     "AND THE FORBIDDEN LIST NO LONGER COVERS THE THINGS A REFERENCE EXISTS TO TRANSMIT");
-  // What must still never be lifted is the CONTENT. That fear was
-  // real; it was the scope that was wrong.
-  ok(/NOTHING \$\{one \? "IT DEPICTS" : "THEY DEPICT"\} belongs in your banner/.test(b),
-     "the subject matter is still forbidden");
-  ok(/not any word, wordmark or logo/.test(b), "and so are their words and logos");
-  ok(/TAKE HOW/.test(b) && /restraint/.test(b),
-     "while the design decisions are now explicitly asked for");
-
-  // The director wrote the concept BEFORE the renderer sees anything,
-  // so an ornate brass door has to be stopped there too.
-  ok(/THE IDEA COMES FROM WHAT IT DOES, NEVER FROM WHAT IT IS CALLED/.test(b),
-     "the director is told a name is not a subject");
-  ok(!/or from what it is named after/.test(b),
-     "and the licence that permitted illustrating the name is gone");
-  // ══ THE OVER-CORRECTION, AND WHY IT IS GONE ══
-  //
-  // "The ground is one thing and it is QUIET… never build a scene…
-  // the strongest work here is almost empty" was written to stop
-  // brass doors and honeycomb. It stopped everything. Tek went from
-  // a photographed mountain path carrying real stock tickers to a
-  // flat green rectangle with a logo on it — because with that rule
-  // in place, HAVING NO IDEA was the safest compliant answer.
-  //
-  // Only one of the four rules added that day actually fixed the
-  // Honey run, and it is the one above: the idea comes from what the
-  // project DOES, never from what it is CALLED. That kills honeycomb
-  // and padlocks without touching pictorial ambition.
-  ok(/NAME THE GROUND, AND LET THE IDEA CHOOSE IT/.test(b),
-     "the ground is chosen by the idea, not by a preference for emptiness");
-  ok(/AN EMPTY FRAME IS NOT RESTRAINT, IT IS AN ABSENT CONCEPT/.test(b),
-     "AND AN EMPTY FRAME IS NAMED AS A FAILURE, not as restraint");
-  ok(/BE LITERAL ABOUT WHAT THE PROJECT TOUCHES/.test(b),
-     "with the real companies named, which is what made the good ones good");
 }
 
 console.log("\nX2. NO REFERENCE HANDS OVER A LOGO");
@@ -407,42 +308,6 @@ console.log("\nX2. NO REFERENCE HANDS OVER A LOGO");
      "and the README states the rule where somebody adding a file will read it");
 
   // The prompt still names the failure, because the files being clean
-  // is the fix and the ban is the belt.
-  const b = fs.readFileSync(R + "lib/openai.js", "utf8").replace(/\r\n/g, "\n")
-    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  ok(/BECAUSE IT HAS ALREADY HAPPENED TWICE/.test(b),
-     "the prompt names the actual failure rather than stating a preference");
-  ok(/ONLY mark permitted anywhere in the frame is the client's own/.test(b),
-     "and says which mark is allowed, rather than only which are not");
-}
-
-console.log("\nY. TEK BANS WHAT ACTUALLY CAME BACK");
-{
-  // Scoped here rather than reusing the `tech` from the block at the
-  // top of the file, which is local to it.
-  const tech = T.slice(T.indexOf('id: "tech"'), T.indexOf('id: "meme"'));
-  // The old list banned circuitry and sci-fi UI, so the clichés simply
-  // moved next door: brass doors, cogs, keys, honeycomb, cityscapes.
-  for (const s of [
-    "ornate machinery, gears, cogs",
-    "keys, padlocks, chains, safes, vaults",
-    "what the project's NAME literally means",
-  ]) ok(tech.includes(s), `forbidden: ${s}`);
-
-  ok(tech.includes("DO NOT ILLUSTRATE THE NAME"), "the mood states the name rule too");
-  ok(tech.includes("ONE IDEA, WHOLLY COMMITTED TO"), "and asks for one committed idea");
-  ok(tech.includes("BE LITERAL ABOUT WHAT THE PROJECT TOUCHES"), "naming the real things the project touches");
-  // The bans that killed the style are gone from the mood as well as
-  // the director. A landscape, a lit environment and a photograph are
-  // all legitimate grounds again.
-  ok(!/THIS IS DESIGN, NOT A RENDER/.test(tech), "and no longer forbids a rendered or photographic ground");
-  ok(!/almost empty/.test(tech), "nor calls the strongest work almost empty");
-
-  // Flat imperatives hold; reasoning that trails off into "none of
-  // them is necessary" reads as advice and is ignored. Every new rule
-  // is a command.
-  ok(/ONE IDEA, WHOLLY COMMITTED TO\. The frame holds a single thought/.test(tech),
-     "and states it as an imperative rather than as an explanation");
 }
 
 console.log(bad ? "\n" + bad + " FAILED\n" : "\nall green\n");
