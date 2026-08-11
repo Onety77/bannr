@@ -10,6 +10,7 @@ import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_
 import { saveImage, bannerFilename } from "@/lib/download";
 import { downscaleFile, downscaleAll, totalBytes, REQUEST_BUDGET_BYTES } from "@/lib/downscale";
 import { useAuth } from "@/lib/useAuth";
+import { runCost } from "@/lib/packs";
 import { useEntitlements } from "@/lib/useEntitlements";
 import { useProgress } from "@/lib/useProgress";
 import ConnectButton from "@/components/ConnectButton";
@@ -1669,6 +1670,13 @@ function CreateInner() {
                 </button>
               ))}
             </div>
+            {/* The price, on the control that sets it. Two options cost
+                two credits and three or four cost three — which is only
+                worth having if it is visible at the moment of choosing,
+                rather than discovered on the balance afterwards. */}
+            <p className="hint variant-note">
+              {runCost(variants)} credits for {variants} options.
+            </p>
             {styleIds.length > 1 && (
               <p className="hint variant-note">
                 {styleIds.length} styles selected, so at least {styleIds.length} options.

@@ -40,6 +40,7 @@ import { rateLimit } from "@/lib/rateLimit";
 import {
   refundGeneration, consumeGeneration, refundCredits, partialRefundCredits,
   spendCredits, getUser, publicUser, getSettings, GENERATION_COST, REROLL_COST,
+  runCost, FREE_RUN_MAX_OPTIONS,
 } from "@/lib/users";
 import { resolveEntitlements } from "@/lib/entitlements";
 import { getAdminDb } from "@/lib/firebaseAdmin";
@@ -165,7 +166,7 @@ export async function POST(req) {
     const isReroll = String(form.get("reroll") || "") === "1";
     const avoidConcept = isReroll ? String(form.get("avoidConcept") || "").slice(0, 900) : "";
 
-    const variantCount = isReroll ? 1 : Math.min(
+    let variantCount = isReroll ? 1 : Math.min(
       Math.max(parseInt(form.get("variants") || "4", 10) || 4, 2),
       // Never fewer options than styles — every chosen style must
       // appear at least once, which is the whole promise of the
@@ -302,9 +303,13 @@ export async function POST(req) {
       // entitlementsOf(), so a signed-in non-holder arrives with one
       // run to spend and a gate that is entirely switched off changes
       // nothing about that.
+      // Priced by what the run actually makes. Two options cost two
+      // credits; three and four cost three. See runCost.
+      const cost = runCost(variantCount);
       const paid = await consumeGeneration(session.accountId, {
         allowance: ent.dailyRuns,
         globalCap: gate.dailyGlobalRuns,
+        cost,
       });
       if (!paid?.ok) {
         return NextResponse.json(
@@ -315,7 +320,7 @@ export async function POST(req) {
               // has never held a token can hit this and being told the
               // holder allowance ran out would be nonsense to them.
               ? "Today's free runs are all used up across the site. Credits still work, or try again tomorrow."
-              : `Not enough credits — a run costs ${GENERATION_COST}. Top up on the credits page.`,
+              : `Not enough credits — ${variantCount} options cost ${cost}. Top up on the credits page.`,
             code: "insufficient_credits",
           },
           { status: 402 }
@@ -323,7 +328,27 @@ export async function POST(req) {
       }
       // paidWith decides how a failure is undone. Refunding credits for
       // a run that was free would mint them out of nothing.
-      charged = { accountId: session.accountId, amount: GENERATION_COST, paidWith: paid.paidWith };
+      charged = { accountId: session.accountId, amount: cost, paidWith: paid.paidWith };
+
+      // ══ A FREE RUN STOPS AT THREE ══
+      //
+      // Decided here rather than before charging, because until
+      // consumeGeneration answers we do not know whether this run came
+      // out of the daily allowance or out of credits — and only the
+      // free one is capped. Someone paying gets what they asked for.
+      //
+      // Every free run is four images of real money against no
+      // revenue, and at four a day the allowances were the single
+      // largest cost in the product. Three still shows a spread worth
+      // choosing between.
+      //
+      // Never below the number of styles chosen, though. "Every style
+      // you picked appears at least once" is a promise the picker
+      // makes on screen, and quietly dropping one to save an image
+      // would be breaking it to save money.
+      if (paid.paidWith === "holder") {
+        variantCount = Math.min(variantCount, Math.max(FREE_RUN_MAX_OPTIONS, styleIds.length));
+      }
     }
 
     // Each variant carries its own style now. Normal ("auto") sends no

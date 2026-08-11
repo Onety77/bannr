@@ -69,8 +69,11 @@ console.log("\n1. THE REFUND BUG A REROLL WOULD HAVE CREATED");
   }
 
   console.log("\n2. THE ROUTE — A REROLL IS NOT A RUN");
-  ok(S.includes("const variantCount = isReroll ? 1 : Math.min("), "reroll bypasses the two-option floor");
-  ok(S.indexOf('const isReroll = String(form.get("reroll")') < S.indexOf("const variantCount ="), "the flag is read BEFORE the clamp that would have doubled it");
+  // `let` since a free run is clamped after we learn how it was paid
+  // for — see FREE_RUN_MAX_OPTIONS. A reroll is still pinned to 1 here
+  // and never reaches that branch, because a reroll is not a run.
+  ok(S.includes("let variantCount = isReroll ? 1 : Math.min("), "reroll bypasses the two-option floor");
+  ok(S.indexOf('const isReroll = String(form.get("reroll")') < S.indexOf("let variantCount ="), "the flag is read BEFORE the clamp that would have doubled it");
   ok((S.match(/const isReroll =/g) || []).length === 1, "declared exactly once");
   ok(S.includes("if (isReroll && styleIds.length !== 1)"), "a reroll must name exactly one style");
   ok(S.includes("if (!demoMode && isReroll) {"), "reroll takes its own charging path");

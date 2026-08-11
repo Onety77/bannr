@@ -328,7 +328,10 @@ export default function CreditsPage() {
     <main className="wrap">
       <div className="page-head">
         <h1>Credits</h1>
-        <p>1 run = {pricing?.generationCost ?? 3} credits = up to 4 banner options.</p>
+        {/* Was "1 run = 3 credits = up to 4 banner options", which
+            stopped being true when the price started following the
+            count. Both numbers, because the choice is the point. */}
+        <p>2 banner options = 2 credits. 3 or 4 = {pricing?.generationCost ?? 3} credits.</p>
       </div>
 
       {/* This used to lead with "Connect wallet", which is now both
