@@ -5,6 +5,7 @@ import Socials from "@/components/Socials";
 import TabBar from "@/components/TabBar";
 import Fx from "@/components/Fx";
 import Track from "@/components/Track";
+import ServiceWorker from "@/components/ServiceWorker";
 import Modals from "@/components/Modals";
 
 const body = Inter({
@@ -79,6 +80,25 @@ export const metadata = {
     shortcut: "/favicon.ico",
     apple: "/apple-icon.png",
   },
+  // ══ ADD TO HOME SCREEN, ON IOS ══
+  //
+  // Android reads app/manifest.js and offers to install. iOS ignores
+  // most of that file and reads these instead — without them, Add to
+  // Home Screen produces a bookmark that opens in Safari with the
+  // address bar still there, which is not an app, it is a shortcut.
+  //
+  // statusBarStyle is "default" rather than "black-translucent" on
+  // purpose. Translucent pulls the page up UNDER the clock and the
+  // notch, and only the bottom safe-area inset is handled in
+  // globals.css — the top is not. It would put the nav under the
+  // status bar on every phone with one. Worth revisiting, but it needs
+  // top padding first, and that is a layout change rather than a
+  // metadata one.
+  appleWebApp: {
+    capable: true,
+    title: "bannr",
+    statusBarStyle: "default",
+  },
   // Also how a scraper decides what our link looks like, which until
   // now was a title and no picture anywhere it was pasted.
   openGraph: {
@@ -117,6 +137,9 @@ export default function RootLayout({ children }) {
       <body>
         <Fx />
         <Track />
+        {/* Renders nothing. Registers public/sw.js, which is what
+            lets a phone install this as an app. */}
+        <ServiceWorker />
         {/* One scroll container, and on a phone it is the ONLY thing
             that scrolls. The document staying still is what stops iOS
             rubber-banding — and the bounce is what was dragging the
