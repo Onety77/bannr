@@ -452,10 +452,19 @@ export default function CreditsPage() {
               this way, which is our reasoning and not theirs. */}
           <p className="lad-axis">Separate from credits. Nothing to buy.</p>
           <div className={`ladder-grid ${armed ? "" : "solo"}`}>
-            {ladder.map((t) => {
+            {ladder.map((t, i) => {
               const mine = (you?.tierId || "free") === t.id;
               return (
-                <div className={`lad ${mine ? "mine" : ""}`} key={t.id}>
+                <div
+                  className={`lad ${mine ? "mine" : ""}`}
+                  key={t.id}
+                  // Its position in the ladder, which the rail at the
+                  // top of the card reads to decide how solid it is.
+                  // Rank is real information; a decoration that encoded
+                  // nothing would just be a stripe.
+                  style={{ "--rung": i, "--rungs": ladder.length }}
+                >
+                  <span className="lad-rail" aria-hidden="true" />
                   <div className="lad-h">
                     <b>{t.name}</b>
                     {mine && <span className="lad-you">You</span>}
@@ -463,16 +472,37 @@ export default function CreditsPage() {
                   <div className="lad-hold">
                     {t.id === "free" ? "Signed in" : `${tokens(t.minTokens)} ${sym}`}
                   </div>
-                  <ul className="lad-perks">
-                    {t.dailyRuns > 0 && <li>{t.dailyRuns} free {t.dailyRuns === 1 ? "run" : "runs"} a day</li>}
-                    {t.discount > 0 && <li>{t.discount}% off credits</li>}
-                    {t.earlyAccess && <li>New surfaces first</li>}
-                    {t.customStyle && <li>A style of your own</li>}
-                    {/* A rung whose entire list is falsy would render
-                        an empty card, and an empty card reads as a
-                        loading state rather than as an answer. */}
-                    {!t.dailyRuns && !t.discount && <li className="lad-none">Credits only</li>}
-                  </ul>
+
+                  {/* ══ THE ALLOWANCE IS THE RUNG ══
+                      It was the first line of a bullet list, in body
+                      text, at the same weight as "New surfaces first".
+                      It is the number that actually ascends — 1, 1, 2,
+                      3 — and the one thing being compared across four
+                      cards, so it is set as a figure and everything
+                      else arranges around it. */}
+                  <div className="lad-stat">
+                    <span className="lad-n">{t.dailyRuns > 0 ? t.dailyRuns : "—"}</span>
+                    <span className="lad-unit">
+                      free {t.dailyRuns === 1 ? "run" : "runs"}
+                      <br />a day
+                    </span>
+                  </div>
+
+                  <div className="lad-off">
+                    {t.discount > 0
+                      ? <><b>{t.discount}%</b> off credits</>
+                      // Said rather than left blank: an empty slot on
+                      // one card in a row of four reads as something
+                      // that failed to load.
+                      : <span className="lad-none">No discount</span>}
+                  </div>
+
+                  {(t.earlyAccess || t.customStyle) && (
+                    <ul className="lad-perks">
+                      {t.earlyAccess && <li>New surfaces first</li>}
+                      {t.customStyle && <li>A style of your own</li>}
+                    </ul>
+                  )}
 
                   {/* ══ EVERYTHING, INCLUDING WHAT IT DOES NOT GET ══
                       The list above is the pitch and skips the misses,

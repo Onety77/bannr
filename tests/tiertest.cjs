@@ -363,8 +363,26 @@ console.log("\n=== 10. THE CEILING NOW COVERS EVERYONE ===");
   ok(/form\.tiers\.map/.test(A), "all three rungs are editable");
   ok(!/0\.073/.test(A), "the cost figure includes the art-director call");
 }
-ok(read("app/api/admin/token/route.js").includes("COST_PER_RUN = 0.081"),
-   "0.081 a run — three images plus the director, not three images alone");
+// ══ THE COST CONSTANT IS EVIDENCE, SO IT HAS TO BE TRUE ══
+//
+// It said 0.081, from $0.024 an image measured against an older model
+// and then never revisited. Every allowance field in the panel shows a
+// projected monthly spend derived from this, so a Founder rung at four
+// runs a day reported $9.72 a month against a real figure nearer $37 —
+// and the rungs were being chosen against it.
+//
+// A stale constant is worse than no constant: it looks like it was
+// measured. $0.10 an image × 3 + $0.008 for the director.
+ok(read("app/api/admin/token/route.js").includes("COST_PER_RUN = 0.308"),
+   "0.308 a run — three images at ten cents, plus the director");
+// One definition. The launch checklist had its own copy of 0.081 and
+// would have gone on quoting it after this was corrected.
+ok(/import \{ COST_PER_RUN \}/.test(read("app/api/admin/launch/route.js")),
+   "and the launch checklist imports it rather than keeping a second copy");
+// bare(): the comment explaining WHY the copy was removed names the
+// old number, and a test that matched it would be grading the note
+// rather than the code.
+ok(!/0\.081/.test(bare(read("app/api/admin/launch/route.js"))), "with the old figure gone from the code");
 
 console.log(bad ? "\n" + bad + " FAILED\n" : "\nall green\n");
 process.exit(bad ? 1 : 0);

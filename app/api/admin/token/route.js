@@ -25,15 +25,22 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-// Cost per run at three options. $0.024 an image measured (README),
-// times three, plus $0.008 for the art-director text call that steers
-// them. The director used to be left out and the panel under-reported
-// every projection by about 10% — a rounding error on one run and a
-// real number across a launch week.
+// Cost per run at three options: $0.10 an image, times three, plus
+// $0.008 for the art-director text call that steers them.
 //
-// Shown next to every allowance field so the number being typed has a
-// currency attached to it rather than being an abstract count.
-const COST_PER_RUN = 0.081;
+// ══ THIS WAS 0.081 AND IT WAS WRONG BY FOUR TIMES ══
+//
+// It carried $0.024 an image, measured against an older model and then
+// left alone. Every allowance field in the panel shows a projected
+// monthly cost derived from this, so a Founder rung at four runs a day
+// was being reported at $9.72 a month when the real figure is nearer
+// $37 — and the rungs were being chosen against the wrong number.
+//
+// A cost constant that nobody re-measures is worse than no constant at
+// all: it looks like evidence. If the model or the price changes
+// again, this is the line to change, and the free-run ceiling in
+// lib/tokenGate.js quotes it.
+export const COST_PER_RUN = 0.308;
 
 // Live price, best effort, ADMIN-ONLY and never in the generation
 // path. It exists so the threshold can be typed in dollars and STORED

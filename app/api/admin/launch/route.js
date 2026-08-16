@@ -21,6 +21,7 @@
 // Admin-verified on every call, like every other /api/admin route.
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
+import { COST_PER_RUN } from "@/app/api/admin/token/route";
 import { getAdminDb, getAdminBucket } from "@/lib/firebaseAdmin";
 import { getGate, entryBar } from "@/lib/tokenGate";
 import { commitment } from "@/lib/buybacks";
@@ -64,7 +65,10 @@ export async function GET(req) {
       ok: gate.dailyGlobalRuns > 0,
       detail:
         gate.dailyGlobalRuns > 0
-          ? `${gate.dailyGlobalRuns.toLocaleString("en-US")} runs a day, about $${(gate.dailyGlobalRuns * 0.081).toFixed(0)}`
+          // COST_PER_RUN, imported rather than repeated — this line
+          // carried its own copy of 0.081 and would have gone on
+          // quoting it after the real figure was corrected.
+          ? `${gate.dailyGlobalRuns.toLocaleString("en-US")} runs a day, about $${(gate.dailyGlobalRuns * COST_PER_RUN).toFixed(0)}`
           : "Unlimited. Every signed-in account gets a free run a day and nothing caps the total.",
       fix: "Token tab → Limits → Daily ceiling across everyone",
     },
