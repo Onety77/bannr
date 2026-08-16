@@ -542,6 +542,31 @@ export default function CreditsPage() {
             <p className="lad-soon">The holding tiers arrive with {sym}.</p>
           )}
 
+          {/* ══ WHY YOU ARE ON THIS RUNG ══
+              The server has always recorded this and the page has
+              never shown it, which made one question unanswerable from
+              the outside: somebody who sold every token and still read
+              as a holder had no way to find out why, and neither did
+              I. A tier can be held for reasons that have nothing to do
+              with today's balance — an admin grant is a floor that
+              outlives selling, and a second linked wallet counts
+              toward the same total.
+
+              Shown only when the reason is NOT simply "you hold
+              enough", because that case is already obvious from the
+              ladder above it. */}
+          {you?.tierId && you.reason && you.reason !== "ok" && (
+            <p className="lad-why">
+              {you.reason === "granted"
+                ? "This rung was given to you by an admin. It stays until it expires, whatever you hold."
+                : you.reason === "maturing"
+                ? "Held, but not matured yet — it starts paying out once the hold-for time has passed."
+                : you.reason === "unknown"
+                ? "Your balance could not be read just now, so your last known standing is being kept."
+                : `Standing from an earlier check (${you.reason}).`}
+            </p>
+          )}
+
           {/* ══ THE ONE PLACE HOLDING AND BUYING ARE THE SAME SENTENCE ══
               It sits directly under the ladder and directly above
               nothing else, because it is a call to action and putting

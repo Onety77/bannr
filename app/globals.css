@@ -4334,6 +4334,16 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
    his tier. */
 .lad-axis { margin: -6px 0 14px; font-size: 13.5px; color: var(--muted); }
 
+/* Why this rung, when the reason is not simply the balance. Quiet by
+   design — it answers a question most people never ask, and the ones
+   who do are usually confused and deserve a straight sentence rather
+   than a warning banner. */
+.lad-why {
+  margin: 12px 0 0; padding-left: 11px;
+  border-left: 2px solid var(--hairline-2);
+  font-size: 13px; color: var(--muted);
+}
+
 /* And the separation that stops the two grids reading as one. A rule
    rather than more whitespace: whitespace alone said "same list,
    further down", which is exactly the wrong idea. */
