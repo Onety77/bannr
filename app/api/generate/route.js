@@ -115,9 +115,15 @@ export async function POST(req) {
     // Nothing else. It used to decide which parts of the brief were
     // allowed too, and that was wrong — see the note further down.
     //
-    // The RPC behind this fires at most once per account per day — see
-    // gateStateOf — and never at all when the gate is off.
-    const { gate, ent } = await resolveEntitlements(session.accountId);
+    // The RPC behind this never fires when the gate is off, and fires
+    // once a day for someone with no tier — see gateStateOf.
+    //
+    // `verify` is the exception, and it is here because this run may
+    // spend a FREE one: a holder who sold this morning should not still
+    // be drawing an allowance this afternoon. It re-reads the balance
+    // for accounts that CURRENTLY hold a tier and nobody else, so the
+    // extra call lands only where there is something to lose.
+    const { gate, ent } = await resolveEntitlements(session.accountId, { verify: true });
 
     const form = await req.formData();
     brief = {

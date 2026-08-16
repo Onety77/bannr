@@ -68,7 +68,7 @@ console.log("\n=== 2. THE FREE TIER IS A STANDING, NOT AN ABSENCE ===");
   const t3 = T.entitlementsOf(GATE, T.tierFor(250_000, LADDER));
   ok(t3.dailyRuns === 3 && t3.discount === 40, "the top rung gets its own numbers");
   ok(t3.earlyAccess === true && t3.customStyle === true, "and its status perks");
-  ok(t3.tierId === "t3" && t3.tierName === "Founder", "named, for the page");
+  ok(t3.tierId === "t3" && t3.tierName === "Patron", "named, for the page");
 }
 {
   // An admin can save a rung worse than free. The ladder's first step
@@ -99,6 +99,24 @@ console.log("\n=== 2b. A TIER GIVEN RATHER THAN EARNED ===");
     ok(g.by === "me@x", "and who did it is recorded");
   }
   ok(G.cleanGrant({ tier: "t1", days: 99999 }).days === 3650, "an absurd duration is clamped");
+}
+
+console.log("\n=== 2bb. SELLING IS NOTICED WHEN IT COSTS US ===");
+{
+  // A tier reached today was not re-read again that day, so selling
+  // went unseen until UTC midnight — up to 24 hours of free runs and
+  // discounted packs after the tokens were gone. Buying was seen in
+  // ten minutes; selling was not seen at all.
+  const E = bare(read("lib/entitlements.js"));
+  ok(/verify = false/.test(E), "the resolver takes a verify flag");
+  ok(/const holding = Boolean\(st\.tierId\)/.test(E), "which only bites for an account that currently holds a tier");
+  ok(/!refresh && !\(verify && holding\) && !st\.needsCheck/.test(E),
+     "so a non-holder keeps the cheap cached path");
+  // The two moments a benefit is actually taken.
+  ok(/verify: true/.test(bare(read("app/api/pricing/route.js"))),
+     "pricing verifies, since it both quotes the discount and reserves the amount");
+  ok(/verify: true/.test(bare(read("app/api/generate/route.js"))),
+     "and generating verifies, since it may spend a free run");
 }
 
 console.log("\n=== 2c. A GRANT IS A FLOOR, NEVER A CEILING ===");
@@ -259,7 +277,11 @@ ok(near(S.usdForSol(0.125, 72), 9), "and the reverse direction agrees");
 console.log("\n=== 7. THE SERVER ENFORCES THE LOCKS, NOT THE PAGE ===");
 {
   const G = bare(read("app/api/generate/route.js"));
-  ok(/resolveEntitlements\(session\.accountId\)/.test(G), "the run resolves entitlements from the session, never from the form");
+  ok(/resolveEntitlements\(session\.accountId,/.test(G), "the run resolves entitlements from the session, never from the form");
+  // A run may spend a FREE run, so a holder who sold this morning must
+  // not still be drawing an allowance this afternoon. Selling was only
+  // noticed at UTC midnight before this.
+  ok(/verify: true/.test(G), "and re-reads the balance before spending one");
   ok(G.indexOf("resolveEntitlements") < G.indexOf("await req.formData()"),
      "AND BEFORE THE FORM IS READ — otherwise the fields are acted on before anyone asks if they are allowed");
   // ══ NOTHING IN THE BRIEF IS GATED ══

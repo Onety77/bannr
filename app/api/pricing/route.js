@@ -55,7 +55,10 @@ export async function GET(req) {
   let gate, ent, balance = 0, next = null, reason = "", me = null;
   try {
     if (session) {
-      ({ gate, ent, balance, next, reason } = await resolveEntitlements(session.accountId, { refresh }));
+      // verify: this route both quotes the discount AND reserves the
+      // exact amount that will be paid, so it is the moment a holder
+      // discount is actually granted. A seller must not be armed one.
+      ({ gate, ent, balance, next, reason } = await resolveEntitlements(session.accountId, { refresh, verify: true }));
       // Read AFTER resolveEntitlements, never before: that call is
       // what writes today's verdict on a first visit, and reading the
       // account first would report yesterday's figures.

@@ -4149,10 +4149,35 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
   display: flex; flex-direction: column;
 }
 [data-theme="dark"] .lad { background: var(--card-soft); }
-/* The rung you are on. Ringed rather than filled: the ladder is a
-   price list, and colouring one row in would read as it being the
-   recommended purchase rather than the one you already hold. */
-.lad.mine { box-shadow: 0 0 0 2px var(--accent); }
+/* ══ THE RUNG YOU ARE ON ══
+   A bare 2px ring, and nothing else, which read as a form field with
+   focus rather than as a state worth noticing — in a row of four
+   near-identical dark tiles it was the weakest signal on the panel.
+   The tile is now tinted toward the accent and carries a soft outer
+   glow, so "you are here" is legible before any text is read.
+
+   The note this replaces argued against filling it: the ladder is a
+   price list, and a filled card reads as the recommended purchase.
+   That was right when this sat under three buy buttons. It is not now
+   — the heading says Hold, the line under it says nothing to buy, and
+   the fill is a tint rather than a solid accent block, which reads as
+   occupancy rather than as an offer. */
+.lad.mine {
+  background: color-mix(in srgb, var(--accent) 9%, var(--bg-soft));
+  box-shadow:
+    0 0 0 1.5px var(--accent),
+    0 0 22px -6px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+[data-theme="dark"] .lad.mine {
+  background: color-mix(in srgb, var(--accent) 14%, var(--card-soft));
+  box-shadow:
+    0 0 0 1.5px var(--accent),
+    0 0 26px -4px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+/* Its own rail goes to full strength whatever rung it is, because the
+   card is already the brightest thing in the row and a faint stripe
+   across the top of it would look unfinished. */
+.lad.mine .lad-rail { opacity: 1; }
 
 /* ══ THE RAIL ENCODES RANK, NOT DECORATION ══
    A hairline across the top of each card, growing more solid as the
