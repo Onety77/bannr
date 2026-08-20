@@ -1,6 +1,6 @@
 // Real clickable social buttons — URLs live in lib/site.js.
 // Icons are inline SVG (stroke = currentColor) — no emoji.
-import { SOCIALS } from "@/lib/site";
+import { liveSocials } from "@/lib/site";
 
 const ICONS = {
   x: (
@@ -31,7 +31,10 @@ const ICONS = {
 export default function Socials({ compact = false }) {
   return (
     <div className={`socials ${compact ? "compact" : ""}`}>
-      {SOCIALS.map((s) => (
+      {/* liveSocials, not SOCIALS: an entry still holding a
+          placeholder is dropped rather than rendered as a dead link.
+          See lib/site.js. */}
+      {liveSocials().map((s) => (
         <a
           key={s.id}
           href={s.url}
