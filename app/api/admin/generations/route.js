@@ -25,6 +25,9 @@ export const dynamic = "force-dynamic";
 
 const LIST_LIMIT = 60;
 const FILTER_LIMIT = 200;
+// Read by time, filtered in memory. Deep enough to reach the examples
+// attached during a launch without pulling the whole collection.
+const ATTACHED_SCAN = 500;
 
 const FIELD = { wall: "featuredWall", hero: "featuredHero", x: "featuredX", hidden: "hidden" };
 
@@ -48,14 +51,46 @@ export async function GET(req) {
     return { id: d.id, ...rest, hasFile: Boolean(path) };
   };
 
+  // ══ OLDER THAN THE LAST SIXTY ══
+  //
+  // The board showed the most recent 60 and stopped, with nothing to
+  // press. Anything older than that could not be reached at all — and
+  // the banners used as examples on the token page were older than
+  // that, so there was no way to find them and no way to take them
+  // back off. A list you cannot page is a list that quietly loses
+  // everything you might need to undo.
+  //
+  // `before` is the ts of the oldest row already on screen. Cursored
+  // on the same field it is ordered by, so paging cannot skip or
+  // repeat a row the way an offset does when things are written while
+  // you read.
+  const before = Number(new URL(req.url).searchParams.get("before")) || 0;
+
   let items;
-  if (FIELD[filter]) {
+  if (filter === "attached") {
+    // ══ THE ONES CLAIMING A TOKEN ══
+    //
+    // where("ca", "!=", "") plus orderBy("ts") is a composite index,
+    // and this codebase does not use them — see CLAUDE.md. So it reads
+    // by time and filters in memory, which is also the only way to
+    // catch documents where `ca` was never written at all rather than
+    // written empty.
+    const snap = await col.orderBy("ts", "desc").limit(ATTACHED_SCAN).get();
+    items = snap.docs.map(row).filter((r) => typeof r.ca === "string" && r.ca.trim() !== "");
+  } else if (FIELD[filter]) {
     const snap = await col.where(FIELD[filter], "==", true).limit(FILTER_LIMIT).get();
     items = snap.docs.map(row).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   } else {
-    const snap = await col.orderBy("ts", "desc").limit(LIST_LIMIT).get();
+    let q = col.orderBy("ts", "desc");
+    if (before > 0) q = q.startAfter(before);
+    const snap = await q.limit(LIST_LIMIT).get();
     items = snap.docs.map(row);
   }
+
+  // Whether pressing again would find anything. A full page is the
+  // only honest signal available without reading one more document
+  // than needed.
+  const more = filter === "all" && items.length === LIST_LIMIT;
 
   // Counts for the filter chips, so the board says how many banners are
   // live without needing to open each view. count() is an aggregation —
@@ -78,5 +113,5 @@ export async function GET(req) {
     // Counts are decoration; the list is the point.
   }
 
-  return NextResponse.json({ items, counts, filter });
+  return NextResponse.json({ items, counts, filter, more });
 }

@@ -4560,3 +4560,5 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 .unclaimed-sig { font-size: 11.5px; }
 .unclaimed-amt { font-size: 12.5px; font-weight: 600; color: var(--text); }
 .unclaimed-meta { font-size: 11.5px; color: var(--faint); }
+
+.admin-more { display: flex; justify-content: center; margin-top: 16px; }

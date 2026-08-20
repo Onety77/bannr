@@ -48,6 +48,11 @@ export default function AdminPage() {
   // which is a different question and the only one that can reach a
   // banner featured long enough ago to have fallen off the list.
   const [filter, setFilter] = useState("all");
+  // Whether the server says there is another page, and whether one is
+  // being fetched. Only the unfiltered list pages — the others read a
+  // deep enough window in one go.
+  const [more, setMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [counts, setCounts] = useState({});
   // The tile being looked at, or null. Holds the whole item so the
   // viewer can name the file and know whether a real one exists.
@@ -105,11 +110,40 @@ export default function AdminPage() {
         if (!res.ok) return setError(d.error || "Failed to load generations.");
         setItems(d.items);
         setCounts(d.counts || {});
+        setMore(Boolean(d.more));
       } catch {
         setError("Network error loading generations.");
       }
     })();
   }, [status, user, filter]);
+
+  // ══ THE NEXT PAGE ══
+  //
+  // Cursored on the ts of the oldest row already on screen, which is
+  // the field the query orders by. An offset would skip or repeat rows
+  // whenever a banner was generated while the board was open.
+  async function loadMore() {
+    if (!user || loadingMore) return;
+    const oldest = items?.[items.length - 1]?.ts;
+    if (!oldest) return;
+    setLoadingMore(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/admin/generations?filter=all&before=${oldest}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await res.json();
+      if (res.ok) {
+        setItems((prev) => [...(prev || []), ...(d.items || [])]);
+        setMore(Boolean(d.more));
+      }
+    } catch {
+      // Leaves what is already on screen. A failed page is a button
+      // worth pressing again, not a reason to blank the board.
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   // Loaded on first visit to the tab, then cached for the session.
   useEffect(() => {
@@ -368,6 +402,9 @@ export default function AdminPage() {
             ["hero", "In the highlight", "hero"],
             ["x", "In the X teaser", "x"],
             ["hidden", "Hidden", "hidden"],
+            // How a banner claiming a token gets found again — and
+            // therefore how one attached by mistake gets taken back off.
+            ["attached", "Attached to a token", null],
           ].map(([key, label, countKey]) => (
             <button
               key={key}
@@ -444,6 +481,7 @@ export default function AdminPage() {
             </div>
           </div>
         ) : (
+          <>
           <div className="admin-grid">
             {items.map((it) => (
               <div className={`admin-tile ${it.hidden ? "is-hidden" : ""}`} key={it.id}>
@@ -504,6 +542,17 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+          {/* Only on the unfiltered list. The other views already read
+              a deep enough window in one request, and a button that
+              never finds anything is worse than no button. */}
+          {filter === "all" && more && (
+            <div className="admin-more">
+              <button className="btn small" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? <span className="spinner" /> : "Load older banners"}
+              </button>
+            </div>
+          )}
+          </>
         )
       ) : tab !== "refusals" ? null : !refusals ? (
         <div className="admin-gate"><span className="spinner" /></div>
