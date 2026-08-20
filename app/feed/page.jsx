@@ -42,6 +42,8 @@ function FeedInner() {
   const [cursor, setCursor] = useState(cached?.cursor ?? 0);
   const [done, setDone] = useState(cached?.done ?? false);
   const [busy, setBusy] = useState(false);
+  // Closed by default, and not remembered. See the panel below.
+  const [help, setHelp] = useState(false);
   const [error, setError] = useState(null);
 
   const load = useCallback(async (before = 0) => {
@@ -147,7 +149,49 @@ function FeedInner() {
       <div className="page-head">
         <h1>Feed</h1>
         <p>What people are shipping.</p>
+        {/* ══ THE RULES, WHERE THE RULES APPLY ══
+            A credit back for posting and a daily prize are worth
+            nothing if nobody knows they exist, and a paragraph under
+            the heading would be read once and then be in the way
+            forever. Closed by default, one tap, remembers nothing —
+            the people who need it are new, and the people who do not
+            never open it. */}
+        <button
+          type="button"
+          className="feed-help-btn"
+          aria-expanded={help}
+          onClick={() => setHelp((v) => !v)}
+        >
+          {help ? "Close" : "How this works"}
+        </button>
       </div>
+
+      {help && (
+        <div className="feed-help">
+          <div className="feed-help-row">
+            <b>A credit back for posting</b>
+            <p>
+              Post a banner you made and a credit returns to your balance.
+              Once per run, three times a day. After that you can still
+              post — it just stops paying.
+            </p>
+          </div>
+          <div className="feed-help-row">
+            <b>The day&apos;s most liked</b>
+            <p>
+              Whichever banner ends the day with the most likes is featured,
+              and its maker is rewarded. Likes are one per account.
+            </p>
+          </div>
+          <div className="feed-help-row">
+            <b>More to come</b>
+            {/* Named as coming rather than described. A roadmap on a
+                public page is a promise, and this one is not written
+                yet. */}
+            <p>There is more planned for the feed. It will show up here.</p>
+          </div>
+        </div>
+      )}
 
       {/* Scrolls sideways on a phone rather than wrapping to three
           lines and pushing the feed off the screen. */}

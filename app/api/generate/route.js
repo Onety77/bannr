@@ -35,7 +35,7 @@ import { aiEnabled, generateBackground, generateConcepts, diagnoseContent } from
 import { publicError, isPolicyError } from "@/lib/errors";
 import { recordRefusal } from "@/lib/refusals";
 import { bump } from "@/lib/stats";
-import { requireUser } from "@/lib/auth";
+import { requireUser, issueRunToken } from "@/lib/auth";
 import { rateLimit } from "@/lib/rateLimit";
 import {
   refundGeneration, consumeGeneration, refundCredits, partialRefundCredits,
@@ -677,6 +677,12 @@ export async function POST(req) {
       demoMode,
       engine: demoMode ? "demo" : "gpt-image-2",
       styles: styleIds,
+      // Proof this run happened, for the credit paid when one of its
+      // banners is posted to the feed. Signed rather than stored —
+      // see issueRunToken. A reroll gets its own token and is
+      // therefore its own chance to earn, which is right: it cost
+      // credits like any other run.
+      runToken: issueRunToken(session.accountId),
       template: { id: styleIds[0], name: jobs[0].display.name },
       brief,
       variants: results.map(({ _finalPng, i, ...v }) => v),

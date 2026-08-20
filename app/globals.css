@@ -4562,3 +4562,35 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 .unclaimed-meta { font-size: 11.5px; color: var(--faint); }
 
 .admin-more { display: flex; justify-content: center; margin-top: 16px; }
+
+/* The credit paid for posting, said on the button that earned it. */
+.post-earned { display: block; margin-top: 3px; color: var(--accent); font-weight: 650; }
+
+/* The credit-back offer, after a download. Quiet: it is an extra,
+   not the reason anyone is here. */
+.post-offer { margin: 0 0 6px; font-size: 12.5px; color: var(--accent); }
+
+/* ============================================================
+   HOW THE FEED WORKS
+   A credit back and a daily prize are worth nothing if nobody knows
+   they exist — but a permanent paragraph under the heading is read
+   once and in the way forever. So: a control in the header, and a
+   panel that is closed until asked for.
+   ============================================================ */
+.feed-help-btn {
+  border: 0; background: none; cursor: pointer;
+  padding: 4px 0; font: inherit; font-size: 13px;
+  color: var(--accent); text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.feed-help-btn:hover { opacity: 0.8; }
+.feed-help {
+  display: grid; gap: 14px; margin: 4px 0 18px;
+  padding: 16px 18px;
+  border-radius: var(--r-lg);
+  background: var(--bg-soft);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+[data-theme="dark"] .feed-help { background: var(--card-soft); }
+.feed-help-row b { display: block; font-size: 14px; margin-bottom: 3px; }
+.feed-help-row p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }

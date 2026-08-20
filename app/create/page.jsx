@@ -157,6 +157,13 @@ function CreateInner() {
   // captured at generation time, because by the time someone hits
   // Download the form may already describe a different token.
   const [runMeta, setRunMeta] = useState(() => saved?.runMeta ?? null);
+  // Which options have been downloaded this session. Downloading is
+  // the moment somebody has decided a banner is theirs, which is the
+  // only moment the offer to post it is worth making.
+  const [downloaded, setDownloaded] = useState({});
+  // One banner per run earns, so the offer is retired for the whole
+  // run the moment any of its options is posted.
+  const [posted, setPosted] = useState(false);
   const [demoMode, setDemoMode] = useState(() => saved?.demoMode ?? false);
   const [converted, setConverted] = useState(() => saved?.converted ?? {});   // index -> dataUrl
   const [convBusy, setConvBusy] = useState(null);   // index being converted
@@ -624,6 +631,9 @@ function CreateInner() {
       setRunMeta({
         brief: data.brief,
         styles: (data.styles || [data.template?.id]).filter(Boolean).join(","),
+        // Rides with the run so posting any of its banners can claim
+        // the credit back — once, for the run, not once per banner.
+        runToken: data.runToken || "",
       });
     } catch (e) {
       // A dropped connection can't tell us whether the server charged
@@ -1002,6 +1012,8 @@ function CreateInner() {
     const res = await saveImage(dataUrl, bannerFilename(label, i, suffix));
     // A silent dead button was the original bug — never repeat it.
     if (res.error) { setError(res.error); return; }
+
+    setDownloaded((d) => ({ ...d, [i]: true }));
 
     // THE DOWNLOAD IS THE SAVE. Downloading is the one unambiguous
     // signal that a banner mattered to this person, so this is the
@@ -1887,6 +1899,22 @@ function CreateInner() {
                     <button className="btn small primary" onClick={() => download(v.dataUrl, i)}>
                       Download PNG
                     </button>
+                    {/* ══ THE OFFER, AT THE MOMENT IT MEANS SOMETHING ══
+                        Shown after this option has been downloaded and
+                        never before: until then it is an ask, and
+                        afterwards it is a thank-you with something
+                        attached. Not a dialog — a dialog on every
+                        download would be a toll on the thing people
+                        came to do, and the button it points at is
+                        already the next thing on the page.
+
+                        Once per RUN, so it disappears from every
+                        option as soon as one of them is posted. */}
+                    {downloaded[i] && runMeta?.runToken && !posted && (
+                      <p className="post-offer">
+                        Post it to the feed and get a credit back.
+                      </p>
+                    )}
                     {/* Publishing is its own act, never a side effect
                         of downloading — see components/PostButton. */}
                     <PostButton
@@ -1896,6 +1924,11 @@ function CreateInner() {
                       logo={logoPreview}
                       signedIn={Boolean(auth.user)}
                       onSignInNeeded={() => setError("Sign in to post to the feed.")}
+                      runToken={runMeta?.runToken || ""}
+                      // The balance changed server-side, so re-read it
+                      // rather than doing the arithmetic here — the
+                      // account is the authority on credits.
+                      onEarned={() => { setPosted(true); auth.refresh(); }}
                     />
                   </div>
                   {converted[i] && (

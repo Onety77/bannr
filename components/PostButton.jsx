@@ -44,7 +44,7 @@ import { LOOKS_LIKE_CA } from "@/lib/ca";
 // reason any of this works — a remote image taints the canvas and
 // toDataURL then throws, so a logo pulled straight from an IPFS
 // gateway would compose fine and fail to export.
-export default function PostButton({ variant, brief, signedIn, onSignInNeeded, prepared = false, sig = "", defaultCa = "", logo = "" }) {
+export default function PostButton({ variant, brief, signedIn, onSignInNeeded, prepared = false, sig = "", defaultCa = "", logo = "", runToken = "", onEarned }) {
   // idle | confirm | handle | busy | done | error
   const [stage, setStage] = useState("idle");
   const [handle, setHandle] = useState("");
@@ -54,6 +54,11 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
   // one. Retyping something the page already knows is the kind of
   // small tax that stops people bothering.
   const [ca, setCa] = useState(defaultCa || "");
+  // What the server actually paid, and how many are left today. Read
+  // from the response rather than predicted here: the account is the
+  // authority on credits, and guessing would eventually disagree.
+  const [earned, setEarned] = useState(0);
+  const [left, setLeft] = useState(null);
 
   async function begin() {
     if (!signedIn) { onSignInNeeded?.(); return; }
@@ -142,6 +147,10 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
           // posting the same banner twice is caught as a duplicate
           // whichever way it was framed.
           sig: sig || `${variant.dataUrl.length}.${variant.dataUrl.slice(1000, 1040)}`,
+          // Signed by the server when the run was made. Absent for a
+          // banner posted from My banners days later, which simply
+          // means no credit — not an error.
+          runToken: runToken || "",
         }),
       });
       const d = await r.json();
@@ -154,6 +163,8 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
         setStage("error");
         return;
       }
+      if (d.earned > 0) { setEarned(d.earned); onEarned?.(d.earned); }
+      if (typeof d.rewardsLeft === "number") setLeft(d.rewardsLeft);
       setStage("done");
     } catch {
       setMsg("Network error — try again.");
@@ -162,7 +173,21 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
   }
 
   if (stage === "done") {
-    return <span className="post-done">Posted to the feed</span>;
+    // Says what happened and stops. The credit is the news when there
+    // is one; when there is not, "posted" is the whole story and
+    // explaining why it did not pay would be a lecture nobody asked
+    // for at the moment they did something generous.
+    return (
+      <span className="post-done">
+        Posted to the feed
+        {earned > 0 && (
+          <b className="post-earned">
+            +{earned} credit{earned === 1 ? "" : "s"}
+            {left > 0 ? ` · ${left} more today` : ""}
+          </b>
+        )}
+      </span>
+    );
   }
 
   if (stage === "handle") {
