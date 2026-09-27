@@ -20,11 +20,14 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import { useAuth } from "@/lib/useAuth";
+import { useEntitlements } from "@/lib/useEntitlements";
 import ConnectButton from "@/components/ConnectButton";
 import { useRestoreScroll } from "@/lib/useRestoreScroll";
 
 export default function YouPage() {
   const auth = useAuth();
+  // Free edits follow free runs; see useEntitlements.
+  const freeEdits = useEntitlements().freeEdits;
   const [posts, setPosts] = useState(null);
   // Seeded from the session, so the name is right on first paint
   // rather than appearing a moment later.
@@ -151,7 +154,7 @@ export default function YouPage() {
           <span>credits</span>
         </Link>
         <div className="you-stat">
-          <b>{u.freeEditsLeft}</b>
+          <b>{freeEdits ? u.freeEditsLeft : 0}</b>
           <span>free edits today</span>
         </div>
         {u.holderRunsLeft > 0 && (

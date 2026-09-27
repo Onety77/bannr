@@ -18,7 +18,7 @@
 import { NextResponse } from "next/server";
 import { requireUser, verifySignIn } from "@/lib/auth";
 import { linkIdentity, unlinkIdentity, identitiesFor } from "@/lib/identities";
-import { getUser, publicUser, addPayingWallet, setEmail, setPhoto, claimWalletIdentity } from "@/lib/users";
+import { getUser, publicUser, addPayingWallet, setEmail, setPhoto, claimWalletIdentity, forgetTier } from "@/lib/users";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
@@ -141,5 +141,7 @@ export async function DELETE(req) {
         : "That sign-in method isn't linked to this account.";
     return NextResponse.json({ error: msg }, { status: 409 });
   }
+  // A wallet leaving takes any tier it earned with it — see forgetTier.
+  if (body?.type === "wallet") await forgetTier(session.accountId).catch(() => {});
   return respond(session.accountId, { unlinked: true });
 }

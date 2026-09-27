@@ -41,12 +41,13 @@ import { rateLimit } from "@/lib/rateLimit";
 import {
   refundGeneration, consumeGeneration, refundCredits, partialRefundCredits,
   spendCredits, getUser, publicUser, getSettings, GENERATION_COST, REROLL_COST,
-  runCost, FREE_RUN_MAX_OPTIONS,
+  runCost, FREE_RUN_MAX_OPTIONS, MAX_OPTIONS,
 } from "@/lib/users";
 import { resolveEntitlements } from "@/lib/entitlements";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { styleReferences } from "@/lib/references";
 import { buildDirection, spreadSettings, sharedSettings, optionDirection } from "@/lib/advanced";
+import { POST_REWARD_CREDITS } from "@/lib/feed";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -214,6 +215,12 @@ export async function POST(req) {
     ];
     const styleIds = [...new Set(requested)].filter((id) => id === AUTO_ID || getTemplate(id));
     if (styleIds.length === 0) styleIds.push(AUTO_ID);
+    // Every chosen style gets at least one option, so more styles than
+    // a run makes options would be more options than anyone paid for.
+    // See MAX_OPTIONS.
+    if (styleIds.length > MAX_OPTIONS) {
+      return NextResponse.json({ error: `Pick up to ${MAX_OPTIONS} styles.` }, { status: 400 });
+    }
     templateId = styleIds.join(",");
 
     // A REROLL replaces ONE option the user already has, in the same
@@ -225,11 +232,12 @@ export async function POST(req) {
     const avoidConcept = isReroll ? String(form.get("avoidConcept") || "").slice(0, 900) : "";
 
     let variantCount = isReroll ? 1 : Math.min(
-      Math.max(parseInt(form.get("variants") || "4", 10) || 4, 2),
+      Math.max(parseInt(form.get("variants") || "4", 10) || 4, 2, styleIds.length),
       // Never fewer options than styles — every chosen style must
       // appear at least once, which is the whole promise of the
       // multi-select. The UI enforces this too; this is the backstop.
-      Math.max(4, styleIds.length)
+      // And never more than MAX_OPTIONS, which the styles cannot exceed.
+      MAX_OPTIONS
     );
     if (isReroll && styleIds.length !== 1) {
       return NextResponse.json(
@@ -691,7 +699,7 @@ export async function POST(req) {
       // limitation of the unit rather than a policy — worth knowing
       // before someone reports it as an inconsistency.
       if (charged.paidWith !== "holder") {
-        refunded = partialRefundCredits(missing, attempted);
+        refunded = partialRefundCredits(missing, attempted, charged.amount);
         if (refunded > 0) {
           try {
             await refundCredits(charged.accountId, refunded);
@@ -705,6 +713,24 @@ export async function POST(req) {
         }
       }
     }
+    // ══ WHETHER POSTING FROM THIS RUN MAY EARN A CREDIT ══
+    //
+    // The feed pays one credit back for a run whose banner is posted.
+    // That is a discount on a run somebody paid for, and it has to stay
+    // one: a reward as large as what the run cost makes the run free.
+    //
+    // It was issued for every run, and three of them cost less than the
+    // reward returns:
+    //   a free run      — paid nothing, earned a credit. With free
+    //                     wallets free to make, a script could farm
+    //                     credits and move them into one account by
+    //                     linking the wallets.
+    //   a reroll        — 1 credit in, 1 credit back.
+    //   a partial run   — refunded down to 1, then 1 back.
+    // So the token is only issued when credits were spent and what is
+    // left of them after any refund is more than the reward.
+    const netPaid = charged && charged.paidWith === "credits" ? charged.amount - refunded : 0;
+    const rewardable = !isReroll && netPaid > POST_REWARD_CREDITS;
     charged = null;
 
     // THE ONLY NUMBER IN THE FUNNEL THAT CANNOT BE FAKED. landed and
@@ -745,10 +771,9 @@ export async function POST(req) {
       styles: styleIds,
       // Proof this run happened, for the credit paid when one of its
       // banners is posted to the feed. Signed rather than stored —
-      // see issueRunToken. A reroll gets its own token and is
-      // therefore its own chance to earn, which is right: it cost
-      // credits like any other run.
-      runToken: issueRunToken(session.accountId),
+      // see issueRunToken. Empty when the run may not earn — see
+      // `rewardable` above; posting still works, it just pays nothing.
+      runToken: rewardable ? issueRunToken(session.accountId) : "",
       template: { id: styleIds[0], name: jobs[0].display.name },
       brief,
       variants: results.map(({ _finalPng, i, ...v }) => v),

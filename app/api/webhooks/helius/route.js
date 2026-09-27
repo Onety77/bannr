@@ -34,6 +34,16 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import { creditsForPayment } from "@/lib/packs";
 import { solUsd } from "@/lib/solPrice";
 import { intentForAmount, consumeIntent } from "@/lib/payIntents";
+import { SIG_RE, getTransaction, treasuryGain, senderOf } from "@/lib/solanaTx";
+import crypto from "crypto";
+
+// Constant-time, so the secret cannot be recovered a character at a
+// time from how long a wrong guess takes to be refused.
+function sameSecret(given, expected) {
+  const a = Buffer.from(String(given || ""));
+  const b = Buffer.from(String(expected));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 export const runtime = "nodejs";
 
@@ -46,7 +56,7 @@ export async function POST(req) {
       { status: 501 }
     );
   }
-  if (req.headers.get("authorization") !== expected) {
+  if (!sameSecret(req.headers.get("authorization"), expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -68,13 +78,29 @@ export async function POST(req) {
 
   const results = [];
   for (const ev of Array.isArray(events) ? events : [events]) {
-    const sig = ev.signature;
-    if (!sig) continue;
+    const sig = String(ev?.signature || "");
+    if (!SIG_RE.test(sig)) continue;
 
-    const transfer = (ev.nativeTransfers || []).find(
-      (t) => t.toUserAccount === treasury && t.amount > 0
-    );
-    if (!transfer) continue;
+    // ══ THE BODY SAYS WHICH TRANSACTION. THE CHAIN SAYS WHAT IT WAS. ══
+    //
+    // The amount and the sender used to come from this POST body, so
+    // the only thing between a stranger and free credits was the shared
+    // secret. Now the transaction is read by signature, exactly as
+    // /api/pay/claim reads it, and nothing in the body is believed
+    // except the signature itself. A forged event names a transaction
+    // that does not exist, or one that paid us nothing, and is dropped.
+    //
+    // An RPC that cannot be reached throws, the whole batch answers 500,
+    // and Helius sends it again — every write below is idempotent on
+    // payments/{signature}, so a retry cannot double-credit.
+    const chainTx = await getTransaction(sig);
+    if (!chainTx || chainTx.meta?.err) {
+      console.warn("[webhook/helius] not on chain or failed, skipped", sig.slice(0, 12));
+      continue;
+    }
+    const gained = treasuryGain(chainTx, treasury);
+    if (!(gained > 0)) continue;
+    const transfer = { amount: Math.round(gained * 1e9), fromUserAccount: senderOf(chainTx) };
 
     const payRef = db.collection("payments").doc(sig);
 
@@ -96,7 +122,7 @@ export async function POST(req) {
     // because payments/{signature} is the thing that actually decides,
     // and it is re-read inside the transaction below.
     const lamports = Math.round(transfer.amount);
-    const blockTimeMs = (ev.timestamp || 0) * 1000;
+    const blockTimeMs = (chainTx.blockTime || 0) * 1000;
     const owned = await intentForAmount(lamports, blockTimeMs).catch(() => null);
 
     const outcome = await db.runTransaction(async (tx) => {

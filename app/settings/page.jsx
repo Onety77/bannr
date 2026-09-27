@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 // Metadata only — see the note in lib/styles.js.
 import { STYLES as TEMPLATES, AUTO_ID, AUTO_NAME } from "@/lib/styles";
 import { countTouched } from "@/lib/advanced";
+import { useEntitlements } from "@/lib/useEntitlements";
 import { useAuth } from "@/lib/useAuth";
 import { short, useWallet } from "@/lib/wallet";
 import AdvancedPanel from "@/components/AdvancedPanel";
@@ -24,6 +25,8 @@ const EMPTY = { defaults: {}, avoid: "", styles: [], variants: 3 };
 
 export default function SettingsPage() {
   const auth = useAuth();
+  // Free edits follow free runs; see useEntitlements.
+  const freeEdits = useEntitlements().freeEdits;
   const wallet = useWallet();
   const offer = offerLine(useToken());
   const [settings, setSettings] = useState(EMPTY);
@@ -233,7 +236,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <span className="set-k">Free edits left today</span>
-            <span className="set-v">{auth.user.freeEditsLeft}</span>
+            <span className="set-v">{freeEdits ? auth.user.freeEditsLeft : 0}</span>
           </div>
         </div>
         {/* ---------- ways in ----------

@@ -25,6 +25,7 @@ import { recordRefusal } from "@/lib/refusals";
 import { requireUser } from "@/lib/auth";
 import { rateLimit } from "@/lib/rateLimit";
 import { consumeEdit, refundCredits, getUser, publicUser, EDIT_COST } from "@/lib/users";
+import { resolveEntitlements } from "@/lib/entitlements";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -139,7 +140,17 @@ export async function POST(req) {
     // Charged here — after validation, before the paid API call.
     // Free daily edits come out of the account allowance first; only
     // once those run out does this touch credits.
-    const paid = await consumeEdit(session.accountId);
+    //
+    // ══ FREE EDITS FOLLOW THE FREE RUN ══
+    //
+    // An edit takes ANY uploaded image, so three free edits a day were
+    // three free renders a day for every account — and accounts cost
+    // nothing to make with a fresh wallet. With free runs switched off
+    // in admin they went on being free, a way round the switch. Now an
+    // account gets free edits only while it gets free runs, from its
+    // tier or the free setting; otherwise an edit costs a credit.
+    const { ent } = await resolveEntitlements(session.accountId).catch(() => ({ ent: { dailyRuns: 0 } }));
+    const paid = await consumeEdit(session.accountId, { free: ent.dailyRuns > 0 });
     if (!paid.ok) {
       return NextResponse.json(
         { error: "You're out of free edits and credits. Top up to keep editing.", code: "insufficient_credits" },

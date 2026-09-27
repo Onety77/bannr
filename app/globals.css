@@ -966,6 +966,8 @@ h1, h2, h3 {
 }
 .style-card:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px var(--hairline-2), var(--shadow-sm); }
 .style-card.selected { box-shadow: 0 0 0 2px var(--accent); }
+/* Four styles chosen — the rest wait until one is let go. */
+.style-card:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .style-card.selected::after {
   content: "✓"; position: absolute; top: 8px; right: 8px;
   width: 20px; height: 20px; border-radius: 50%;
@@ -4041,17 +4043,22 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 }
 
 /* ============================================================
-   MEMES — the teaser. Three cards in a row rather than the X
-   teaser's scatter: a meme is a flat rectangle you read, not an
-   object sitting inside a mockup, so there is no device to angle.
+   MEMES — the teaser. Flat cards rather than the X teaser's
+   scatter: a meme is a rectangle you read, not an object sitting
+   inside a mockup, so there is no device to angle.
+
+   A MASONRY OF COLUMNS, because the memes are every shape — square,
+   tall, wide — and a fixed ratio cropped off exactly the caption or
+   label the joke lives in. Each card keeps its picture whole.
    ============================================================ */
 .mcs { padding: 34px 0 90px; }
 .mcs-row {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 16px; margin-top: 44px;
+  columns: 3; column-gap: 16px; margin-top: 44px;
 }
 .mcs-card {
   position: relative; overflow: hidden;
+  /* One card never splits across two columns. */
+  break-inside: avoid; margin: 0 0 16px;
   border-radius: var(--r-lg, 16px);
   background: var(--card); border: 1px solid var(--hairline);
   /* Rides the same scroll-driven --f as the other stages: flat and
@@ -4060,9 +4067,12 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
   transform: translateY(calc((1 - var(--f, 1)) * 26px)) scale(calc(0.965 + 0.035 * var(--f, 1)));
   transition: opacity 0.5s, transform 0.5s;
 }
-.mcs-card.p1 { transition-delay: 0.07s; }
-.mcs-card.p2 { transition-delay: 0.14s; }
-.mcs-card img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; }
+.mcs-card.p1 { transition-delay: 0.05s; }
+.mcs-card.p2 { transition-delay: 0.1s; }
+.mcs-card.p3 { transition-delay: 0.15s; }
+.mcs-card.p4 { transition-delay: 0.2s; }
+.mcs-card.p5 { transition-delay: 0.25s; }
+.mcs-card img { width: 100%; height: auto; display: block; }
 .mcs-card figcaption {
   padding: 11px 14px;
   font-size: 12px; font-weight: 600; color: var(--muted);
@@ -4070,7 +4080,10 @@ a.you-stat:hover { box-shadow: 0 0 0 1px var(--accent); }
 }
 
 @media (max-width: 720px) {
-  .mcs-row { grid-template-columns: 1fr; gap: 12px; }
+  /* Two columns, not one: six tall memes stacked singly is a long
+     scroll to get past a section that is only a teaser. */
+  .mcs-row { columns: 2; column-gap: 10px; }
+  .mcs-card { margin-bottom: 10px; }
   /* Four pills will not fit a phone. Scrolling keeps them one
      control; wrapping to two rows would read as two. */
   .surface-tabs {

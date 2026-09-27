@@ -147,7 +147,7 @@ memory. `lib/directory.js` and `lib/stats.js` both do this deliberately.
   button was dead. Write `onClick={() => fn()}`. The check stays quiet by only
   flagging real DOM events whose handler's first parameter is not event-named.
 
-**`npm test` runs `tests/*.cjs`** — 38 files, ~2180 assertions. Every block is
+**`npm test` runs `tests/*.cjs`** — 39 files, ~2220 assertions. Every block is
 a regression with a comment saying what broke. They read real source and, for
 prompts, build the real prompt through the real module. Run `npm test pfp glow`
 to filter.
@@ -632,6 +632,34 @@ announcing `/token`, Firestore TTL on `nonces.expires`, seeding the feed.
   for ten minutes; past that, buying is disabled and payments are held at 202.
 - **Three tests in a row matched my own comment instead of the code** while
   writing this. `bare()` before every negative assertion.
+
+### From the credit-leak audit (`tests/leaktest.cjs`)
+
+Every way a balance can rise, attacked as a developer with a terminal
+would. Six holes, all closed:
+
+- **Eight styles, eight options, 3 credits** — and eight images on a free
+  run. A run is capped at `MAX_OPTIONS` (4) on the server and in the picker.
+- **Partial refunds graded against 3 credits** refunded a whole 2-credit run
+  when one of its two options arrived. They follow what the run cost now.
+- **Posting a free run, a reroll, or a run refunded down to one credit paid
+  a credit back** — a run that paid for itself, and with throwaway wallets
+  and account merging, credits printed from nothing. The run token is only
+  issued when more credits were spent than the reward returns.
+- **Free edits accept any image**, so they were free renders that ignored
+  the free-run switch. They now follow it: no free runs, no free edits.
+- **One wallet walked between accounts** left a tier on each for the day.
+  Unlinking a wallet drops the tier (`forgetTier`), keeping the day's usage.
+- **The webhook believed its POST body.** It now reads each transaction off
+  the chain (`lib/solanaTx.js`, shared with the claim route); a leaked
+  secret decides only what is looked at, never what it is worth.
+
+What remains is by design and is a SETTING, not a bug: with free runs on
+"Everyone", a script making fresh wallets gets a free run per wallet per
+day. The daily ceiling is the only bound — keep it set, or use buyers-only.
+
+**The tripwire** at the end of `leaktest.cjs` lists every file that writes
+a credit balance. A new one fails the suite until it is reviewed.
 
 ### From the pre-launch hardening pass (`tests/hardentest.cjs`)
 
