@@ -101,7 +101,7 @@ const run = async (spec, len = 4) => {
     ok(!fs.existsSync(R + "lib/beforeAfter.js"), "the compositing module is GONE, not just unused");
     ok(!/composeBeforeAfter|BA_RATIO/.test(PB), "and nothing still calls it");
     ok(!/drawImage\(banner|BANNER_H|BAND/.test(P), "the logo module never touches the banner");
-    ok(PB.includes("const src = prepared ? variant.dataUrl : await shrink(variant.dataUrl, 900, 300);"),
+    ok(PB.includes("const src = prepared ? await asDataUrl(variant.dataUrl) : await shrink(variant.dataUrl, 900, 300);"),
        "the posted image is the banner at 3:1, exactly as it was made");
     ok(!/ratio,/.test(PB), "and no ratio is sent, because every new post is 3:1");
     ok(PB.includes("logo: postLogo,"), "the logo travels as its own field");
@@ -176,7 +176,11 @@ const run = async (spec, len = 4) => {
     ok(logoOf(undefined) === null, "so is undefined");
     ok(logoOf({}) === null, "and an object cannot smuggle anything through");
     ok(FEED.includes("logo: logoOf(body.logo),"), "publish stores it through that check");
-    ok((FEED.match(/logo: p\.logo \|\| null,/g) || []).length === 4, "and all 4 read paths return it");
+    // Read paths return the logo as a URL to its own route now, not the
+    // bytes; `pictures()` is the one place that decides it.
+    ok(/const pictures = \(id, p\) => \(\{ src: imageUrl\(id\), logo: p\.logo \? logoUrl\(id\) : null \}\);/.test(FEED),
+       "a post with a logo points at it");
+    ok((FEED.match(/pictures\((p|snap)\.id, p\)/g) || []).length === 5, "and all 5 read paths go through it");
   }
 
   console.log(bad ? "\n" + bad + " FAILED\n" : "\nall green\n");

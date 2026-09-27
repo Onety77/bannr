@@ -21,6 +21,7 @@
 // refunded in full if it fails.
 // ============================================================
 import sharp from "sharp";
+import { DECODE } from "@/lib/decode";
 import { NextResponse } from "next/server";
 import { aiEnabled, generatePfp } from "@/lib/openai";
 import { buildPfpPrompt, PFP_SIZE, PFP_MAX, PFP_COST, PFP_TEXT_MAX, PFP_WANTS_MAX, PFP_IMAGES_MAX, getPfpStyle, distributeStyles } from "@/lib/pfp";
@@ -133,7 +134,7 @@ export async function POST(req) {
     const srcs = await Promise.all(
       files.map(async (f) =>
         (
-          await sharp(Buffer.from(await f.arrayBuffer()))
+          await sharp(Buffer.from(await f.arrayBuffer()), DECODE)
             .rotate()
             .resize(1024, 1024, { fit: "inside" })
             .flatten({ background: "#ffffff" })
@@ -210,14 +211,18 @@ export async function POST(req) {
     });
   } catch (err) {
     console.error("[pfp]", err);
+    // False only when something was taken and giving it back failed —
+    // then no message may say it was given back.
+    let square = true;
     if (charged) {
       try {
         await refundCredits(charged.accountId, charged.amount);
       } catch (e) {
         console.error("[pfp] REFUND FAILED", charged, e);
+        square = false;
       }
     }
-    const { error, status, reason } = publicError(err, "pfp");
+    const { error, status, reason } = publicError(err, "pfp", { refunded: square });
 
     // A FAILED PFP USED TO LEAVE NO TRACE. This route never called
     // recordRefusal, so two failed runs on production showed as an

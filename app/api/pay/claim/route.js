@@ -26,7 +26,7 @@
 // credit twice.
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { grantCredits, getUser, publicUser, addPayingWallet } from "@/lib/users";
+import { getUser, publicUser, addPayingWallet } from "@/lib/users";
 import { identitiesFor } from "@/lib/identities";
 import { creditsForPayment } from "@/lib/packs";
 import { solUsd } from "@/lib/solPrice";
@@ -282,12 +282,31 @@ export async function POST(req) {
   // Losing is not an error. It means somebody else attributed this
   // payment first, which for the same account is simply the answer
   // arriving twice.
-  let won = true;
+  // ══ THE RECORD AND THE CREDITS ARE ONE WRITE ══
+  //
+  // They were two. The payment was filed as "credited" in this
+  // transaction and the balance was raised in a separate call after
+  // it — so a function that died, or a Firestore blip, between the two
+  // left a record saying 15 credits and a balance that never moved.
+  // Every retry then found the record, answered "already", and the
+  // page reported success. The same silent zero as a payment filed
+  // with no account, arriving from the other side.
+  //
+  // The webhook has always done both in one transaction. This does
+  // now too: either the payment is recorded AND credited, or neither.
+  const userRef = db.collection("users").doc(session.accountId);
+  let outcome = "credited";
   try {
     await db.runTransaction(async (t) => {
+      // Reset per attempt — a transaction callback can run more than
+      // once, and a stale answer from a lost attempt must not survive.
+      outcome = "credited";
       const snap = await t.get(payRef);
+      const userSnap = await t.get(userRef);
       const cur = snap.exists ? snap.data() : null;
-      if (cur?.accountId) { won = false; return; }
+      if (cur?.accountId) { outcome = "already"; return; }
+      if (!userSnap.exists) { outcome = "no-account"; return; }
+      t.update(userRef, { credits: (userSnap.data().credits || 0) + pack.credits });
       t.set(payRef, {
         accountId: session.accountId,
         sol,
@@ -328,7 +347,16 @@ export async function POST(req) {
       { status: 202 }
     );
   }
-  if (!won) {
+  if (outcome === "no-account") {
+    // A session for an account that does not exist. Nothing was
+    // recorded, so the payment stays claimable once they sign in again.
+    console.error("[pay/claim] no account for session", session.accountId, signature.slice(0, 12));
+    return NextResponse.json(
+      { error: "Your session has ended. Sign in again to finish this payment.", code: "signin_required" },
+      { status: 409 }
+    );
+  }
+  if (outcome === "already") {
     const u = await getUser(session.accountId);
     return NextResponse.json({
       ok: true, already: true, credits: pack.credits,
@@ -336,11 +364,9 @@ export async function POST(req) {
     });
   }
 
-  await grantCredits(session.accountId, pack.credits);
-
   // Spend the reserved amount, so the same number cannot match a
-  // second payment later. Only after the credits actually landed:
-  // consuming it earlier would strand the payment if the grant threw.
+  // second payment later. Only after the credits actually landed —
+  // they did, in the transaction above.
   if (intent) await consumeIntent(session.accountId, lamports, signature);
 
   // Remember the address so a later hand-sent transfer from the same

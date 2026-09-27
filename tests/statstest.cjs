@@ -52,7 +52,7 @@ ok(GEN.includes('if (!isReroll) bump("generated")'), "and excludes rerolls, whic
   const at = GEN.indexOf('bump("generated")');
   ok(at > GEN.indexOf("const paid = await consumeGeneration"), "after the credit is spent");
   ok(at > GEN.indexOf("const missing = attempted - results.length"), "and after the images came back");
-  ok(at < GEN.indexOf("return NextResponse.json({\n      ok: true,"), "but before the response");
+  ok(at < GEN.indexOf("const payload = {\n      ok: true,"), "but before the response");
 }
 ok(/bump\("generated"\)\.catch\(\(\) => \{\}\)/.test(GEN), "and cannot fail the run it is counting");
 

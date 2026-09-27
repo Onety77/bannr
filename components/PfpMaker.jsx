@@ -206,7 +206,7 @@ export default function PfpMaker({ signedIn, onSignInNeeded, onCredits }) {
       console.error("[pfp]", e);
       setError(
         e.name === "AbortError"
-          ? "That took too long. Try again — you weren't charged."
+          ? "That took too long. Please try again."
           : "Couldn't reach the server. Check your connection and try again."
       );
     } finally {

@@ -29,6 +29,7 @@ function fakeDb(seed = {}) {
       limit: (n) => query(c, { ...st, lim: n }),
       startAfter: (v) => query(c, { ...st, after: v }),
       where: (f, _op, v) => query(c, { ...st, where: [f, v] }),
+      select: () => query(c, st),
       get: async () => {
         let list = rows(c);
         if (st.where) list = list.filter((r) => r._v[st.where[0]] === st.where[1]);
@@ -121,7 +122,9 @@ const mkHandles = (db) => new Function("getAdminDb",
 
   console.log("\n3. THE FEED READS");
   const mkFeed = (db) => new Function("getAdminDb", "handlesFor",
-    "const PAGE = 4;\n" +
+    "const PAGE = 4;\nconst LIST_FIELDS = [];\n" +
+    "const imageUrl = (id) => '/api/feed/' + id + '/image';\nconst logoUrl = (id) => '/api/feed/' + id + '/logo';\n" +
+    "const pictures = (id, p) => ({ src: imageUrl(id), logo: p.logo ? logoUrl(id) : null });\n" +
     fn(F, "export async function listPosts") + "\n" +
     fn(F, "async function likedByViewer") + "\n" +
     "return { listPosts };"

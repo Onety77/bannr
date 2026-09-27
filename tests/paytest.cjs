@@ -188,7 +188,7 @@ ok(/consumeIntent\(session\.accountId, lamports, signature\)/.test(claimSrc), "a
 {
   // Ordering matters: consuming before the credits land would strand
   // the payment if the grant threw.
-  const g = claimSrc.indexOf("await grantCredits(");
+  const g = claimSrc.indexOf("t.update(userRef, { credits:");
   const c = claimSrc.indexOf("consumeIntent(session.accountId");
   ok(g > 0 && c > g, "and spent only after the credits actually landed");
 }
@@ -244,7 +244,7 @@ ok(/adoptedFrom: cur\.status/.test(claimSrc), "an unclaimed record is adopted ra
 // "Still unattributed?" and "take it" have to be one step, or two
 // browsers — or a claim racing the webhook — both pass the check.
 ok(/db\.runTransaction\(async \(t\) => \{/.test(claimSrc), "and taken atomically");
-ok(/if \(cur\?\.accountId\) \{ won = false; return; \}/.test(claimSrc), "with exactly one winner");
+ok(/if \(cur\?\.accountId\) \{ outcome = "already"; return; \}/.test(claimSrc), "with exactly one winner");
 {
   // A transaction that could not RUN is not a claim that lost. Calling
   // that "already credited" would be the same silent zero again.

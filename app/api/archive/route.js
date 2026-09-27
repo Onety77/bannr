@@ -25,6 +25,7 @@
 // thumbnail.
 import { NextResponse } from "next/server";
 import sharp from "sharp";
+import { DECODE } from "@/lib/decode";
 import { requireUser } from "@/lib/auth";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { putBanner, removeBanner } from "@/lib/archive";
@@ -75,7 +76,7 @@ export async function POST(req) {
     // guarantees it is a real image, at the size it claims, in the
     // format the download expects. It also strips any metadata that
     // rode along.
-    png = await sharp(Buffer.from(await file.arrayBuffer()))
+    png = await sharp(Buffer.from(await file.arrayBuffer()), DECODE)
       .resize(BANNER_W, BANNER_H, { fit: "cover", position: "center" })
       .png()
       .toBuffer();
