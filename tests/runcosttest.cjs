@@ -45,7 +45,7 @@ const users = bare(read("lib/users.js"));
 const gen = Number((users.match(/export const GENERATION_COST = (\d+)/) || [])[1]);
 ok(gen === 3, `GENERATION_COST is ${gen}`);
 ok(P.runCost(4) === gen, "a full run still costs exactly GENERATION_COST");
-ok(/export \{ runCost, FREE_RUN_MAX_OPTIONS \} from "@\/lib\/packs"/.test(users),
+ok(/export \{ runCost, FREE_RUN_MAX_OPTIONS, MAX_OPTIONS \} from "@\/lib\/packs"/.test(users),
    "and users.js re-exports rather than keeping a second copy");
 
 /* ---------------- the server charges what it quoted ---------------- */
@@ -85,7 +85,7 @@ ok(/Math\.max\(FREE_RUN_MAX_OPTIONS, styleIds\.length\)/.test(route),
 const create = bare(read("app/create/page.jsx"));
 ok(/runCost\(variants\)\} credits for \{variants\} options/.test(create),
    "the create page shows the cost on the control that sets it");
-ok(/import \{ runCost \} from "@\/lib\/packs"/.test(create), "from the same function the server charges with");
+ok(/import \{ runCost, MAX_OPTIONS \} from "@\/lib\/packs"/.test(create), "from the same function the server charges with");
 const credits = bare(read("app/credits/page.jsx"));
 ok(!/up to 4 banner options/.test(credits), "the credits page no longer promises one price for any count");
 ok(/2 banner options = 2 credits/.test(credits), "and states both");

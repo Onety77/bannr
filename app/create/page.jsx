@@ -10,7 +10,7 @@ import { saveToHistory, setUser, getRecentCAs, saveRecentCA, shrink, GENERATION_
 import { saveImage, bannerFilename } from "@/lib/download";
 import { downscaleFile, downscaleAll, totalBytes, REQUEST_BUDGET_BYTES } from "@/lib/downscale";
 import { useAuth } from "@/lib/useAuth";
-import { runCost } from "@/lib/packs";
+import { runCost, MAX_OPTIONS } from "@/lib/packs";
 import { useEntitlements } from "@/lib/useEntitlements";
 import { useProgress } from "@/lib/useProgress";
 import ConnectButton from "@/components/ConnectButton";
@@ -96,11 +96,11 @@ function CreateInner() {
       .split(",")
       .map((s) => s.trim())
       .filter((id) => id === AUTO_ID || TEMPLATES.some((t) => t.id === id));
-    if (from.length) return [...new Set(from)];
+    if (from.length) return [...new Set(from)].slice(0, MAX_OPTIONS);
     // Declared before `saved` below, so it reads the store itself. A
     // URL param still wins, for the same reason it does there.
     const d = params.toString().length === 0 ? loadDraft() : null;
-    return d?.styleIds?.length ? d.styleIds : [AUTO_ID];
+    return d?.styleIds?.length ? d.styleIds.slice(0, MAX_OPTIONS) : [AUTO_ID];
   });
 
   // WHAT WAS ALREADY HERE. Read once, synchronously, before any state
@@ -321,6 +321,8 @@ function CreateInner() {
   // pre-flight check inside generate() and the count on the button
   // both read it far below.
   const ent = useEntitlements();
+  // Free edits follow free runs — the edit route's rule.
+  const freeEditsLeft = ent.freeEdits ? auth.user?.freeEditsLeft ?? 0 : 0;
 
   // Saved preferences from /settings — style defaults, and which
   // styles/count to start on. Applied ONCE and never over a URL param,
@@ -345,8 +347,9 @@ function CreateInner() {
         // hasn't touched the picker.
         const urlHadStyle = Boolean(params.get("style"));
         if (!urlHadStyle && s.styles?.length) {
-          setStyleIds(s.styles);
-          if (s.variants) setVariants(Math.max(s.variants, s.styles.length));
+          const kept = s.styles.slice(0, MAX_OPTIONS);
+          setStyleIds(kept);
+          if (s.variants) setVariants(Math.min(Math.max(s.variants, kept.length), MAX_OPTIONS));
         } else if (!urlHadStyle && s.variants) {
           setVariants(s.variants);
         }
@@ -850,7 +853,7 @@ function CreateInner() {
     const idx = lightbox?.index;
     if (idx == null) return { error: "Nothing to edit." };
     if (!auth.user) return { error: "Sign in to edit banners." };
-    if (auth.user.freeEditsLeft <= 0 && auth.user.credits < EDIT_COST)
+    if (freeEditsLeft <= 0 && auth.user.credits < EDIT_COST)
       return { error: "You're out of free edits and credits — top up on the credits page." };
 
     try {
@@ -1158,9 +1161,11 @@ function CreateInner() {
   }, [isDefaultOnly]);
 
 
+  // Up to MAX_OPTIONS styles — every style gets an option, and a run
+  // makes at most that many. The cards past it are disabled below.
   function toggleStyle(id) {
     setStyleIds((prev) => {
-      if (!prev.includes(id)) return [...prev, id];
+      if (!prev.includes(id)) return prev.length >= MAX_OPTIONS ? prev : [...prev, id];
       return prev.length === 1 ? prev : prev.filter((s) => s !== id);
     });
   }
@@ -1589,6 +1594,8 @@ function CreateInner() {
                   className={`style-card ${styleIds.includes(AUTO_ID) ? "selected" : ""}`}
                   onClick={() => toggleStyle(AUTO_ID)}
                   aria-pressed={styleIds.includes(AUTO_ID)}
+                  disabled={!styleIds.includes(AUTO_ID) && styleIds.length >= MAX_OPTIONS}
+                  title={!styleIds.includes(AUTO_ID) && styleIds.length >= MAX_OPTIONS ? `Up to ${MAX_OPTIONS} styles` : undefined}
                 >
                   <div
                     className="style-thumb"
@@ -1638,6 +1645,8 @@ function CreateInner() {
                       className={`style-card ${on ? "selected" : ""}`}
                       onClick={() => toggleStyle(t.id)}
                       aria-pressed={on}
+                      disabled={!on && styleIds.length >= MAX_OPTIONS}
+                      title={!on && styleIds.length >= MAX_OPTIONS ? `Up to ${MAX_OPTIONS} styles` : undefined}
                     >
                       {/* The thumbnail sits UNDER a same-accent gradient,
                           so a style whose preview image isn't in
@@ -2048,9 +2057,9 @@ function CreateInner() {
         onRedo={lightbox?.editable ? redoEdit : null}
         onRevert={lightbox?.editable ? revertToOriginal : null}
         editInfo={{
-          free: auth.user?.freeEditsLeft ?? 0,
+          free: freeEditsLeft,
           cost: EDIT_COST,
-          can: Boolean(auth.user) && (auth.user.freeEditsLeft > 0 || auth.user.credits >= EDIT_COST),
+          can: Boolean(auth.user) && (freeEditsLeft > 0 || auth.user.credits >= EDIT_COST),
         }}
       />
     </main>

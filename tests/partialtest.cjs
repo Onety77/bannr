@@ -24,12 +24,17 @@ ok(f(2, 4) === 2, "4 asked, 2 lost -> 2 back (pay 1 for 2)");
 ok(f(3, 4) === 2, "4 asked, 3 lost -> 2 back, NOT 3 (pay 1 for 1)");
 ok(f(1, 3) === 1, "3 asked, 1 lost -> 1 back");
 ok(f(2, 3) === 2, "3 asked, 2 lost -> 2 back");
-ok(f(1, 2) === 2, "2 asked, 1 lost -> 2 back (pay 1 for 1)");
+ok(f(1, 2) === 2, "2 asked of a 3-credit run, 1 lost -> 2 back (pay 1 for 1)");
+// A two-option run costs 2. Graded against 3 it refunded 2 — the whole
+// run — for a banner that arrived.
+ok(f(1, 2, 2) === 1, "2 asked of a 2-credit run, 1 lost -> 1 back, NOT the whole 2");
+ok(f(2, 2, 2) === 2, "and nothing arriving is the whole 2");
+ok(S.includes("partialRefundCredits(missing, attempted, charged.amount)"), "the route grades against what was actually paid");
 ok(f(4, 4) === 3, "total failure -> the full 3");
 ok(f(9, 4) === 3, "never refunds more than the run cost");
 ok(f(-1, 4) === 0 && f(1, 0) === 0, "nonsense inputs refund nothing");
 let floor = true;
-for (let a = 2; a <= 4; a++) for (let m = 1; m < a; m++) if (f(m, a) > 2) floor = false;
+for (const paid of [2, 3]) for (let a = 2; a <= 4; a++) for (let m = 1; m < a; m++) if (f(m, a, paid) > paid - 1) floor = false;
 ok(floor, "a run that delivered ANYTHING always costs at least 1 credit");
 
 console.log("\n2. THE ROUTE");

@@ -47,6 +47,10 @@ version before it.
 - [ ] **Firestore TTL on `nonces.expires`** (console setting). A closed
       wallet popup leaves one behind forever.
 - [ ] **Confirm `firestore.rules` and `storage.rules` are deployed.**
+      ← *the one that decides whether a stranger can set their own
+      balance from devtools.* Firebase Console → Firestore Database →
+      Rules must read `allow read, write: if false;`. A database created
+      in "test mode" allows everything until this is changed.
       The rule is a wildcard deny, so it covers every collection added
       since — but it has to actually be live. **Storage matters now**:
       banners are stored under `banners/{accountId}/`, every read goes
