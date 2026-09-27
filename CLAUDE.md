@@ -34,6 +34,10 @@ charged" is the one thing someone needs told.
 **No auto-retry on 429.** It may be our own billing failing, and retrying
 hides it.
 
+**Merge your own PRs.** Aminu merges nothing by hand any more — he said so on
+27 Sep 2026. Once tests, `npm run check` and the build pass, open the PR and
+merge it; a pushed branch is not live, `main` is. Say that you merged it.
+
 **Do not work scared.** If a change needs the existing thing reworked, rework
 it rather than bolting a flag onto the side.
 
