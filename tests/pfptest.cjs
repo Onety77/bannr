@@ -549,10 +549,10 @@ console.log("\n12. THE MEMES TEASER");
 {
   const MC = read("components/MemesComingSoon.jsx");
   ok(/Coming soon/.test(MC), "badged coming soon");
-  // Six, chosen by Aminu. Every file the component names must exist, or
+  // Five, chosen by Aminu. Every file the component names must exist, or
   // the teaser shows a broken image.
   const files = [...MC.matchAll(/src: "\/memes\/([\w.-]+)"/g)].map((m) => m[1]);
-  ok(files.length === 6 && files[0] === "pepe.jpg", "six memes, Pepe first");
+  ok(files.length === 5 && !files.includes("pepe.jpg"), "five memes, and Pepe is gone");
   for (const f of files) ok(fs.existsSync(R + "public/memes/" + f), "  " + f + " exists");
   // Each keeps its own shape — a fixed ratio cropped off the caption
   // or label the joke lives in.
