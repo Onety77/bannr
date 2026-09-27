@@ -10,7 +10,7 @@
 // made a meme, so there is nothing to pull. Committed images, shipped
 // in public/memes, are the honest version — and they are what the
 // section is claiming it can do, so they should be judged as a claim
-// rather than as decoration. Aminu picked these six.
+// rather than as decoration. Aminu picked these five.
 //
 // ══ EACH MEME KEEPS ITS OWN SHAPE ══
 //
@@ -27,12 +27,11 @@ import { useRef } from "react";
 import { useScrollFocus } from "@/lib/useScrollFocus";
 
 const SHOTS = [
-  { src: "/memes/pepe.jpg", label: "Pepe", w: 900, h: 600 },
-  { src: "/memes/bag.jpg", label: "Paper bag", w: 800, h: 800 },
+  { src: "/memes/bag.jpg", label: "IT coin", w: 800, h: 800 },
   { src: "/memes/last-buyer.jpg", label: "Last buyer wins", w: 791, h: 1019 },
   { src: "/memes/longcat.jpg", label: "Longcat", w: 510, h: 601 },
-  { src: "/memes/pup.jpg", label: "Pup", w: 800, h: 800 },
-  { src: "/memes/winrar.jpg", label: "How rich are you?", w: 800, h: 873 },
+  { src: "/memes/pup.jpg", label: "Trilly", w: 800, h: 800 },
+  { src: "/memes/winrar.jpg", label: "WinRAR", w: 800, h: 873 },
 ];
 
 export default function MemesComingSoon() {
