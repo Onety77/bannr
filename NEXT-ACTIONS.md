@@ -164,7 +164,8 @@ Roughly in the order I'd build them.
   several, paying needs no linking at all
 - Packs are priced in **USD**, paid in SOL, converted at quote time
 - Tier thresholds are in **tokens**, never dollars
-- One free run a day for everyone signed in, independent of the token
+- One free run a day, independent of the token — for everyone signed
+  in, buyers only, or nobody, switched at `/admin7731` → Token
 - No feature is token-gated. Tiers are economics and status, never a bigger app
 - The buyback commitment is **accounting, not a bot** — no signing key
   on the server, and there is currently none anywhere in the codebase

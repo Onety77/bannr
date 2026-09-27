@@ -147,7 +147,7 @@ memory. `lib/directory.js` and `lib/stats.js` both do this deliberately.
   button was dead. Write `onClick={() => fn()}`. The check stays quiet by only
   flagging real DOM events whose handler's first parameter is not event-named.
 
-**`npm test` runs `tests/*.cjs`** — 37 files, ~2140 assertions. Every block is
+**`npm test` runs `tests/*.cjs`** — 38 files, ~2180 assertions. Every block is
 a regression with a comment saying what broke. They read real source and, for
 prompts, build the real prompt through the real module. Run `npm test pfp glow`
 to filter.
@@ -366,6 +366,13 @@ it: *thin, crisp and even is a sticker; soft, gathered and uneven is light.*
   `gate.enabled` — it is the trial, it has to work before the token exists, and
   `entitlementsOf()` returns it with a null tier for that reason. It is also
   the floor: a tier can never grant fewer runs than free does.
+- **Who gets that free run is a switch** — `/admin7731` → Token → Free runs:
+  everyone signed in (the default), only accounts that have bought credits,
+  or nobody. Added so the app could be handed out to try without a free run
+  for everyone being the product given away. It moves the free floor only;
+  a tier's own runs are untouched. "Bought" is `boughtAt`, written by both
+  payment paths in the crediting transaction; choosing buyers-only backfills
+  it from past payments. Admin-given credits are not a purchase.
 - **The free tier is a smaller AMOUNT of the real product, never a worse one.**
   Limiting how many runs is what makes a trial; limiting what they can do would
   be a demo of a different, worse app.

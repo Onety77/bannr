@@ -16,6 +16,7 @@ import WalletContinue from "@/components/WalletContinue";
 import { useAuth } from "@/lib/useAuth";
 import { useToken } from "@/lib/useToken";
 import { offerLine } from "@/lib/offer";
+import { useEntitlements } from "@/lib/useEntitlements";
 // The list price of the cheapest pack, so the button carries a number.
 // lib/packs.js is client-safe by design — it holds dollars and no rate.
 import { PACKS } from "@/lib/packs";
@@ -26,6 +27,9 @@ export default function TopUpModal() {
   const router = useRouter();
   const token = useToken();
   const offer = offerLine(token);
+  // Whether this account has a free run to come back to. With free runs
+  // switched off, or kept for buyers, promising one would be untrue.
+  const ent = useEntitlements();
   // Falls back rather than reading "$undefined" for the moment before
   // /api/token answers.
   const sym = token?.symbol ? `$${token.symbol}` : "$BANNR";
@@ -67,7 +71,7 @@ export default function TopUpModal() {
     // a sale nobody was going to make today, and it is the difference
     // between a wall and a wait.
     <Modal title="Out of runs" onClose={closeModal}>
-      <p className="modal-lead">Your free run is back tomorrow.</p>
+      {ent.dailyRuns > 0 && <p className="modal-lead">Your free run is back tomorrow.</p>}
 
       <div className="signin-opts">
         <button className="btn primary block" onClick={toCredits}>

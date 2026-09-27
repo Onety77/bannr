@@ -306,7 +306,12 @@ export async function POST(req) {
       const cur = snap.exists ? snap.data() : null;
       if (cur?.accountId) { outcome = "already"; return; }
       if (!userSnap.exists) { outcome = "no-account"; return; }
-      t.update(userRef, { credits: (userSnap.data().credits || 0) + pack.credits });
+      t.update(userRef, {
+        credits: (userSnap.data().credits || 0) + pack.credits,
+        // The first purchase is kept, never moved. It is what makes an
+        // account a buyer — see FREE_WHO in lib/tiers.js.
+        boughtAt: userSnap.data().boughtAt || Date.now(),
+      });
       t.set(payRef, {
         accountId: session.accountId,
         sol,

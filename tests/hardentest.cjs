@@ -130,7 +130,7 @@ const PKG = JSON.parse(read("package.json"));
     // balance never moved, and every retry answered "already".
     const tx = CLAIM.slice(CLAIM.indexOf("await db.runTransaction(async (t) =>"));
     const body = tx.slice(0, tx.indexOf("} catch (e)"));
-    ok(/t\.update\(userRef, \{ credits: \(userSnap\.data\(\)\.credits \|\| 0\) \+ pack\.credits \}\)/.test(body),
+    ok(/t\.update\(userRef, \{\s*credits: \(userSnap\.data\(\)\.credits \|\| 0\) \+ pack\.credits,/.test(body),
        "the balance rises inside the same transaction");
     ok(/t\.set\(payRef, \{/.test(body), "that files the payment");
     ok(!/grantCredits/.test(CLAIM), "and there is no second, separate grant to fail");

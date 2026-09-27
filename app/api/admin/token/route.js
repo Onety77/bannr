@@ -78,6 +78,44 @@ async function usageToday(db) {
   }
 }
 
+// ══ WHO HAS ALREADY BOUGHT ══
+//
+// "Free runs for buyers only" reads `boughtAt` on the account, which
+// every payment writes from now on. Accounts that paid BEFORE that
+// field existed have a payment and no mark, and switching to buyers-
+// only would quietly take their free run away — the customers the
+// setting exists to reward.
+//
+// So choosing it marks them, from the payments themselves. Idempotent:
+// an account already marked is left alone, so saving the panel twice
+// changes nothing. A single-field where, no index.
+async function markPastBuyers(db) {
+  const snap = await db.collection("payments").where("status", "==", "credited").limit(5000).get();
+  const first = new Map();
+  for (const d of snap.docs) {
+    const p = d.data();
+    if (!p.accountId) continue;
+    const ts = p.ts || Date.now();
+    if (!first.has(p.accountId) || ts < first.get(p.accountId)) first.set(p.accountId, ts);
+  }
+  const ids = [...first.keys()];
+  let marked = 0;
+  for (let i = 0; i < ids.length; i += 300) {
+    const refs = ids.slice(i, i + 300).map((id) => db.collection("users").doc(id));
+    const users = await db.getAll(...refs);
+    const batch = db.batch();
+    let n = 0;
+    for (const u of users) {
+      if (!u.exists || u.data().boughtAt) continue;
+      batch.update(u.ref, { boughtAt: first.get(u.id) });
+      n++;
+    }
+    if (n) await batch.commit();
+    marked += n;
+  }
+  return marked;
+}
+
 export async function GET(req) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -121,5 +159,10 @@ export async function POST(req) {
   }
 
   const saved = await saveGate(next, admin.email || "");
+  if (saved.free?.who === "buyers") {
+    // Not allowed to fail the save: the setting is stored either way,
+    // and anyone missed buys again or is marked on the next save.
+    await markPastBuyers(db).catch((e) => console.error("[admin/token] mark buyers", e.message));
+  }
   return NextResponse.json({ ok: true, gate: saved, usage: await usageToday(db) });
 }

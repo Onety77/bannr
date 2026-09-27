@@ -350,7 +350,7 @@ console.log("\n=== 9. FREE IS A RUNG, NOT A FOOTNOTE ===");
   ok(/free: \{\s*\n?\s*id: "free"/.test(PR), "the free tier is sent in the same shape as a tier");
   ok(/tiers: gate\.enabled \? gate\.tiers : \[\]/.test(PR),
      "and the holder rungs still stay empty until the gate is armed");
-  ok(/\[pricing\.free, \.\.\.\(pricing\.tiers/.test(CR), "the page puts free at the bottom of the ladder");
+  ok(/\[freeRung, \.\.\.\(pricing\.tiers/.test(CR), "the page puts free at the bottom of the ladder");
   // Before the tiers are armed the ladder is one card rather than
   // nothing at all — a section that renders nothing is a section
   // nobody knows exists.

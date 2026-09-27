@@ -116,7 +116,11 @@ export async function POST(req) {
         const userRef = db.collection("users").doc(owned.accountId);
         const userSnap = await tx.get(userRef);
         if (userSnap.exists) {
-          tx.update(userRef, { credits: (userSnap.data().credits || 0) + e.credits });
+          tx.update(userRef, {
+            credits: (userSnap.data().credits || 0) + e.credits,
+            // Makes the account a buyer — see FREE_WHO in lib/tiers.js.
+            boughtAt: userSnap.data().boughtAt || Date.now(),
+          });
           tx.set(payRef, {
             accountId: owned.accountId, userId: owned.accountId,
             wallet: sender, amountSol: lamports / 1e9, sol: lamports / 1e9,
@@ -201,6 +205,7 @@ export async function POST(req) {
       const userDoc = userSnap.docs[0];
       tx.update(userDoc.ref, {
         credits: (userDoc.data().credits || 0) + pack.credits,
+        boughtAt: userDoc.data().boughtAt || Date.now(),
       });
       tx.set(payRef, {
         // accountId is the field billing history queries. userId is

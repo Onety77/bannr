@@ -188,7 +188,7 @@ ok(/consumeIntent\(session\.accountId, lamports, signature\)/.test(claimSrc), "a
 {
   // Ordering matters: consuming before the credits land would strand
   // the payment if the grant threw.
-  const g = claimSrc.indexOf("t.update(userRef, { credits:");
+  const g = claimSrc.search(/t\.update\(userRef, \{\s*credits:/);
   const c = claimSrc.indexOf("consumeIntent(session.accountId");
   ok(g > 0 && c > g, "and spent only after the credits actually landed");
 }
@@ -265,7 +265,7 @@ ok(/creditsGranted: 0, creditsQuoted: pack\.credits, status: "unclaimed"/.test(h
 // their payments were filed "unclaimed" and credited to nobody until a
 // browser came back. Asking by AMOUNT needs no session and no browser.
 ok(/intentForAmount\(lamports, blockTimeMs\)/.test(hook), "the webhook asks who reserved this amount");
-ok(/tx\.update\(userRef, \{ credits:/.test(hook), "and credits that account itself");
+ok(/tx\.update\(userRef, \{\s*credits:/.test(hook), "and credits that account itself");
 ok(/priced: "quoted"/.test(hook), "at the price that was quoted, not one it re-derives");
 {
   // Order matters: the reserved amount has to be consulted before the

@@ -62,14 +62,20 @@ export async function GET(req) {
       id: "ceiling",
       severity: BLOCKER,
       label: "Daily ceiling on free runs",
-      ok: gate.dailyGlobalRuns > 0,
+      // Not a blocker while there are no free runs to cap: free switched
+      // off and no tiers live means every run is paid for.
+      ok: gate.dailyGlobalRuns > 0 || (gate.free?.who === "nobody" && !gate.enabled),
       detail:
         gate.dailyGlobalRuns > 0
           // COST_PER_RUN, imported rather than repeated — this line
           // carried its own copy of 0.081 and would have gone on
           // quoting it after the real figure was corrected.
           ? `${gate.dailyGlobalRuns.toLocaleString("en-US")} runs a day, about $${(gate.dailyGlobalRuns * COST_PER_RUN).toFixed(0)}`
-          : "Unlimited. Every signed-in account gets a free run a day and nothing caps the total.",
+          : gate.free?.who === "nobody" && !gate.enabled
+            ? "Not needed right now — free runs are off and the tiers are not live."
+            : gate.free?.who === "buyers"
+              ? "Unlimited. Every account that has bought credits gets a free run a day and nothing caps the total."
+              : "Unlimited. Every signed-in account gets a free run a day and nothing caps the total.",
       fix: "Token tab → Limits → Daily ceiling across everyone",
     },
     {
@@ -173,7 +179,7 @@ export async function GET(req) {
       severity: LAUNCH,
       label: "Holder tiers live",
       ok: gate.enabled,
-      detail: gate.enabled ? "On." : "Off. Everyone is on the free tier and nobody gets a discount.",
+      detail: gate.enabled ? "On." : "Off. Nobody gets a discount, and free runs follow the Free runs setting.",
       fix: "Token tab → The holder tiers are live",
     },
     {

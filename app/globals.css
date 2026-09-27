@@ -2523,6 +2523,8 @@ body::after {
 .tk-calc .btn { flex: 1; white-space: nowrap; }
 
 .tk-check { display: flex; gap: 11px; align-items: flex-start; cursor: pointer; }
+/* Who gets the free run — three choices stacked, above the number. */
+.tk-who { display: grid; gap: 12px; margin-bottom: 18px; }
 .tk-check input { margin-top: 3px; flex: none; width: 16px; height: 16px; }
 .tk-check b { display: block; font-size: 14px; }
 .tk-check em {

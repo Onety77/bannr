@@ -321,7 +321,12 @@ export default function CreditsPage() {
   // It is also what keeps this section alive before the tiers are
   // armed: publicGate withholds the holder rungs until then, and a
   // section that renders nothing is a section nobody knows exists.
-  const ladder = pricing ? [pricing.free, ...(pricing.tiers || [])].filter(Boolean) : [];
+  //
+  // Unless free runs are switched off. Then the card would read "—
+  // free runs a day", which is a rung offering nothing, so it drops out
+  // and the ladder starts at the first tier, or is not shown at all.
+  const freeRung = pricing?.free?.dailyRuns > 0 ? pricing.free : null;
+  const ladder = pricing ? [freeRung, ...(pricing.tiers || [])].filter(Boolean) : [];
   const armed = (pricing?.tiers || []).length > 0;
 
   return (
@@ -470,7 +475,9 @@ export default function CreditsPage() {
                     {mine && <span className="lad-you">You</span>}
                   </div>
                   <div className="lad-hold">
-                    {t.id === "free" ? "Signed in" : `${tokens(t.minTokens)} ${sym}`}
+                    {t.id === "free"
+                      ? (t.who === "buyers" ? "With any pack" : "Signed in")
+                      : `${tokens(t.minTokens)} ${sym}`}
                   </div>
 
                   {/* ══ THE ALLOWANCE IS THE RUNG ══
