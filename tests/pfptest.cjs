@@ -549,10 +549,15 @@ console.log("\n12. THE MEMES TEASER");
 {
   const MC = read("components/MemesComingSoon.jsx");
   ok(/Coming soon/.test(MC), "badged coming soon");
-  for (const f of ["pepe.jpg", "wojak.jpg", "chad.jpg"]) {
-    ok(fs.existsSync(R + "public/memes/" + f), "  " + f + " exists");
-  }
-  ok(/aspect-ratio: 3 \/ 2/.test(CSS), "the cards are 3:2");
+  // Six, chosen by Aminu. Every file the component names must exist, or
+  // the teaser shows a broken image.
+  const files = [...MC.matchAll(/src: "\/memes\/([\w.-]+)"/g)].map((m) => m[1]);
+  ok(files.length === 6 && files[0] === "pepe.jpg", "six memes, Pepe first");
+  for (const f of files) ok(fs.existsSync(R + "public/memes/" + f), "  " + f + " exists");
+  // Each keeps its own shape — a fixed ratio cropped off the caption
+  // or label the joke lives in.
+  ok(/\.mcs-row \{\s*columns: 3;/.test(CSS) && /break-inside: avoid/.test(CSS), "a masonry of columns");
+  ok(/\.mcs-card img \{ width: 100%; height: auto; display: block; \}/.test(CSS), "and no image is cropped");
   // Static rather than the spotlight feed the X teaser reads: nothing
   // has ever made a meme, so a fallback would show 3:1 banners under a
   // heading promising 3:2 memes.
