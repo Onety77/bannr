@@ -23,6 +23,7 @@
 // ============================================================
 
 import sharp from "sharp";
+import { DECODE } from "@/lib/decode";
 import { NextResponse } from "next/server";
 import {
   getTemplate, autoTemplate, buildPrompt, distributeStyles,
@@ -50,6 +51,55 @@ import { buildDirection, spreadSettings, sharedSettings, optionDirection } from 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
+// ══ WE STOP BEFORE THE PLATFORM STOPS US ══
+//
+// At maxDuration the platform kills the function outright. No catch
+// runs, so nothing is refunded — and the page, which cannot tell a
+// killed function from a dropped connection, used to say "credits
+// refunded" anyway. A run can genuinely get there: the concept pass
+// may take 20s and retry once, an image call may take 95s, and a
+// content refusal retries the image call from scratch.
+//
+// So the route keeps its own deadline, comfortably inside the
+// platform's, and when it passes it answers with whatever has arrived.
+// Options still in flight count as missing: a partial run is refunded
+// for what did not arrive, and a run with nothing refunds in full
+// through the catch, exactly like any other failure. The margin covers
+// what still has to happen after — the refund, the balance read, and
+// encoding the response.
+const DEADLINE_MS = (maxDuration - 15) * 1000;
+
+// Where a response starts being worth a warning — see the size log at
+// the end of POST.
+const RESPONSE_WARN_BYTES = 4 * 1024 * 1024;
+
+function deadlineError() {
+  const err = new Error("Generation timed out at the route deadline.");
+  err.status = 504;
+  err.deadline = true;
+  return err;
+}
+
+// Promise.allSettled, but only until `deadlineAt`. Anything unsettled
+// by then is reported as rejected by the deadline; its result, if it
+// ever arrives, is dropped — it has already been refunded.
+async function settleBy(promises, deadlineAt) {
+  const out = new Array(promises.length).fill(null);
+  const tracked = promises.map((p, k) =>
+    p.then(
+      (value) => { out[k] = { status: "fulfilled", value }; },
+      (reason) => { out[k] = { status: "rejected", reason }; }
+    )
+  );
+  let timer;
+  const deadline = new Promise((resolve) => {
+    timer = setTimeout(resolve, Math.max(0, deadlineAt - Date.now()));
+  });
+  await Promise.race([Promise.all(tracked), deadline]);
+  clearTimeout(timer);
+  return out.map((o) => o || { status: "rejected", reason: deadlineError() });
+}
+
 // Per file. Same reason as the PFP route: the platform refuses a
 // request body over ~4.5MB with a 413 before this function runs, so
 // 8MB was a number we could advertise and never honour — accepted by
@@ -73,6 +123,8 @@ const MAX_REFS = 5;
 const RATE = { limit: 6, windowMs: 60_000 };
 
 export async function POST(req) {
+  const deadlineAt = Date.now() + DEADLINE_MS;
+
   // Hoisted so the catch below can record exactly which brief was
   // refused, and run the free text-vs-image diagnosis on it — that's
   // the entire value of the refusal log.
@@ -225,7 +277,7 @@ export async function POST(req) {
     if (!ALLOWED_TYPES.includes(logoFile.type))
       return NextResponse.json({ error: "Logo must be PNG, JPG or WEBP." }, { status: 400 });
     const raw = Buffer.from(await logoFile.arrayBuffer());
-    const logoPng = await sharp(raw).rotate().png().toBuffer();
+    const logoPng = await sharp(raw, DECODE).rotate().png().toBuffer();
 
     // supporting reference images (optional, up to 3) — passed to
     // gpt-image-2 alongside the logo as style/character guidance.
@@ -236,7 +288,7 @@ export async function POST(req) {
       if (f.size > MAX_LOGO_BYTES) continue;
       if (!ALLOWED_TYPES.includes(f.type)) continue;
       try {
-        const jpeg = await sharp(Buffer.from(await f.arrayBuffer()))
+        const jpeg = await sharp(Buffer.from(await f.arrayBuffer()), DECODE)
           .rotate()
           .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
           .flatten({ background: "#ffffff" })
@@ -477,7 +529,9 @@ export async function POST(req) {
     // attempt anymore — a failure here is simply a failure, and the
     // outer catch classifies it (quota / policy / bad key) and
     // refunds. That's the honest tradeoff for dropping Gemini.
-    const settled = await Promise.allSettled(
+    //
+    // Bounded by the route's own deadline — see DEADLINE_MS.
+    const settled = await settleBy(
       jobs.map(async (job) => {
         const isDemo = job.engine === "demo";
 
@@ -549,18 +603,25 @@ export async function POST(req) {
           // aspect ratio; cover is kept so that if the engine ever
           // returned an off-spec size we'd lose a sliver rather than
           // visibly stretch the art.
+          //
+          // Maximum compression with adaptive filtering. LOSSLESS — the
+          // pixels are identical, only the file is smaller, by roughly
+          // 35-40% on detailed art. It costs about half a second per
+          // option against a run of a minute, and it is the file the
+          // person downloads and the bulk of this response.
           finalPng = await sharp(artBuf)
             .resize(BANNER_W, BANNER_H, { fit: "cover", position: "center" })
-            .png()
+            .png({ compressionLevel: 9, adaptiveFiltering: true })
             .toBuffer();
-          bgSource = finalPng;
         }
 
         // "bg" is what /api/convert re-frames for X Communities: the
-        // clean pre-text background in demo mode (recomposited at the
-        // new width), or the finished art itself for AI variants
-        // (there's no separate text layer to redo).
-        const bgJpeg = await sharp(bgSource).jpeg({ quality: 80 }).toBuffer();
+        // clean pre-text background in demo mode, recomposited at the
+        // new width. Only demo mode has one. For a real banner it was
+        // a JPEG copy of the finished art — the same picture a second
+        // time in every response — and the page now makes that copy
+        // itself, from the PNG, when someone actually converts.
+        const bgJpeg = bgSource ? await sharp(bgSource).jpeg({ quality: 80 }).toBuffer() : null;
 
         // Real emitted size — the lightbox reports it, and it's the
         // cheapest proof that nothing in the pipeline reshaped the art.
@@ -569,7 +630,7 @@ export async function POST(req) {
         return {
           i: job.i,
           dataUrl: `data:image/png;base64,${finalPng.toString("base64")}`,
-          bg: `data:image/jpeg;base64,${bgJpeg.toString("base64")}`,
+          ...(bgJpeg ? { bg: `data:image/jpeg;base64,${bgJpeg.toString("base64")}` } : {}),
           textMode: isDemo ? "composited" : "ai",
           engine: usedEngine,
           w: width,
@@ -590,14 +651,19 @@ export async function POST(req) {
           concept: conceptByJob[job.i] || "",
           _finalPng: finalPng,
         };
-      })
+      }),
+      deadlineAt
     );
 
     const results = settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
     if (results.length === 0) {
       // every variant failed — surface the real reason so the outer
       // catch classifies + refunds correctly.
-      throw settled.find((s) => s.status === "rejected")?.reason || new Error("Generation failed.");
+      // A real refusal outranks the deadline: if one option was refused
+      // and the rest ran out of time, the refusal is the thing the
+      // person can act on.
+      const failed = settled.filter((s) => s.status === "rejected");
+      throw (failed.find((s) => !s.reason?.deadline) || failed[0])?.reason || new Error("Generation failed.");
     }
 
     // PARTIAL RUNS ARE REFUNDED FOR WHAT DID NOT ARRIVE.
@@ -666,7 +732,7 @@ export async function POST(req) {
     // never has to guess or keep its own running total.
     const after = demoMode ? null : await getUser(session.accountId);
 
-    return NextResponse.json({
+    const payload = {
       ok: true,
       user: publicUser(after),
       // Silence here would be nearly as bad as the overcharge was:
@@ -686,7 +752,25 @@ export async function POST(req) {
       template: { id: styleIds[0], name: jobs[0].display.name },
       brief,
       variants: results.map(({ _finalPng, i, ...v }) => v),
-    });
+    };
+
+    // ══ HOW BIG THIS ANSWER IS ══
+    //
+    // Every option travels inside this JSON as a base64 PNG, and the
+    // platform's documented ceiling for a function body is ~4.5MB. A
+    // four-option run on detailed art sits near it. Whether streamed
+    // responses are held to it is not something this code can know,
+    // so it is measured on every run and shouts past the line: the
+    // day a run fails for size, this is the line that says so.
+    const body = JSON.stringify(payload);
+    const bytes = Buffer.byteLength(body);
+    const mb = (bytes / 1e6).toFixed(2);
+    if (bytes > RESPONSE_WARN_BYTES) {
+      console.warn(`[generate] LARGE RESPONSE ${mb}MB for ${results.length} option(s)`);
+    } else {
+      console.log(`[generate] response ${mb}MB for ${results.length} option(s)`);
+    }
+    return new NextResponse(body, { headers: { "Content-Type": "application/json" } });
   } catch (err) {
     // Full detail stays in the server log; the user gets sanitised
     // copy that never names the provider (see lib/errors.js).
@@ -696,6 +780,10 @@ export async function POST(req) {
     // refund could be lost to a closed tab or a dropped connection;
     // doing it here means a failed run always gives the credits back,
     // even if the user never sees the response.
+    // Whether the person is square. True when nothing was taken; false
+    // only when something was taken AND giving it back failed — in
+    // which case no message below may say it was given back.
+    let square = true;
     if (charged) {
       try {
         // Gives back whichever side actually paid — a free run returns
@@ -706,10 +794,11 @@ export async function POST(req) {
         // A failed refund is a real loss to a real person — make it
         // loud in the log rather than swallowing it.
         console.error("[generate] REFUND FAILED", charged, e);
+        square = false;
       }
     }
 
-    let { error, status, reason } = publicError(err, "generate");
+    let { error, status, reason } = publicError(err, "generate", { refunded: square });
     let code = reason === "policy" ? "policy" : undefined;
 
     // Rung 3 of the ladder: the run was refused even with the
@@ -739,25 +828,28 @@ export async function POST(req) {
       // Copy is stage-aware: the client shows a different set of
       // buttons depending on how far up the ladder we already are, so
       // the message must not promise an option that isn't on screen.
-      const spent = "Your credits weren't spent.";
+      // Said only when it is true. After a failed refund the sentence is
+      // dropped rather than replaced: the page refreshes the balance,
+      // and the log line above is the one that gets it put right.
+      const spent = square ? "Your credits weren't spent. " : "";
       if (probe?.flagged && probe.image) {
         diagnosis = "image";
         code = "image_flagged";
         error =
           "It looks like the uploaded image is what's tripping our content checks" +
           (probe.text ? " (the wording may be contributing too)" : "") +
-          `. ${spent} Try one of the options below.`;
+          `. ${spent}Try one of the options below.`;
       } else if (probe?.flagged && probe.text) {
         diagnosis = "text";
         code = "text_flagged";
         error =
-          `It looks like the wording — the name, tagline or description — is what's tripping our content checks. A small rewording usually gets it through. ${spent}`;
+          `It looks like the wording — the name, tagline or description — is what's tripping our content checks. A small rewording usually gets it through. ${spent}`.trim();
       } else if (assist === "nudge") {
         code = "policy_options";
-        error = `That still didn't clear our content checks, even with the extra guidance. ${spent} There's one more thing we can try.`;
+        error = `That still didn't clear our content checks, even with the extra guidance. ${spent}There's one more thing we can try.`;
       } else if (assist === "reimagine") {
         code = "policy_options";
-        error = `Even a fully reimagined version didn't clear our content checks — this subject is one the filter holds firm on. ${spent} A different image is the way forward.`;
+        error = `Even a fully reimagined version didn't clear our content checks — this subject is one the filter holds firm on. ${spent}A different image is the way forward.`;
       } else {
         // The probe saw nothing — which is common, because the image
         // model blocks whole classes the moderation model doesn't even
@@ -768,7 +860,7 @@ export async function POST(req) {
         // got a dead-end apology and no buttons.
         code = "policy_options";
         error =
-          `That didn't clear our content checks, and we can't tell exactly which part tripped it. It's often the image, though a small change to the name or description can be all it takes. ${spent} Try one of the options below.`;
+          `That didn't clear our content checks, and we can't tell exactly which part tripped it. It's often the image, though a small change to the name or description can be all it takes. ${spent}Try one of the options below.`;
       }
 
       // Server-log the verdict too: until Firestore is configured the
@@ -795,6 +887,6 @@ export async function POST(req) {
       // briefs have in common".
       await recordRefusal({ kind: "generate", reason, ...brief, templateId, detail: err?.message });
     }
-    return NextResponse.json({ error, code, refunded: Boolean(charged) }, { status });
+    return NextResponse.json({ error, code, refunded: Boolean(charged) && square }, { status });
   }
 }

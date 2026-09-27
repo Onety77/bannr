@@ -119,11 +119,11 @@ export default function HistoryPage() {
                   onClick={() => setViewing(it)}
                   aria-label={`View ${it.brief?.ticker || it.brief?.name || "banner"} full size`}
                 >
-                  <img src={it.thumb} alt="" />
+                  <img src={it.thumb} alt="" loading="lazy" />
                   <span className="history-open-hint">View</span>
                 </button>
               ) : (
-                <img src={it.thumb} alt={`${it.brief?.ticker || it.brief?.name || "Banner"} preview`} />
+                <img src={it.thumb} alt={`${it.brief?.ticker || it.brief?.name || "Banner"} preview`} loading="lazy" />
               ))}
               <div className="meta">
                 <b>{it.brief?.ticker || it.brief?.name || "Untitled"}</b>

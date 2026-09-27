@@ -34,7 +34,7 @@ ok(DEL.includes("deleteOwnPost(session.accountId, params?.id)"), "and passes the
 ok(!DEL.includes("body"), "the request body is not consulted at all");
 
 console.log("\n3. NO COMPOSITE INDEXES");
-ok(FEED.includes('.where("accountId", "==", accountId).limit(200).get()'), "posts-by-account is a single-field where");
+ok(FEED.includes('.where("accountId", "==", accountId).limit(200).select(...LIST_FIELDS).get()'), "posts-by-account is a single-field where");
 ok(/postsByAccount[\s\S]{0,900}items\.sort\(/.test(FEED), "sorted in memory, not by orderBy");
 ok(!/where\("accountId"[\s\S]{0,120}orderBy/.test(FEED), "never where + orderBy together");
 ok(H.includes('db.collection("handles").doc(shape.handle).get()'), "handle lookup is a direct doc read");

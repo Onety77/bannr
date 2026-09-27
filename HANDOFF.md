@@ -147,7 +147,7 @@ memory. `lib/directory.js` and `lib/stats.js` both do this deliberately.
   button was dead. Write `onClick={() => fn()}`. The check stays quiet by only
   flagging real DOM events whose handler's first parameter is not event-named.
 
-**`npm test` runs `tests/*.cjs`** — 26 files, ~1600 assertions. Every block is
+**`npm test` runs `tests/*.cjs`** — 38 files, ~2180 assertions. Every block is
 a regression with a comment saying what broke. They read real source and, for
 prompts, build the real prompt through the real module. Run `npm test pfp glow`
 to filter.
@@ -366,6 +366,13 @@ it: *thin, crisp and even is a sticker; soft, gathered and uneven is light.*
   `gate.enabled` — it is the trial, it has to work before the token exists, and
   `entitlementsOf()` returns it with a null tier for that reason. It is also
   the floor: a tier can never grant fewer runs than free does.
+- **Who gets that free run is a switch** — `/admin7731` → Token → Free runs:
+  everyone signed in (the default), only accounts that have bought credits,
+  or nobody. Added so the app could be handed out to try without a free run
+  for everyone being the product given away. It moves the free floor only;
+  a tier's own runs are untouched. "Bought" is `boughtAt`, written by both
+  payment paths in the crediting transaction; choosing buyers-only backfills
+  it from past payments. Admin-given credits are not a purchase.
 - **The free tier is a smaller AMOUNT of the real product, never a worse one.**
   Limiting how many runs is what makes a trial; limiting what they can do would
   be a demo of a different, worse app.
@@ -625,6 +632,32 @@ announcing `/token`, Firestore TTL on `nonces.expires`, seeding the feed.
   for ten minutes; past that, buying is disabled and payments are held at 202.
 - **Three tests in a row matched my own comment instead of the code** while
   writing this. `bare()` before every negative assertion.
+
+### From the pre-launch hardening pass (`tests/hardentest.cjs`)
+
+- **A list never carries a picture.** My banners, the feed, the top strip,
+  profiles and the performing-tokens scan all returned images inline as
+  base64 — My banners hit the ~4.5MB response ceiling at about the 45th kept
+  banner, and the feed made every visitor pull every image out of Firestore.
+  Lists now `select` every field except the image and point at
+  `/api/history/{id}/thumb` (private) or `/api/feed/{id}/image` and `/logo`
+  (public, edge-cached for an hour — not a week, so a hidden post stops being
+  served). Hidden posts shown to their author or an admin still carry their
+  picture inline, because those routes refuse hidden posts.
+- **Money moves in the same write that records it.** `/api/pay/claim` filed
+  the payment as credited and raised the balance in a second call; a failure
+  between them was a silent zero that every retry answered with "already".
+- **Generate and edit keep their own deadline**, 15s inside `maxDuration`. The
+  platform kills a function at the limit without running the catch, so
+  nothing was refunded, and the page said "credits refunded" anyway. Nothing
+  says a refund happened unless it did: `publicError(err, kind, { refunded })`.
+- **Every upload decodes under `DECODE`** (`lib/decode.js`, 40MP). A 300KB PNG
+  can declare 100 megapixels, and sharp's own ceiling is about a gigabyte.
+- **The generate response is measured on every run** — look for
+  `[generate] response` / `LARGE RESPONSE` in the logs. Whether the platform
+  holds a streamed response to 4.5MB could not be confirmed from here; PNGs
+  are now compressed losslessly at level 9 (~35-40% smaller) and a real
+  banner no longer ships a second JPEG copy of itself.
 
 ---
 

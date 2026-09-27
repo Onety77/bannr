@@ -52,11 +52,15 @@ ok(!PAGE.includes('"use client"'), "and is a SERVER component, or an unfurler se
 ok(PAGE.includes("summary_large_image"), "3:1 card");
 ok(PAGE.includes("/api/feed/${params.id}/image"), "pointing at real bytes, not a data URL");
 ok(LAYOUT.includes("metadataBase"), "metadataBase set, or the image path never resolves");
-ok(IMG.includes("Buffer.from(m[2]"), "the endpoint decodes the stored data URL");
-ok(IMG.includes("if (!post?.src) return new Response(\"Not found\", { status: 404 })"), "a hidden or missing post serves nothing");
+ok(FEED.includes("Buffer.from(m[2], \"base64\")"), "the stored data URL is decoded into real bytes");
+ok(IMG.includes("if (!pic) return new Response(\"Not found\", { status: 404 })"), "a hidden or missing post serves nothing");
 
 console.log("\n6. STILL TRUE");
 ok(FEED.includes("if (p.hidden) return null;"), "getPost refuses hidden posts, so moderation reaches shared links");
+{
+  const pic = FEED.slice(FEED.indexOf("export async function postPicture"));
+  ok(/if \(p\.hidden\) return null;/.test(pic.slice(0, 600)), "and so does the picture behind every image URL");
+}
 ok(read("components/SinglePost.jsx").includes("Sign in"), "liking a shared post asks for sign-in");
 
 console.log(bad ? "\n" + bad + " FAILED\n" : "\nall green\n");

@@ -51,6 +51,23 @@ const PHASES = [
 // own honest "took too long" copy wins whenever it can still reply.
 const TIMEOUTS = { generate: 125_000, edit: 125_000, convert: 60_000, lookup: 25_000 };
 
+// A full-size JPEG of a banner, for the X conversion. Quality 0.92 —
+// it is re-framed and delivered, so this is the last lossy step.
+function jpegOf(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      resolve(c.toDataURL("image/jpeg", 0.92));
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
 async function fetchWithTimeout(url, options, ms) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
@@ -568,7 +585,20 @@ function CreateInner() {
       refsSmall.forEach((f) => fd.append("refs", f));
 
       const res = await fetchWithTimeout("/api/generate", { method: "POST", body: fd }, TIMEOUTS.generate);
-      const data = await res.json();
+      // Read as text and parsed if it parses — the PFP maker's pattern.
+      // A function the platform killed answers with an error page, not
+      // JSON, and res.json() throwing sent that here to the network
+      // branch below, which said "credits refunded" about a run whose
+      // refund had never run.
+      const raw = await res.text();
+      let data = null;
+      try { data = JSON.parse(raw); } catch {}
+      if (!data) {
+        console.error("[generate] non-JSON response", res.status, raw.slice(0, 500));
+        auth.refresh();
+        setError("Something went wrong on our end. Give it a couple of minutes and try again."); // house voice, from lib/errors.js
+        return;
+      }
 
       if (!res.ok || !data.ok) {
         // A session that expired mid-visit came back as a plain error
@@ -583,7 +613,7 @@ function CreateInner() {
         // The server refunds; we only re-read the balance so the UI
         // reflects what actually happened rather than assuming.
         if (data.user) setUser(data.user); else auth.refresh();
-        setError(data.error || "Generation failed — credits refunded.");
+        setError(data.error || (data.refunded ? "Generation failed — credits refunded." : "Generation failed."));
         // Advance the offer one rung past whatever just failed, so we
         // never re-offer an option the user has already watched fail.
         const code = data.code || null;
@@ -641,8 +671,8 @@ function CreateInner() {
       auth.refresh();
       setError(
         timedOut(e)
-          ? "That took too long, so we stopped waiting — credits refunded. Please try again."
-          : "Network error — credits refunded. Try again."
+          ? "That took too long, so we stopped waiting. Please try again."
+          : "Network error — try again."
       );
     } finally {
       setBusy(false);
@@ -656,7 +686,12 @@ function CreateInner() {
     setConvBusy(i);
     try {
       const fd = new FormData();
-      fd.set("bg", v.bg);
+      // Only a demo-mode option carries its own `bg`. A real banner is
+      // re-framed from the finished art, made into a JPEG here rather
+      // than shipped twice in every response.
+      const bg = v.bg || (await jpegOf(v.dataUrl));
+      if (!bg) { setError("Conversion failed — try again."); return; }
+      fd.set("bg", bg);
       fd.set("templateId", v.templateId);
       fd.set("textMode", v.textMode);
       fd.set("name", formRef.current.name);

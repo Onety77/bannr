@@ -40,6 +40,11 @@ const MAX_ITEMS = 50;
 const MAX_THUMB = 200_000;   // base64 chars — a 900x300 jpeg is ~75-110k
 const str = (v, n) => String(v ?? "").slice(0, n);
 
+// Everything a card shows except its picture. `path` is read only to
+// become `hasFile` and is never returned.
+const CARD_FIELDS = ["brief", "templateId", "templateName", "concept", "sig", "ts", "path"];
+const thumbUrl = (id) => `/api/history/${encodeURIComponent(id)}/thumb`;
+
 // Dev fallback, same pattern as lib/users.js.
 const mem = new Map();
 
@@ -76,11 +81,23 @@ export async function GET(req) {
     return NextResponse.json({ ok: true, items: list.slice(0, MAX_ITEMS) });
   }
 
+  // ══ THE LIST CARRIES NO PICTURES ══
+  //
+  // Every card used to ride along with its ~100KB thumbnail inline, so
+  // the response was the size of the pictures in it: fifty cards is
+  // about five megabytes, and the platform refuses a response over
+  // ~4.5MB. The page broke for exactly the people who used it most,
+  // at roughly the forty-fifth banner they kept.
+  //
+  // `select` leaves the thumbnail in the database — it is not even
+  // read — and each card points at /api/history/{id}/thumb instead,
+  // which the browser fetches, caches and lazy-loads on its own.
   const snap = await db
     .collection("users").doc(session.accountId)
     .collection("history")
     .orderBy("ts", "desc")
     .limit(MAX_ITEMS)
+    .select(...CARD_FIELDS)
     .get();
 
   // ══ A FLAG, NOT A URL ══
@@ -98,7 +115,7 @@ export async function GET(req) {
   // `path` is never returned for the same reason it never was.
   const items = snap.docs.map((d) => {
     const { path, ...rest } = d.data();
-    return { id: d.id, ...rest, hasFile: Boolean(path) };
+    return { id: d.id, ...rest, hasFile: Boolean(path), thumb: thumbUrl(d.id) };
   });
 
   return NextResponse.json({ ok: true, items });
@@ -140,7 +157,9 @@ export async function POST(req) {
   // Cap enforced at write time so the collection can never grow
   // unboundedly — the oldest cards fall off, like the localStorage
   // version before it.
-  const all = await col.orderBy("ts", "desc").get();
+  // Only `path` is read: this runs on every save, and reading fifty
+  // thumbnails to delete one card was five megabytes per download.
+  const all = await col.orderBy("ts", "desc").select("path").get();
   if (all.size > MAX_ITEMS) {
     const stale = all.docs.slice(MAX_ITEMS);
     const batch = db.batch();

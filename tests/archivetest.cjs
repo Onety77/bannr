@@ -178,7 +178,7 @@ console.log("\n8. WHAT IS STORED IS A REAL BANNER");
   const p = bare(PUT);
   // The bytes arrive from a browser. This is the one place a client
   // payload becomes a stored file.
-  ok(/sharp\(Buffer\.from\(await file\.arrayBuffer\(\)\)\)/.test(p), "the upload is re-encoded, never trusted");
+  ok(/sharp\(Buffer\.from\(await file\.arrayBuffer\(\)\), DECODE\)/.test(p), "the upload is re-encoded, never trusted");
   ok(/resize\(BANNER_W, BANNER_H/.test(p), "at the banner's own dimensions");
   ok(/reason: "not-an-image"/.test(p), "and anything that will not decode is refused");
   ok(/MAX_BYTES/.test(p), "with a size ceiling");

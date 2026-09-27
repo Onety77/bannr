@@ -30,7 +30,7 @@ import { PACKS, priceUsd } from "@/lib/packs";
 import { solUsd, solForUsd } from "@/lib/solPrice";
 import { resolveEntitlements } from "@/lib/entitlements";
 import { getGate } from "@/lib/tokenGate";
-import { entitlementsOf } from "@/lib/tiers";
+import { entitlementsOf, cleanFree, freeOffered } from "@/lib/tiers";
 import { GENERATION_COST, getUser, todayKey } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -156,7 +156,11 @@ export async function GET(req) {
         id: "free",
         name: "Free",
         minTokens: 0,
-        dailyRuns: ent.tierId ? (gate.free?.dailyRuns ?? 0) : ent.dailyRuns,
+        // What the rung OFFERS, not what this account has today — a
+        // non-buyer reading a buyers-only free rung should see what
+        // buying gets them. Zero when free runs are switched off.
+        dailyRuns: freeOffered(gate.free),
+        who: cleanFree(gate.free).who,
         discount: 0,
         styles: Boolean(gate.free?.styles),
         direction: Boolean(gate.free?.direction),

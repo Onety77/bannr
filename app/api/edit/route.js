@@ -16,6 +16,7 @@
 // ============================================================
 
 import sharp from "sharp";
+import { DECODE } from "@/lib/decode";
 import { NextResponse } from "next/server";
 import { BANNER_W, BANNER_H, buildEditPrompt, REASSURANCE } from "@/lib/templates";
 import { aiEnabled, editImage } from "@/lib/openai";
@@ -27,6 +28,15 @@ import { consumeEdit, refundCredits, getUser, publicUser, EDIT_COST } from "@/li
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
+
+// Same reason as the generate route's: at maxDuration the platform
+// kills the function and the refund in the catch never runs. One image
+// call can take 95s and a content refusal retries it, which is past
+// 120 — so the retry only gets whatever time is left before this.
+const DEADLINE_MS = (maxDuration - 15) * 1000;
+// Not worth starting a retry with less than this; it would only time
+// out, and the refusal is the more useful thing to tell them.
+const MIN_RETRY_MS = 20_000;
 
 const MAX_INSTRUCTION = 400;
 const MAX_REF_BYTES = 8 * 1024 * 1024;
@@ -47,6 +57,7 @@ const MAX_REFS = 5;
 const RATE = { limit: 10, windowMs: 60_000 };
 
 export async function POST(req) {
+  const deadlineAt = Date.now() + DEADLINE_MS;
   // Hoisted so the catch can record what was actually asked for.
   let instruction = "";
   // Only set when an edit was paid for with CREDITS. A free daily
@@ -101,7 +112,7 @@ export async function POST(req) {
     // compounds across repeated edits. Measured: a purely structural
     // edit came back ~12% softer than its source. The re-encode is the
     // cheapest link to stop giving away, so don't lower this.
-    const jpeg = await sharp(Buffer.from(b64, "base64"))
+    const jpeg = await sharp(Buffer.from(b64, "base64"), DECODE)
       .resize(1536, 512, { fit: "cover", position: "center" })
       .flatten({ background: "#000000" })
       .jpeg({ quality: 96, chromaSubsampling: "4:4:4" })
@@ -115,7 +126,7 @@ export async function POST(req) {
       if (f.size > MAX_REF_BYTES) continue;
       if (!ALLOWED_TYPES.includes(f.type)) continue;
       try {
-        const ref = await sharp(Buffer.from(await f.arrayBuffer()))
+        const ref = await sharp(Buffer.from(await f.arrayBuffer()), DECODE)
           .rotate()
           .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
           .flatten({ background: "#ffffff" })
@@ -144,18 +155,20 @@ export async function POST(req) {
     const editInput = { image: jpeg.toString("base64"), refs };
     let artBuf;
     try {
-      artBuf = await editImage(editPrompt, editInput);
+      artBuf = await editImage(editPrompt, { ...editInput, timeoutMs: 95_000 });
     } catch (err) {
       if (!isPolicyError(err)) throw err;
-      artBuf = await editImage(`${editPrompt}\n\n${REASSURANCE}`, editInput);
+      const left = deadlineAt - Date.now();
+      if (left < MIN_RETRY_MS) throw err;
+      artBuf = await editImage(`${editPrompt}\n\n${REASSURANCE}`, { ...editInput, timeoutMs: Math.min(95_000, left) });
     }
 
     // Same 1536->1500 downscale as generation. Nothing is cropped.
+    // Lossless maximum compression, as in the generate route.
     const finalPng = await sharp(artBuf)
       .resize(BANNER_W, BANNER_H, { fit: "cover", position: "center" })
-      .png()
+      .png({ compressionLevel: 9, adaptiveFiltering: true })
       .toBuffer();
-    const bgJpeg = await sharp(finalPng).jpeg({ quality: 80 }).toBuffer();
 
     charged = null; // succeeded — the charge stands
 
@@ -164,7 +177,6 @@ export async function POST(req) {
       user: publicUser(await getUser(session.accountId)),
       paidWith: paid.paidWith,
       dataUrl: `data:image/png;base64,${finalPng.toString("base64")}`,
-      bg: `data:image/jpeg;base64,${bgJpeg.toString("base64")}`,
       w: BANNER_W,
       h: BANNER_H,
     });
@@ -175,11 +187,14 @@ export async function POST(req) {
     // A failed edit costs nothing. Note this only refunds CREDITS —
     // a spent free daily edit is deliberately not restored, since
     // returning one would mint currency that never existed.
+    // False only when something was taken and giving it back failed —
+    // then no message may say it was given back.
+    let square = true;
     if (charged) {
       try { await refundCredits(charged.accountId, charged.amount); }
-      catch (e) { console.error("[edit] REFUND FAILED", charged, e); }
+      catch (e) { console.error("[edit] REFUND FAILED", charged, e); square = false; }
     }
-    const { error, status, reason } = publicError(err, "edit");
+    const { error, status, reason } = publicError(err, "edit", { refunded: square });
     // Every failure, not just the refusals. The `reason === "policy"`
     // guard meant a billing outage here wrote nothing down, so the
     // admin panel showed no problem while nothing worked. The

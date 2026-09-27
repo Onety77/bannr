@@ -34,6 +34,14 @@ import { useEffect, useState } from "react";
 
 const NUM = (n) => (Number(n) || 0).toLocaleString("en-US");
 
+// Who the free run reaches. Mirrors FREE_WHO in lib/tiers.js, which is
+// where it is enforced — this is only the three ways of saying it.
+const WHO = [
+  { id: "everyone", label: "Everyone signed in", note: "The trial. Anyone who signs in gets it." },
+  { id: "buyers", label: "Only people who have bought credits", note: "A perk for customers. Credits you give by hand don't count as buying." },
+  { id: "nobody", label: "Nobody", note: "Free runs are off. Every run costs credits." },
+];
+
 
 export default function AdminToken({ user }) {
   const [data, setData] = useState(null);
@@ -135,24 +143,48 @@ export default function AdminToken({ user }) {
       </div>
 
       {/* ---- the free tier ----
-          Above the token, because it does not depend on one. */}
+          Above the token, because it does not depend on one. WHO gets
+          it is a switch, for the stretch where the app is being handed
+          out to try and a free run for anyone who signs in would give
+          the product away. See FREE_WHO in lib/tiers.js. */}
       <section className="tk-card tk-free">
-        <h3>Everyone</h3>
-        <div className="tk-row">
-          <label className="tk-f">
-            <span>Free runs a day, signed in</span>
-            <input
-              type="number" min={0} max={50}
-              value={form.free.dailyRuns}
-              onChange={(e) => setFree("dailyRuns", e.target.value)}
-            />
-            <em>
-              ≈ ${monthly(form.free.dailyRuns).toFixed(2)} a month <b>per active account</b>, and
-              this one is live whether or not the tiers below are. Every signed-in
-              account gets it, so the ceiling is what bounds it — not the threshold.
-            </em>
-          </label>
+        <h3>Free runs</h3>
+        <div className="tk-who" role="radiogroup" aria-label="Who gets free runs">
+          {WHO.map((o) => (
+            <label className="tk-check" key={o.id}>
+              <input
+                type="radio"
+                name="free-who"
+                checked={form.free.who === o.id}
+                onChange={() => setFree("who", o.id)}
+              />
+              <span>
+                <b>{o.label}</b>
+                <em>{o.note}</em>
+              </span>
+            </label>
+          ))}
         </div>
+        {form.free.who !== "nobody" && (
+          <div className="tk-row">
+            <label className="tk-f">
+              <span>Free runs a day</span>
+              <input
+                type="number" min={0} max={50}
+                value={form.free.dailyRuns}
+                onChange={(e) => setFree("dailyRuns", e.target.value)}
+              />
+              <em>
+                ≈ ${monthly(form.free.dailyRuns).toFixed(2)} a month <b>per active account</b>
+                {form.free.who === "buyers" ? " that has bought" : ""}, and this one is live
+                whether or not the tiers below are. The daily ceiling is what bounds it.
+              </em>
+            </label>
+          </div>
+        )}
+        <p className="tk-note">
+          Saved changes reach the site within a minute. Tier holders keep their tier&apos;s runs whichever you pick.
+        </p>
       </section>
 
       <div className="tk-grid">
@@ -405,8 +437,8 @@ export default function AdminToken({ user }) {
             <em>
               Needs a valid CA, a holding above 0 on the first tier, and at least one
               tier granting runs or a discount. Off, every generation is charged in
-              credits and there are no discounts — the free tier above keeps running
-              either way.
+              credits and there are no discounts — the free runs above follow their
+              own setting either way.
             </em>
           </span>
         </label>

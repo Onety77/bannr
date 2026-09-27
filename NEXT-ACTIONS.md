@@ -25,6 +25,8 @@ version before it.
 
 - [ ] **Clear the blockers on the Launch tab.** Whatever it says, in
       the order it says it. They cost money or fail silently.
+- [ ] **Node 20 or newer on Vercel** (Project → Settings → Node.js
+      Version). sharp 0.35 will not install on 18.
 - [ ] **Load OpenAI credit and set a hard spend cap.** The cap is the
       only thing that can't be outrun — at Tier 4 the theoretical
       ceiling is ~$5,200/day and the rate limit stops protecting you.
@@ -84,6 +86,14 @@ these — they are all "does it look right".
       picker and "What do you want?" must both be fully usable, and one
       run should be free. Nothing in the form is gated.
 - [ ] **Google avatar.** Only captured on your *next* sign-in.
+- [ ] **Generate response size.** After a few real 4-option runs, search
+      the Vercel logs for `[generate] response`. Anything reading
+      `LARGE RESPONSE` over 4.5MB that still arrived means streaming
+      is exempt; one that failed means it is not, and delivery needs to
+      move to Storage URLs.
+- [ ] **My banners with 50 cards, and the feed.** Pictures now load
+      from their own URLs rather than inside the list — scroll both and
+      check every card fills in.
 
 ---
 
@@ -100,9 +110,11 @@ Real, not urgent.
   option rather than only the kept one, which breaks the rule that
   nothing you rejected is ever stored. Not obviously worth it.
 
-- **Rate limiting is an in-memory `Map`.** Each invocation can be a
-  fresh instance, so it barely exists in production. Server-side credit
-  debiting covers most of the money risk.
+- **Next.js is on 14.2.35, the last 14.x.** npm audit still lists
+  advisories fixed only in 15/16 (a DoS in the image optimiser's
+  `remotePatterns`, request smuggling through rewrites on self-hosted
+  servers, an RSC deserialisation DoS). Mostly not reachable on Vercel
+  with this config, but the real fix is a major-version migration.
 - **EVM chain inference is a guess.** Feed CA links infer `ethereum`
   for any `0x` address; Base and BNB point at the wrong chain. Solana
   is exact.
@@ -152,7 +164,8 @@ Roughly in the order I'd build them.
   several, paying needs no linking at all
 - Packs are priced in **USD**, paid in SOL, converted at quote time
 - Tier thresholds are in **tokens**, never dollars
-- One free run a day for everyone signed in, independent of the token
+- One free run a day, independent of the token — for everyone signed
+  in, buyers only, or nobody, switched at `/admin7731` → Token
 - No feature is token-gated. Tiers are economics and status, never a bigger app
 - The buyback commitment is **accounting, not a bot** — no signing key
   on the server, and there is currently none anywhere in the codebase

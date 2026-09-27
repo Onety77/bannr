@@ -12,6 +12,7 @@
 // banners go through (760px-wide jpeg), so a 4MB PNG straight from a
 // design tool weighs the same on the homepage as everything else.
 import sharp from "sharp";
+import { DECODE } from "@/lib/decode";
 import { NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { requireAdmin } from "@/lib/adminAuth";
@@ -46,7 +47,7 @@ export async function POST(req) {
   let full;
   try {
     const raw = Buffer.from(await file.arrayBuffer());
-    thumb = await sharp(raw).resize(760).jpeg({ quality: 74 }).toBuffer();
+    thumb = await sharp(raw, DECODE).resize(760).jpeg({ quality: 74 }).toBuffer();
     // ══ KEEP WHAT WAS UPLOADED, NOT ONLY THE THUMBNAIL ══
     //
     // A hand-placed banner arrives at full quality and was being
@@ -54,7 +55,7 @@ export async function POST(req) {
     // discarded — so the one banner on the board we definitely HAD in
     // full was the one we could never get back. Normalised to the
     // banner canvas so it matches everything else in the archive.
-    full = await sharp(raw)
+    full = await sharp(raw, DECODE)
       .resize(BANNER_W, BANNER_H, { fit: "cover", position: "center" })
       .png()
       .toBuffer();

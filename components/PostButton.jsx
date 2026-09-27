@@ -18,6 +18,26 @@ import { shrink } from "@/lib/credits";
 import { squareLogo } from "@/lib/postLogo";
 import { LOOKS_LIKE_CA } from "@/lib/ca";
 
+// The bytes behind a same-origin image URL, as a data URL. A data URL
+// is passed straight through; anything unreadable is null, which the
+// caller already reports.
+async function asDataUrl(src) {
+  if (!src || src.startsWith("data:")) return src || null;
+  try {
+    const res = await fetch(src);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const r = new FileReader();
+      r.onload = () => resolve(typeof r.result === "string" ? r.result : null);
+      r.onerror = () => resolve(null);
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 // `prepared` says the image is already at feed size, so it is posted
 // as-is. Re-shrinking a 900px image to 900px only re-encodes it, and
 // for anything saved before the archive was widened it would UPSCALE
@@ -126,7 +146,10 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
       // bytes of the original, and comfortably inside a Firestore
       // document. Still 3:1 — the banner is posted exactly as it was
       // made, and the logo rides on the card rather than in the image.
-      const src = prepared ? variant.dataUrl : await shrink(variant.dataUrl, 900, 300);
+      // A prepared image from My banners arrives as a URL now, not the
+      // bytes — the list stopped carrying pictures inline — so it is
+      // fetched and posted exactly as stored, not re-encoded.
+      const src = prepared ? await asDataUrl(variant.dataUrl) : await shrink(variant.dataUrl, 900, 300);
       if (!src) { setMsg("Couldn't prepare that image."); setStage("error"); return; }
 
       const r = await fetch("/api/feed", {
@@ -146,7 +169,10 @@ export default function PostButton({ variant, brief, signedIn, onSignInNeeded, p
           // Always the BANNER's signature, never the composite's, so
           // posting the same banner twice is caught as a duplicate
           // whichever way it was framed.
-          sig: sig || `${variant.dataUrl.length}.${variant.dataUrl.slice(1000, 1040)}`,
+          sig: sig || (() => {
+            const from = variant.dataUrl.startsWith("data:") ? variant.dataUrl : src;
+            return `${from.length}.${from.slice(1000, 1040)}`;
+          })(),
           // Signed by the server when the run was made. Absent for a
           // banner posted from My banners days later, which simply
           // means no credit — not an error.

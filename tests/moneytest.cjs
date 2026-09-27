@@ -282,7 +282,11 @@ console.log("\n6b. TOKENS MADE WITH BANNR");
   ok(D.indexOf('take(posts, "post");') < D.indexOf('take(gens, "attached");'),
      "posts FIRST, so a published banner beats an attached one for the same token");
   ok(D.includes("if (byCa.has(p.ca)) continue;"), "and a token still appears once");
-  ok(D.includes("for (const [ca, t] of byCa) if (!t.src) byCa.delete(ca);"), "anything with no image is dropped");
+  ok(D.includes(".filter((t) => t.src)"), "anything with no image is dropped");
+  // The scan reads addresses, not banners — six hundred inline images
+  // on every refresh of a twelve-row page was the cost.
+  ok((D.match(/\.select\("ca", "hidden", "ticker"\)/g) || []).length === 2, "both scans read only the fields they filter on");
+  ok(/src: kind === "post" \? imageUrl\(doc\.id\)/.test(D), "a post row points at its image URL instead of carrying it");
 
   ok(ATT.includes("requireAdmin(req)"), "attaching is admin-only");
   ok(ATT.includes("CA_SHAPE.test(ca)"), "and shape-checked — free text here becomes a link on a public page");
